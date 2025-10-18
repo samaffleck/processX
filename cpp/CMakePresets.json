@@ -6,7 +6,7 @@
       "name": "mac-debug",
       "displayName": "macOS Debug (Ninja, LLVM)",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/mac-debug",
+      "binaryDir": "${sourceDir}/build/mac-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
@@ -30,7 +30,7 @@
       "name": "mac-release",
       "displayName": "macOS Release (Ninja, LLVM)",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/mac-release",
+      "binaryDir": "${sourceDir}/build/mac-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",

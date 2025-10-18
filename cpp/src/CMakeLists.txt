@@ -58,11 +58,3 @@ endif()
 
 # Platform bits that are safe for both native and Emscripten
 set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
-# ---- Dependencies ----
-# Do NOT hardcode Eigen paths here. Eigen3::Eigen is added at the root
-# (and linked to ${PROJECT_NAME} there), same for CoolProp, SUNDIALS, EnTT, cereal.
-# Keeping dependency wiring in the root makes this target reusable and tidy.
-
-# If you have optional internal modules, you can subdivide like:
-# add_subdirectory(module_xyz) and link PRIVATE module_xyz to ${PROJECT_NAME}

@@ -41,5 +41,5 @@
 *.dwo
 
 # Build
-/build
+cpp/build
 cpp/out
