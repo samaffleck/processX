@@ -1,0 +1,65 @@
+﻿{
+  "version": 6,
+
+  "configurePresets": [
+    {
+      "name": "mac-debug",
+      "displayName": "macOS Debug (Ninja, LLVM)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/mac-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
+        "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
+
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_C_FLAGS_DEBUG": "-O0 -g3 -fno-omit-frame-pointer -fstandalone-debug",
+        "CMAKE_CXX_FLAGS_DEBUG": "-O0 -g3 -fno-omit-frame-pointer -fstandalone-debug",
+
+        "CMAKE_CXX_STANDARD": "17",
+        "CMAKE_CXX_STANDARD_REQUIRED": "ON",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+
+        "PROCESSX_BUILD_APPS": "ON",
+        "PROCESSX_BUILD_TESTS": "ON",
+        "PROCESSX_USE_SUNDIALS": "OFF",
+        "PROCESSX_USE_COOLPROP": "ON"
+      }
+    },
+    {
+      "name": "mac-release",
+      "displayName": "macOS Release (Ninja, LLVM)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/mac-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
+        "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
+
+        "PROCESSX_BUILD_APPS": "ON",
+        "PROCESSX_BUILD_TESTS": "ON",
+        "PROCESSX_USE_SUNDIALS": "OFF",
+        "PROCESSX_USE_COOLPROP": "OFF"
+      }
+    }
+  ],
+
+  "buildPresets": [
+    { "name": "mac-debug-all",   "configurePreset": "mac-debug",   "targets": ["all"] },
+    { "name": "mac-debug-app",   "configurePreset": "mac-debug",   "targets": ["processX_app"] },
+    { "name": "mac-debug-tests", "configurePreset": "mac-debug",   "targets": ["processX_tests"] },
+
+    { "name": "mac-release-all",   "configurePreset": "mac-release", "targets": ["all"] },
+    { "name": "mac-release-app",   "configurePreset": "mac-release", "targets": ["processX_app"] },
+    { "name": "mac-release-tests", "configurePreset": "mac-release", "targets": ["processX_tests"] }
+  ],
+
+  "testPresets": [
+    {
+      "name": "mac-debug-ctest",
+      "configurePreset": "mac-debug",
+      "configuration": "Debug",
+      "output": { "verbosity": "verbose" }
+    }
+  ]
+}

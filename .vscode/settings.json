@@ -1,0 +1,12 @@
+{
+  // the CMake project lives here
+  "cmake.sourceDirectory": "${workspaceFolder}/cpp",
+
+  // let Presets own the build/generator
+  "cmake.useCMakePresets": "always",
+  "cmake.configurePreset": "mac-debug",
+  "cmake.buildPreset": "mac-debug-app",
+  "cmake.testPreset": "mac-debug-ctest",
+
+  "cmake.configureOnOpen": true
+}
