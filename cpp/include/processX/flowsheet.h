@@ -114,6 +114,103 @@ static NewtonReport newton_solve(UnknownsRegistry& reg, ResidualSystem& sys, con
   return rep;
 }
 
+// --- Add this helper: builds FD Jacobian once and analyzes structure ---
+struct SystemAnalysis {
+  std::vector<std::vector<double>> J;
+  std::vector<double> r;
+  std::vector<double> row_max;  // per-equation max |J_ij|
+  std::vector<double> col_max;  // per-unknown  max |J_ij|
+  int rank{0};
+  std::vector<int> pivots;      // pivot column indices
+  std::vector<int> redundant_eqs;     // rows with tiny Jacobian and tiny residual
+  std::vector<int> inconsistent_eqs;  // rows with tiny Jacobian but non-tiny residual
+  std::vector<int> unconstrained_unknowns; // columns with tiny Jacobian
+};
+
+// numeric rank via Gaussian elim with threshold
+static int numeric_rank(std::vector<std::vector<double>> A, double pivot_tol,
+                        std::vector<int>* pivots_out=nullptr) {
+  int m = (int)A.size();
+  int n = m ? (int)A[0].size() : 0;
+  int r = 0;
+  std::vector<int> piv;
+  for (int k = 0; k < std::min(m,n); ++k) {
+    // find pivot in col k from row k..m-1
+    int piv_row = -1;
+    double best = 0.0;
+    for (int i = k; i < m; ++i) {
+      double val = std::abs(A[i][k]);
+      if (val > best) { best = val; piv_row = i; }
+    }
+    if (best <= pivot_tol) continue; // no pivot in this column
+    if (piv_row != k) std::swap(A[piv_row], A[k]);
+    double d = A[k][k];
+    for (int j = k; j < n; ++j) A[k][j] /= d;
+    // eliminate below
+    for (int i = k + 1; i < m; ++i) {
+      double f = A[i][k];
+      if (std::abs(f) < 1e-20) continue;
+      for (int j = k; j < n; ++j) A[i][j] -= f * A[k][j];
+    }
+    ++r;
+    piv.push_back(k);
+  }
+  if (pivots_out) *pivots_out = std::move(piv);
+  return r;
+}
+
+static SystemAnalysis analyze_system(const UnknownsRegistry& reg,
+                                     const ResidualSystem& sys,
+                                     double fd_rel, double fd_abs,
+                                     double tiny_row = 1e-14,
+                                     double tiny_res = 1e-12) {
+  SystemAnalysis a;
+  const size_t m = sys.size();
+  const size_t n = reg.size();
+  a.J.assign(m, std::vector<double>(n, 0.0));
+  a.r = sys.eval();
+  a.row_max.assign(m, 0.0);
+  a.col_max.assign(n, 0.0);
+
+  // Build FD Jacobian (like Newton), but non-intrusive: we need a non-const reg to mutate,
+  // so cast away constness in a controlled way (we'll restore values afterwards).
+  UnknownsRegistry& reg_nc = const_cast<UnknownsRegistry&>(reg);
+  const auto x0 = reg.pack_x();
+
+  for (size_t j = 0; j < n; ++j) {
+    Var* vj = reg_nc.vars[j];
+    double base = vj->value;
+    double h = std::max(fd_abs, std::abs(base) * fd_rel);
+    vj->value = base + h;
+    auto r_ph = sys.eval();
+    vj->value = base;
+    for (size_t i = 0; i < m; ++i) {
+      double Jij = (r_ph[i] - a.r[i]) / h;
+      a.J[i][j] = Jij;
+      a.row_max[i] = std::max(a.row_max[i], std::abs(Jij));
+      a.col_max[j] = std::max(a.col_max[j], std::abs(Jij));
+    }
+  }
+  reg_nc.scatter_x(x0); // restore
+
+  // Row diagnostics
+  for (size_t i = 0; i < m; ++i) {
+    if (a.row_max[i] <= tiny_row) {
+      if (std::abs(a.r[i]) <= tiny_res) a.redundant_eqs.push_back((int)i);
+      else a.inconsistent_eqs.push_back((int)i);
+    }
+  }
+  // Column diagnostics
+  for (size_t j = 0; j < n; ++j) {
+    if (a.col_max[j] <= tiny_row) a.unconstrained_unknowns.push_back((int)j);
+  }
+
+  // Numeric rank of J
+  // Use a pivot tolerance scaled by max row/col; here a simple absolute tol works for small systems
+  a.rank = numeric_rank(a.J, /*pivot_tol=*/1e-12, &a.pivots);
+  return a;
+}
+
 // ---------- Domain ----------
 struct Stream {
   Var molar_flow{"stream.F", 0.0, false}; // mol/s
@@ -158,13 +255,65 @@ struct Flowsheet {
 
   bool assemble(std::string* err=nullptr){
     reg.clear(); sys.clear();
-    for(auto* v: valves){ std::string why; if(!v->validate(&why)){ if(err)*err="Valve invalid: "+why; return false; } v->register_unknowns(reg); }
-    for(auto* v: valves) v->add_equations(sys);
-    if(reg.size()!=sys.size()){ if(err)*err="DOF mismatch: unknowns="+std::to_string(reg.size())+" equations="+std::to_string(sys.size()); return false; }
-    return true;
+    for (auto* v: valves) {
+      std::string why;
+      if (!v->validate(&why)) { if (err) *err = "Valve invalid: " + why; return false; }
+      v->register_unknowns(reg);
+      v->add_equations(sys); // equations are always present
+    }
+    // Basic DOF
+    if (reg.size() != sys.size()) {
+      if (err) *err = "DOF mismatch: unknowns=" + std::to_string(reg.size()) +
+                      " equations=" + std::to_string(sys.size());
+      return false;
+    }
+
+    // Structural analysis BEFORE solving
+    auto a = analyze_system(reg, sys, /*fd_rel=*/1e-6, /*fd_abs=*/1e-8);
+
+    // Inconsistent equations (no dependence on any unknown, but nonzero residual)
+    if (!a.inconsistent_eqs.empty()) {
+      if (err) {
+        *err = "Inconsistent equation(s) given chosen unknowns:\n";
+        for (int idx : a.inconsistent_eqs)
+          *err += "  - " + sys.names[(size_t)idx] + " (residual=" + std::to_string(a.r[(size_t)idx]) + ")\n";
+      }
+      return false;
+    }
+
+    // Redundant equations (identities w.r.t. unknowns)
+    if (!a.redundant_eqs.empty()) {
+      if (err) {
+        *err = "Redundant equation(s) detected (independent of unknowns and already satisfied):\n";
+        for (int idx : a.redundant_eqs)
+          *err += "  - " + sys.names[(size_t)idx] + "\n";
+        *err += "Result: Jacobian rank " + std::to_string(a.rank) +
+                " < " + std::to_string(reg.size()) + " (rank-deficient). Adjust unknowns.";
+      }
+      return false;
+    }
+
+    // Rank deficiency (e.g., two different equations but linearly dependent)
+    if (a.rank < (int)reg.size()) {
+      if (err) {
+        *err = "System is rank-deficient: rank(J)=" + std::to_string(a.rank) +
+               " < unknowns=" + std::to_string(reg.size()) + ".";
+        // Optional: list unconstrained unknowns
+        if (!a.unconstrained_unknowns.empty()) {
+          *err += "\nUnconstrained unknown(s):";
+          for (int j : a.unconstrained_unknowns)
+            *err += " " + reg.vars[(size_t)j]->name;
+        }
+      }
+      return false;
+    }
+
+    return true; // structurally OK
   }
 
-  NewtonReport solve(const NewtonOptions& opt={}) { return newton_solve(reg, sys, opt); }
+  NewtonReport solve(const NewtonOptions& opt={}) {
+    return newton_solve(reg, sys, opt);
+  }
 
   static void print_valve(const Valve& v){
     auto pf=[&](const Var& x){ return x.fixed?"(fixed)":"(free)"; };
