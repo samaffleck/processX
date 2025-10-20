@@ -4,30 +4,40 @@
 #include "processX/stream.h"
 #include <string>
 #include <vector>
+#include <variant>
 
 namespace px {
 
-  enum class UnitType { Valve, Mixer, Splitter };
+  enum class UnitType { Valve, Mixer, Inlet, Outlet };
+
+  struct ValveData   { double cv{100.0}; };
+  struct InletData   { Handle out_stream{kInvalid}; std::vector<double> split_ratio; };
+  struct OutletData  { Handle in_stream{kInvalid}; std::vector<double> split_ratio; };
+  struct MixerData   { std::vector<Handle> in_streams; Handle out_stream{kInvalid}; std::vector<double> split_ratio; };
+
+  using UnitData = std::variant<ValveData, InletData, OutletData, MixerData>;
 
   struct UnitOp {
     Handle id{};
     UnitType type{};
     std::string name{};
-
-    // implicit ports by names (or just counts if you prefer)
-    std::vector<std::string> inlet_names;
-    std::vector<std::string> outlet_names;
-
-    UnitOp(Handle id_, UnitType type_) 
-      : id(id_), type(type_), name(std::to_string(id)) {}
-
-    uint16_t inletCount() const  { return (uint16_t)inlet_names.size(); }
-    uint16_t outletCount() const { return (uint16_t)outlet_names.size(); }
+    UnitData data{};
   };
 
-  // per-type data components (keep as-is)
-  struct ValveData   { double cv{100.0}; };
-  struct MixerData   { std::vector<double> split_ratio; };
-  struct SplitterData{ std::vector<double> split_ratio; };
+  inline UnitOp MakeUnit(Handle id, UnitType t) {
+    UnitOp u{ id, t, std::to_string(id), {} };
+    switch (t) {
+      case UnitType::Valve:   u.data = ValveData{};   break;
+      case UnitType::Inlet:   u.data = InletData{};   break;
+      case UnitType::Outlet:  u.data = OutletData{};  break;
+      case UnitType::Mixer:   u.data = MixerData{};   break;
+      default: break;
+    }
+    return u;
+  }
+
+  struct MakeUnitFn {
+    UnitOp operator()(Handle id, UnitType t) const { return MakeUnit(id, t); }
+  };
 
 } // namespace px

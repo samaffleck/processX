@@ -14,16 +14,9 @@ namespace px {
   struct IdGen { Handle next{0}; Handle make() { return next++; } };
 
   enum class PortKind { Inlet, Outlet };
-  enum class StreamKind { Material /*, Energy, Signal, ...*/ };
-
-  struct Endpoint {
-    Handle unit{kInvalid};
-    uint16_t slot{0};
-    PortKind kind{PortKind::Inlet};
-  };
+  enum class StreamType { Material /*, Energy, Signal, ...*/ };
 
   struct StreamProps {
-    std::string name{};
     comp_var mole_fraction{};
     var mass_flow_rate{};
     var pressure{};
@@ -31,17 +24,17 @@ namespace px {
   };
 
   struct Stream {
+    Stream(Handle id_, StreamType type_)  : id(id_), type(type_), name(std::to_string(id)) {}    
+    
     Handle id{kInvalid};
-    StreamKind kind{StreamKind::Material};
+    StreamType type{StreamType::Material};
+    std::string name{};
     StreamProps props{};
-
-    Endpoint from{};           // must be Outlet
-    Endpoint to{};             // must be Inlet
   };
 
-  inline std::string_view GetStreamKindName(StreamKind k) {
+  inline std::string_view GetStreamTypeName(StreamType k) {
     switch (k) {
-      case StreamKind::Material: return "Material Stream";
+      case StreamType::Material: return "Material Stream";
       default: return "";
     }
   }
