@@ -13,7 +13,6 @@
 #include <cstring>
 
 // ProcessX includes
-#include <processX/plant.h>
 #include <processX/flowsheet.h>
 
 

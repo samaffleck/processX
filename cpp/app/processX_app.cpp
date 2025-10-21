@@ -1,29 +1,18 @@
 // apps/processx_app.cpp
-
+#pragma once
 #include <hello_imgui/hello_imgui.h>
 #include <imgui.h>
+
+#include <vector>
+#include <algorithm>
 #include <string>
 #include <filesystem>
 
-#include "processX/plant.h"
+#include "processX/flowsheet.h" 
 
-
-// DemoPanelPlant.hpp
-#pragma once
-#include <imgui.h>
-#include <string>
-#include <vector>
-#include <algorithm>
-
-// your headers:
-#include "processX/unitop.h"
-#include "processX/stream.h"
-
-// If Plant is in a cpp, expose it via a header, or paste the class here.
-#include "processX/plant.h" // assumed
 
 static void ShowPlantDock() {
-  ImGui::Begin("Plant");
+  ImGui::Begin("Flowsheet");
 
   ImGui::End();
 }
