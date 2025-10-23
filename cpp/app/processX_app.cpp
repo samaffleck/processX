@@ -1,5 +1,4 @@
 // apps/processx_app.cpp
-#pragma once
 #include <hello_imgui/hello_imgui.h>
 #include <imgui.h>
 
@@ -16,7 +15,6 @@ static void ShowPlantDock() {
 
   ImGui::End();
 }
-
 
 static void ShowMainDock() {
   static bool on_first_load = true;

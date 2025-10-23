@@ -1,72 +1,43 @@
 // include/processX/unitop.h
 #pragma once
 
-#include "processX/stream.h"
 #include <string>
 #include <vector>
 #include <variant>
+
+#include "processX/stream.h"
+#include "processX/registry.h"
 
 namespace px {
 
   enum class UnitType { Valve, Mixer, Inlet, Outlet };
 
-  struct Valve {
-    Stream* inlet{nullptr};
-    Stream* outlet{nullptr};
-    Var Cv{"valve.Cv", 1.0, false};
+  class Flowsheet;
 
-    bool validate(std::string* why=nullptr) const {
-      if(!inlet){ if(why)*why="inlet not set"; return false; }
-      if(!outlet){ if(why)*why="outlet not set"; return false; }
-      return true;
-    }
+  struct IUnitOp {
+    virtual ~IUnitOp() = default;
+    virtual UnitType get_type() const = 0;
+    virtual const char* type_name() const = 0;
+    virtual bool validate(const Flowsheet& fs, std::string* why) const = 0;
+    virtual void register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) = 0;
+    virtual void add_equations(Flowsheet& fs, ResidualSystem& sys) = 0;
+    
+    const std::string& get_name() const { return name; };
 
-    void register_unknowns(UnknownsRegistry& reg){
-      reg.register_var(inlet->molar_flow);
-      reg.register_var(outlet->molar_flow);
-      reg.register_var(inlet->pressure);
-      reg.register_var(outlet->pressure);
-      reg.register_var(Cv);
-    }
-
-    void add_equations(ResidualSystem& sys){
-      sys.add("Valve balance: Fin - Fout = 0", [&](){
-        return inlet->molar_flow.value - outlet->molar_flow.value;
-      });
-      sys.add("Valve PF: Fout - Cv*(Pin - Pout) = 0", [&](){
-        return outlet->molar_flow.value - Cv.value * (inlet->pressure.value - outlet->pressure.value);
-      });
-    }
+    std::string name{};
   };
 
-  // struct ValveData   { double cv{100.0}; };
-  // struct InletData   { Handle out_stream{kInvalid}; std::vector<double> split_ratio; };
-  // struct OutletData  { Handle in_stream{kInvalid}; std::vector<double> split_ratio; };
-  // struct MixerData   { std::vector<Handle> in_streams; Handle out_stream{kInvalid}; std::vector<double> split_ratio; };
+  struct Valve : public IUnitOp {
+    Handle<Stream> in{};
+    Handle<Stream> out{};
+    Var Cv{"Cv", 1.0, false};
 
-  // using UnitData = std::variant<ValveData, InletData, OutletData, MixerData>;
+    UnitType get_type() const override { return UnitType::Valve; }
+    const char* type_name() const override { return "Valve"; }
 
-  // struct UnitOp {
-  //   Handle id{};
-  //   UnitType type{};
-  //   std::string name{};
-  //   UnitData data{};
-  // };
-
-  // inline UnitOp MakeUnit(Handle id, UnitType t) {
-  //   UnitOp u{ id, t, std::to_string(id), {} };
-  //   switch (t) {
-  //     case UnitType::Valve:   u.data = ValveData{};   break;
-  //     case UnitType::Inlet:   u.data = InletData{};   break;
-  //     case UnitType::Outlet:  u.data = OutletData{};  break;
-  //     case UnitType::Mixer:   u.data = MixerData{};   break;
-  //     default: break;
-  //   }
-  //   return u;
-  // }
-
-  // struct MakeUnitFn {
-  //   UnitOp operator()(Handle id, UnitType t) const { return MakeUnit(id, t); }
-  // };
+    bool validate(const Flowsheet& fs, std::string* why) const override;
+    void register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) override;
+    void add_equations(Flowsheet& fs, ResidualSystem& sys) override;
+  };
 
 } // namespace px

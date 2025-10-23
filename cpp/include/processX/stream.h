@@ -12,9 +12,10 @@
 namespace px {
 
   struct Stream {
-    Var molar_flow{"stream.F", 0.0, false}; // mol/s
-    Var pressure{"stream.P", 0.0, false};   // Pa
-    Var temperature{"stream.T", 300.0, true}; // not used here
+    std::string name;
+    Var molar_flow{"Molar Flowrate", 0.0, false}; // mol/s
+    Var pressure{"Pressure", 0.0, false};   // Pa
+    Var temperature{"Temperature", 300.0, true}; // not used here
   };
 
   // using Handle = uint32_t;

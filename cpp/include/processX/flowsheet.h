@@ -7,112 +7,158 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <type_traits>
+#include <unordered_map> 
 
 // px includes
 #include "processX/core.h"
 #include "processX/solver.h"
 #include "processX/stream.h"
 #include "processX/unitop.h"
+#include "processX/registry.h"
 
 namespace px {
 
-  // ---------- Flowsheet ----------
-  struct Flowsheet {
-    std::vector<Valve*> valves;
+  template <class T> struct TypeTag { using type = T; }; // helper
+  template<class> struct dependent_false : std::false_type {};
+
+  class Flowsheet {
+  public:
+    Registry<Stream> streams_;
+    Registry<Valve>  valves_;
+
+    std::vector<IUnitOp*> units_;
+
     UnknownsRegistry reg;
     ResidualSystem sys;
 
-    bool assemble(std::string* err=nullptr){
-      reg.clear(); sys.clear();
-      for (auto* v: valves) {
-        std::string why;
-        if (!v->validate(&why)) { if (err) *err = "Valve invalid: " + why; return false; }
-        v->register_unknowns(reg);
-        v->add_equations(sys); // equations are always present
+    template<class T>
+    Registry<T>& registry_for() {
+      if constexpr (std::is_same_v<T, Stream>) {
+        return streams_;
+      } else if constexpr (std::is_same_v<T, Valve>) {
+        return valves_;
+      } else {
+        static_assert(dependent_false<T>::value, "Unsupported type in registry_for<T>()");
       }
-      // Basic DOF
-      if (reg.size() != sys.size()) {
-        if (err) *err = "DOF mismatch: unknowns=" + std::to_string(reg.size()) +
-                        " equations=" + std::to_string(sys.size());
-        return false;
-      }
-
-      // Structural analysis BEFORE solving
-      auto a = analyze_system(reg, sys, /*fd_rel=*/1e-6, /*fd_abs=*/1e-8);
-
-      // Inconsistent equations (no dependence on any unknown, but nonzero residual)
-      if (!a.inconsistent_eqs.empty()) {
-        if (err) {
-          *err = "Inconsistent equation(s) given chosen unknowns:\n";
-          for (int idx : a.inconsistent_eqs)
-            *err += "  - " + sys.names[(size_t)idx] + " (residual=" + std::to_string(a.r[(size_t)idx]) + ")\n";
-        }
-        return false;
-      }
-
-      // Redundant equations (identities w.r.t. unknowns)
-      if (!a.redundant_eqs.empty()) {
-        if (err) {
-          *err = "Redundant equation(s) detected (independent of unknowns and already satisfied):\n";
-          for (int idx : a.redundant_eqs)
-            *err += "  - " + sys.names[(size_t)idx] + "\n";
-          *err += "Result: Jacobian rank " + std::to_string(a.rank) +
-                  " < " + std::to_string(reg.size()) + " (rank-deficient). Adjust unknowns.";
-        }
-        return false;
-      }
-
-      // Rank deficiency (e.g., two different equations but linearly dependent)
-      if (a.rank < (int)reg.size()) {
-        if (err) {
-          *err = "System is rank-deficient: rank(J)=" + std::to_string(a.rank) +
-                " < unknowns=" + std::to_string(reg.size()) + ".";
-          // Optional: list unconstrained unknowns
-          if (!a.unconstrained_unknowns.empty()) {
-            *err += "\nUnconstrained unknown(s):";
-            for (int j : a.unconstrained_unknowns)
-              *err += " " + reg.vars[(size_t)j]->name;
-          }
-        }
-        return false;
-      }
-
-      return true; // structurally OK
     }
 
-    NewtonReport solve(const NewtonOptions& opt={}) {
-      return newton_solve(reg, sys, opt);
+    template<class T>
+    const Registry<T>& registry_for() const {
+      if constexpr (std::is_same_v<T, Stream>) {
+        return streams_;
+      } else if constexpr (std::is_same_v<T, Valve>) {
+        return valves_;
+      } else {
+        static_assert(dependent_false<T>::value, "Unsupported type in registry_for<T>()");
+      }
     }
 
-    static void print_valve(const Valve& v){
-      auto pf=[&](const Var& x){ return x.fixed?"(fixed)":"(free)"; };
-      std::cout<<"  inlet.F = "<<v.inlet->molar_flow.value<<" "<<pf(v.inlet->molar_flow)<<"\n";
-      std::cout<<"  outlet.F = "<<v.outlet->molar_flow.value<<" "<<pf(v.outlet->molar_flow)<<"\n";
-      std::cout<<"  inlet.P = "<<v.inlet->pressure.value<<" "<<pf(v.inlet->pressure)<<"\n";
-      std::cout<<"  outlet.P = "<<v.outlet->pressure.value<<" "<<pf(v.outlet->pressure)<<"\n";
-      std::cout<<"  Cv = "<<v.Cv.value<<" "<<pf(v.Cv)<<"\n";
+    template <class T, class... Args>
+    Handle<T> add(Args&&... args) {
+      if constexpr (std::is_same_v<T, Stream>) {
+        auto h = streams_.add(Stream{std::forward<Args>(args)...});
+        auto& s = streams_.get(h);
+        if (s.name.empty()) s.name = next_auto_name("stream");
+        return h;
+      } else if constexpr (std::is_same_v<T, Valve>) {
+        auto& r = registry_for<T>();
+        auto h = r.add(T{std::forward<Args>(args)...});
+        auto& u = r.get(h);
+        if (u.name.empty()) u.name = next_auto_name(u.type_name());
+        return h;
+      } else {
+        static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::add<T>()");
+      }
+    }
+
+    template <class T>
+    T& get(Handle<T> h) {
+      if constexpr (std::is_same_v<T, Stream>) return streams_.get(h);
+      else if constexpr (std::is_same_v<T, Valve>) return valves_.get(h);
+      else { static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::get<T>()"); }
+    }
+
+    template <class T>
+    const T& get(Handle<T> h) const {
+      if constexpr (std::is_same_v<T, Stream>) return streams_.get(h);
+      else if constexpr (std::is_same_v<T, Valve>) return valves_.get(h);
+      else { static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::get<T>()"); }
+    }
+
+    template <class T>
+    bool erase(Handle<T> h) {
+      if constexpr (std::is_same_v<T, Stream>) return streams_.erase(h);
+      else if constexpr (std::is_same_v<T, Valve>) return valves_.erase(h);
+      else { static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::erase<T>()"); }
+    }
+
+    template <class T, class Fn>
+    void for_each(Fn&& fn) {
+      if constexpr (std::is_same_v<T, Stream>) streams_.for_each(std::forward<Fn>(fn));
+      else if constexpr (std::is_same_v<T, Valve>) valves_.for_each(std::forward<Fn>(fn));
+      else { static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::for_each<T>()"); }
+    }
+
+    void build_unit_list() {
+      units_.clear();
+      valves_.for_each([&](Valve& v){ units_.push_back(&v); }); 
+      // Add other unit types similarly...
+    }
+
+    bool assemble(std::string* err=nullptr);
+    NewtonReport solve(const NewtonOptions& opt) { return newton_solve(reg, sys, opt); }
+
+    template <typename UnitOpType>
+    bool connect_in(Handle<UnitOpType> v, Handle<Stream> s)  { auto& V=get(v); V.in = s;  return true; }
+
+    template <typename UnitOpType>
+    bool connect_out(Handle<UnitOpType> v, Handle<Stream> s) { auto& V=get(v); V.out = s; return true; }
+    
+    template <typename UnitOpType>
+    void disconnect_in(Handle<UnitOpType> v)  { get(v).in  = {}; }
+    
+    template <typename UnitOpType>
+    void disconnect_out(Handle<UnitOpType> v) { get(v).out = {}; }
+
+  private:
+    std::unordered_map<std::string, uint32_t> counters_;
+
+    std::string next_auto_name(const std::string& prefix) {
+      auto& n = counters_[prefix];
+      return prefix + "-" + std::to_string(++n);
     }
   };
 
-  // ---------- Demo ----------
-  static void run_case(const std::string& title,
-                      std::function<void(Valve&, Stream&, Stream&)> config){
+  // ---------- Valve Demo Helper ----------
+  static void run_valve_case(const std::string& title, std::function<void(Valve&, Stream&, Stream&)> config){
     std::cout<<"\n=== "<<title<<" ===\n";
-    Stream in;  in.molar_flow.name="in.F";  in.pressure.name="in.P";
-    Stream out; out.molar_flow.name="out.F"; out.pressure.name="out.P";
-    Valve v; v.inlet=&in; v.outlet=&out; v.Cv.name="Cv";
+    Flowsheet fs; 
+    
+    auto s_in  = fs.add<Stream>();
+    auto s_out = fs.add<Stream>();
+    auto v1 = fs.add<Valve>();
 
-    // User config (choose unknowns by marking fixed=false)
-    config(v, in, out);
+    auto& in  = fs.get<Stream>(s_in);
+    auto& out = fs.get<Stream>(s_out);
+    auto& val = fs.get<Valve>(v1);
 
-    Flowsheet fs; fs.valves.push_back(&v);
+    fs.connect_in<Valve>(v1, s_in);
+    fs.connect_out<Valve>(v1, s_out);
+
+    config(val, in, out);
+
     std::string err;
-    if(!fs.assemble(&err)){ std::cerr<<"Assemble error: "<<err<<"\n"; Flowsheet::print_valve(v); return; }
+    if(!fs.assemble(&err)){ 
+      std::cerr<<"Assemble error: "<<err<<"\n"; 
+      return; 
+    }
 
     std::cout<<"Unknowns: "<<fs.reg.unknowns_list()<<"\n";
+
     auto rep = fs.solve(NewtonOptions{50,1e-12,1e-14,1e-6,1e-8,true});
-    std::cout<<(rep.converged?"Converged":"Not converged")<<" in "<<rep.iters<<" iters, |r|_inf="<<rep.final_res<<" : "<<rep.msg<<"\n";
-    Flowsheet::print_valve(v);
+    
+    std::cout<<(rep.converged?"Converged":"Not converged")<<" in "<<rep.iters<<" iters, |r|_inf="<<rep.final_res<<" : "<<rep.msg<<"\n";    
   }
 
 } // end px namespace

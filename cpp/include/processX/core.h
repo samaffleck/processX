@@ -10,12 +10,26 @@
 
 namespace px {
 
+  struct StreamId { 
+    size_t idx{static_cast<size_t>(-1)}; 
+    bool valid() const { return idx!=static_cast<size_t>(-1); } 
+  };
+
+  struct ValveId  { 
+    size_t idx{static_cast<size_t>(-1)}; 
+    bool valid() const { return idx!=static_cast<size_t>(-1); } 
+  };
+
   struct Var {
-    std::string name;
-    double value{0.0};
-    bool fixed{false};
     Var() = default;
     Var(std::string n, double v, bool f=false) : name(std::move(n)), value(v), fixed(f) {}
+    const std::string& GetName() const noexcept { return name; }
+
+    double value{0.0};
+    bool fixed{false};
+  
+  private:
+    std::string name;
   };
 
   struct UnknownsRegistry {
@@ -49,7 +63,7 @@ namespace px {
         if(i) {
           s+=", "; 
         }
-        s+=vars[i]->name;
+        s+=vars[i]->GetName();
       } 
       return s.empty()?"(none)":s; 
     }
