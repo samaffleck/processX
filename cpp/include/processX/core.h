@@ -7,22 +7,15 @@
 #include <cassert>
 #include <functional>
 
+// Cereal includes
+#include <cereal/cereal.hpp>
+
 
 namespace px {
 
-  struct StreamId { 
-    size_t idx{static_cast<size_t>(-1)}; 
-    bool valid() const { return idx!=static_cast<size_t>(-1); } 
-  };
-
-  struct ValveId  { 
-    size_t idx{static_cast<size_t>(-1)}; 
-    bool valid() const { return idx!=static_cast<size_t>(-1); } 
-  };
-
   struct Var {
     Var() = default;
-    Var(std::string n, double v, bool f=false) : name(std::move(n)), value(v), fixed(f) {}
+    Var(std::string n, double v, bool f=false) : value(v), fixed(f), name(std::move(n)) {}
     const std::string& GetName() const noexcept { return name; }
     void set_val(double val, bool is_fixed) { value = val; fixed = is_fixed; }
 
@@ -31,6 +24,16 @@ namespace px {
   
   private:
     std::string name;
+
+    friend class cereal::access;
+    template<class Archive>
+    void serialize(Archive& ar, std::uint32_t /*version*/) {
+      ar(
+        cereal::make_nvp("Variable_Name",  name),
+        cereal::make_nvp("Variable_Value", value),
+        cereal::make_nvp("Variable_Is_Fixed", fixed)
+      );
+    }
   };
 
   struct UnknownsRegistry {

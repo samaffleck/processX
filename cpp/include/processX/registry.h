@@ -1,5 +1,6 @@
 #pragma once
 
+// STL includes
 #include <vector>
 #include <string>
 #include <cstdint>
@@ -8,6 +9,12 @@
 #include <cassert>
 #include <utility>
 
+// Cereal includes
+#include <cereal/types/memory.hpp>
+#include <cereal/types/base_class.hpp>
+#include <cereal/access.hpp>
+#include <cereal/cereal.hpp>
+
 namespace px {
 
   template<class T>
@@ -15,6 +22,16 @@ namespace px {
     uint32_t index{UINT32_MAX};
     uint32_t generation{0};
     bool valid() const { return index != UINT32_MAX; }
+  
+  private:
+		friend class cereal::access;
+		template <class Archive>
+		void serialize(Archive& ar, std::uint32_t const version) {
+			ar(
+				cereal::make_nvp("Handle_Index", index),
+				cereal::make_nvp("Handle_Generation", generation)
+			);
+    }
   };
 
   template<class T>
@@ -23,6 +40,16 @@ namespace px {
     uint32_t generation{1};
     bool alive{false};
     uint32_t next_free{UINT32_MAX};
+
+  private:
+    friend class cereal::access;
+    template<class Archive>
+    void serialize(Archive& ar, std::uint32_t version) {
+      ar(cereal::make_nvp("Solt_Value", value),
+        cereal::make_nvp("Solt_Generation", generation),
+        cereal::make_nvp("Slot_Alive", alive),
+        cereal::make_nvp("Slot_Next_Free", next_free));
+    }
   };
 
   template<class T>
@@ -84,6 +111,13 @@ namespace px {
   private:
     std::vector<Slot<T>> slots_;
     uint32_t free_head_{UINT32_MAX};
+
+    friend class cereal::access;
+    template<class Archive>
+    void serialize(Archive& ar, std::uint32_t version) {
+      ar(cereal::make_nvp("Registry_Slots", slots_),
+        cereal::make_nvp("Registry_Free_Head", free_head_));
+    }
   };
 
 } // end px namespace

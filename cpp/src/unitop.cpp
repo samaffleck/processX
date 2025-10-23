@@ -31,3 +31,7 @@ namespace px {
   }
 
 } // namespace px
+
+CEREAL_REGISTER_TYPE(px::Valve)
+CEREAL_REGISTER_POLYMORPHIC_RELATION(px::IUnitOp, px::Valve)
+CEREAL_CLASS_VERSION(px::Valve, 0)

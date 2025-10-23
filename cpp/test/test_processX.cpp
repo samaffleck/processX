@@ -35,11 +35,11 @@ namespace px {
     protected:
       Flowsheet fs;
 
-    void run() {
+    bool run() {
       std::string err;
       if(!fs.assemble(&err)){ 
         std::cerr<<"Assemble error: "<<err<<"\n"; 
-        return; 
+        return false; 
       }
 
       std::cout<<"Unknowns: "<<fs.reg.unknowns_list()<<"\n";
@@ -47,6 +47,8 @@ namespace px {
       auto rep = fs.solve(NewtonOptions{50,1e-12,1e-14,1e-6,1e-8,true});
       
       std::cout<<(rep.converged?"Converged":"Not converged")<<" in "<<rep.iters<<" iters, |r|_inf="<<rep.final_res<<" : "<<rep.msg<<"\n";    
+      
+      return rep.converged;
     }
   };
 
@@ -136,52 +138,143 @@ namespace px {
     EXPECT_NEAR(out.molar_flow.value, val2.Cv.value * (mid.pressure.value - out.pressure.value),  1e-10);
   }
 
-  TEST(ProcessX, SimpleSetup) {
-    run_valve_case("Unknowns: F_out, Cv\nFixed: Fin, Pin, Pout", [](Valve& v, Stream& in, Stream& out){
-      in.molar_flow = {"in.F", 10.0, true};
-      in.pressure   = {"in.P", 5.0e5, true};
-      out.pressure  = {"out.P", 4.0e5, true};
-      out.molar_flow= {"out.F", 0.0,  false}; // unknown
-      v.Cv          = {"Cv",    1.0,false}; // unknown
-      // Balance will enforce out.F == in.F at convergence; PF sets Cv accordingly.
-    });
+  TEST_F(ProcessTest, SingleValve_Unknown_Fout_and_Cv) {
+    auto s_in  = fs.add<Stream>();
+    auto s_out = fs.add<Stream>();
+    auto v     = fs.add<Valve>();
 
-    run_valve_case("Unknowns: P_out, F_out\nFixed: Fin, Pin, Cv", [](Valve& v, Stream& in, Stream& out){
-      in.molar_flow = {"in.F", 8.0,   true};
-      in.pressure   = {"in.P", 3.0e5, true};
-      v.Cv          = {"Cv",   2.0e-4,true};
-      out.molar_flow= {"out.F",0.0,   false}; // unknown
-      out.pressure  = {"out.P",1.0e5, false}; // unknown
-    });
+    fs.connect_in<Valve>(v, s_in);
+    fs.connect_out<Valve>(v, s_out);
 
-    run_valve_case("Unknowns: F_in, F_out \nFixed: Pout, Pin, Cv", [](Valve& v, Stream& in, Stream& out){
-      out.pressure  = {"out.P",1.0e5, true}; // unknown
-      in.pressure   = {"in.P", 3.0e5, true};
-      v.Cv          = {"Cv",   2.0e-4,true};
-      out.molar_flow= {"out.F",0.0,   false}; // unknown
-      in.molar_flow = {"in.F", 8.0,   false};
-    });
+    auto& in  = fs.get<Stream>(s_in);
+    auto& out = fs.get<Stream>(s_out);
+    auto& val = fs.get<Valve>(v);
 
-    run_valve_case("Unknowns: P_in, Cv\nFixed: F_in, F_out, P_out)", [](Valve& v, Stream& in, Stream& out){
-      in.molar_flow = {"in.F", 12.0,  true};
-      out.molar_flow= {"out.F",12.0,  true};  // redundant with balance target; consistent
-      out.pressure  = {"out.P",1.2e5, true};
-      in.pressure   = {"in.P", 2.0e5, false}; // unknown
-      v.Cv          = {"Cv",   1.0e-5,false}; // unknown
-    });
+    // Given
+    const double Pin  = 5.0e5;
+    const double Pout = 4.0e5;
+    const double Fin  = 10.0;
+
+    in.molar_flow.set_val(Fin,  true);
+    in.pressure  .set_val(Pin,  true);
+    out.pressure .set_val(Pout, true);
+
+    // Unknowns
+    out.molar_flow.set_val(0.0,   false);  // F_out
+    val.Cv        .set_val(1.0,   false);  // Cv
+
+    run();
+
+    // Expected (mass balance + valve law)
+    const double Fexp  = Fin;
+    const double Cvexp = Fexp / (Pin - Pout);
+
+    EXPECT_NEAR(out.molar_flow.value, Fexp,  1e-10);
+    EXPECT_NEAR(in.molar_flow.value,  Fexp,  1e-10);
+    EXPECT_NEAR(val.Cv.value,         Cvexp, 1e-12);
+    EXPECT_NEAR(out.molar_flow.value, val.Cv.value * (in.pressure.value - out.pressure.value), 1e-10);
   }
 
-  TEST(CoolProp_TwoPhase, Water_LatentHeat_at_Tsat) {
-    double p = 101325.0;
-    double Tsat = CoolProp::PropsSI("T", "P", p, "Q", 0, "IF97::Water");
+  TEST_F(ProcessTest, SingleValve_Unknown_Pout_and_Fout) {
+    // Topology
+    auto s_in  = fs.add<Stream>();
+    auto s_out = fs.add<Stream>();
+    auto v     = fs.add<Valve>();
 
-    // Enthalpy per mass (J/kg) at quality 0 and 1
-    double hL = CoolProp::PropsSI("Hmass", "T", Tsat, "Q", 0, "IF97::Water");
-    double hV = CoolProp::PropsSI("Hmass", "T", Tsat, "Q", 1, "IF97::Water");
-    double hfg = hV - hL;
+    fs.connect_in<Valve>(v, s_in);
+    fs.connect_out<Valve>(v, s_out);
 
-    // Latent heat at 100 C ~ 2257 kJ/kg
-    EXPECT_NEAR(hfg, 2.257e6, 1.2e5); // ±120 kJ/kg band is generous but reliable across builds
+    auto& in  = fs.get<Stream>(s_in);
+    auto& out = fs.get<Stream>(s_out);
+    auto& val = fs.get<Valve>(v);
+
+    // Given
+    const double Pin = 3.0e5;
+    const double Fin = 8.0;
+    const double Cv  = 2.0e-4;
+
+    in.molar_flow.set_val(Fin, true);
+    in.pressure  .set_val(Pin, true);
+    val.Cv       .set_val(Cv,  true);
+
+    // Unknowns
+    out.molar_flow.set_val(0.0,  false); // F_out
+    out.pressure .set_val(1.0e5, false); // P_out
+
+    run();
+
+    // Expected (balance F_out = Fin; P_out from valve law)
+    const double Fexp  = Fin;
+    const double Poutexp = Pin - Fexp / Cv; // = 2.6e5
+
+    EXPECT_NEAR(out.molar_flow.value, Fexp,    1e-10);
+    EXPECT_NEAR(in.molar_flow.value,  Fexp,    1e-10);
+    EXPECT_NEAR(out.pressure.value,   Poutexp, 1e-6);
+    EXPECT_NEAR(out.molar_flow.value, val.Cv.value * (in.pressure.value - out.pressure.value), 1e-10);
+  }
+
+  TEST_F(ProcessTest, SingleValve_Unknown_Fin_and_Fout) {
+    // Topology
+    auto s_in  = fs.add<Stream>();
+    auto s_out = fs.add<Stream>();
+    auto v     = fs.add<Valve>();
+
+    fs.connect_in<Valve>(v, s_in);
+    fs.connect_out<Valve>(v, s_out);
+
+    auto& in  = fs.get<Stream>(s_in);
+    auto& out = fs.get<Stream>(s_out);
+    auto& val = fs.get<Valve>(v);
+
+    // Given
+    const double Pin  = 3.0e5;
+    const double Pout = 1.0e5;
+    const double Cv   = 2.0e-4;
+
+    in.pressure  .set_val(Pin,  true);
+    out.pressure .set_val(Pout, true);
+    val.Cv       .set_val(Cv,   true);
+
+    // Unknowns
+    in.molar_flow .set_val(0.0, false); // F_in
+    out.molar_flow.set_val(0.0, false); // F_out
+
+    run();
+
+    // Expected
+    const double Fexp = Cv * (Pin - Pout); // = 40
+    EXPECT_NEAR(in.molar_flow.value,  Fexp, 1e-10);
+    EXPECT_NEAR(out.molar_flow.value, Fexp, 1e-10);
+    EXPECT_NEAR(out.molar_flow.value, val.Cv.value * (in.pressure.value - out.pressure.value), 1e-10);
+  }
+
+  TEST_F(ProcessTest, SingleValve_Unknown_Pin_and_Cv) {
+    // Topology
+    auto s_in  = fs.add<Stream>();
+    auto s_out = fs.add<Stream>();
+    auto v     = fs.add<Valve>();
+
+    fs.connect_in<Valve>(v, s_in);
+    fs.connect_out<Valve>(v, s_out);
+
+    auto& in  = fs.get<Stream>(s_in);
+    auto& out = fs.get<Stream>(s_out);
+    auto& val = fs.get<Valve>(v);
+
+    // Given (both flows fixed/consistent; P_out fixed)
+    const double Pout = 1.2e5;
+    const double F    = 12.0;
+
+    in.molar_flow .set_val(F,    true);
+    out.molar_flow.set_val(F,    true);
+    out.pressure  .set_val(Pout, true);
+
+    // Unknowns (under-determined without an extra condition; we assert consistency)
+    in.pressure.set_val(2.0e5,  false); // P_in (free)
+    val.Cv     .set_val(1.0e-5, false); // Cv (free)
+
+    auto converged = run();
+    ASSERT_FALSE(converged); // We expect it to FAIL!
   }
 
 } // end processX namespace

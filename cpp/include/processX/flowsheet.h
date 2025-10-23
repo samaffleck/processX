@@ -128,37 +128,16 @@ namespace px {
       auto& n = counters_[prefix];
       return prefix + "-" + std::to_string(++n);
     }
-  };
 
-  // ---------- Valve Demo Helper ----------
-  static void run_valve_case(const std::string& title, std::function<void(Valve&, Stream&, Stream&)> config){
-    std::cout<<"\n=== "<<title<<" ===\n";
-    Flowsheet fs; 
-    
-    auto s_in  = fs.add<Stream>();
-    auto s_out = fs.add<Stream>();
-    auto v1 = fs.add<Valve>();
-
-    auto& in  = fs.get<Stream>(s_in);
-    auto& out = fs.get<Stream>(s_out);
-    auto& val = fs.get<Valve>(v1);
-
-    fs.connect_in<Valve>(v1, s_in);
-    fs.connect_out<Valve>(v1, s_out);
-
-    config(val, in, out);
-
-    std::string err;
-    if(!fs.assemble(&err)){ 
-      std::cerr<<"Assemble error: "<<err<<"\n"; 
-      return; 
+  private:
+		friend class cereal::access;
+		template <class Archive>
+		void serialize(Archive& ar, std::uint32_t const version) {
+			ar(
+				cereal::make_nvp("Flowsheet_Stream_Registry", streams_),
+				cereal::make_nvp("Flowsheet_Valve_Registry", valves_)
+			);
     }
-
-    std::cout<<"Unknowns: "<<fs.reg.unknowns_list()<<"\n";
-
-    auto rep = fs.solve(NewtonOptions{50,1e-12,1e-14,1e-6,1e-8,true});
-    
-    std::cout<<(rep.converged?"Converged":"Not converged")<<" in "<<rep.iters<<" iters, |r|_inf="<<rep.final_res<<" : "<<rep.msg<<"\n";    
-  }
+  };
 
 } // end px namespace

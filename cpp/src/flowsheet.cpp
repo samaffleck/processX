@@ -62,3 +62,5 @@ namespace px {
   }
   
 } // namespace  px
+
+CEREAL_CLASS_VERSION(px::Flowsheet, 0)
