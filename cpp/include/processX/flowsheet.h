@@ -140,4 +140,16 @@ namespace px {
     }
   };
 
+  void SaveToJson(const Flowsheet& data, const std::string& file_name) {
+		std::ofstream file(file_name);
+		cereal::JSONOutputArchive archive(file);
+		archive(data);
+	}
+
+	void LoadFromJson(Flowsheet& data, const std::string& file_name) {
+		std::ifstream ifs(file_name);
+		cereal::JSONInputArchive archive(ifs);
+		archive(data);
+	}
+
 } // end px namespace

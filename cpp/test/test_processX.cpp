@@ -53,13 +53,13 @@ namespace px {
   };
 
   TEST_F(ProcessTest, MultiValveZeroFlowTest) {
-    auto s_in  = fs.add<Stream>();
+    auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
     auto s_mid = fs.add<Stream>();
     auto v1 = fs.add<Valve>();
     auto v2 = fs.add<Valve>();
 
-    auto& in  = fs.get<Stream>(s_in);
+    auto& in = fs.get<Stream>(s_in);
     auto& out = fs.get<Stream>(s_out);
     auto& mid = fs.get<Stream>(s_mid);
     auto& val_1 = fs.get<Valve>(v1);
@@ -101,9 +101,9 @@ namespace px {
     fs.connect_in<Valve>(v2, s_mid);
     fs.connect_out<Valve>(v2, s_out);
 
-    auto& in   = fs.get<Stream>(s_in);
-    auto& mid  = fs.get<Stream>(s_mid);
-    auto& out  = fs.get<Stream>(s_out);
+    auto& in = fs.get<Stream>(s_in);
+    auto& mid = fs.get<Stream>(s_mid);
+    auto& out = fs.get<Stream>(s_out);
     auto& val1 = fs.get<Valve>(v1);
     auto& val2 = fs.get<Valve>(v2);
 
@@ -126,7 +126,7 @@ namespace px {
 
     // Analytical solution:
     const double Pmid = (Cv1*Pin + Cv2*Pout) / (Cv1 + Cv2);
-    const double F    = (Cv1*Cv2/(Cv1+Cv2)) * (Pin - Pout);
+    const double F = (Cv1*Cv2/(Cv1+Cv2)) * (Pin - Pout);
 
     EXPECT_NEAR(mid.pressure.value,   Pmid, 1e-6);
     EXPECT_NEAR(in.molar_flow.value,  F,    1e-10);
@@ -139,14 +139,14 @@ namespace px {
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Fout_and_Cv) {
-    auto s_in  = fs.add<Stream>();
+    auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
-    auto v     = fs.add<Valve>();
+    auto v = fs.add<Valve>();
 
     fs.connect_in<Valve>(v, s_in);
     fs.connect_out<Valve>(v, s_out);
 
-    auto& in  = fs.get<Stream>(s_in);
+    auto& in = fs.get<Stream>(s_in);
     auto& out = fs.get<Stream>(s_out);
     auto& val = fs.get<Valve>(v);
 
@@ -156,12 +156,12 @@ namespace px {
     const double Fin  = 10.0;
 
     in.molar_flow.set_val(Fin,  true);
-    in.pressure  .set_val(Pin,  true);
-    out.pressure .set_val(Pout, true);
+    in.pressure.set_val(Pin,  true);
+    out.pressure.set_val(Pout, true);
 
     // Unknowns
     out.molar_flow.set_val(0.0,   false);  // F_out
-    val.Cv        .set_val(1.0,   false);  // Cv
+    val.Cv.set_val(1.0,   false);  // Cv
 
     run();
 
@@ -176,15 +176,14 @@ namespace px {
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Pout_and_Fout) {
-    // Topology
-    auto s_in  = fs.add<Stream>();
+    auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
-    auto v     = fs.add<Valve>();
+    auto v = fs.add<Valve>();
 
     fs.connect_in<Valve>(v, s_in);
     fs.connect_out<Valve>(v, s_out);
 
-    auto& in  = fs.get<Stream>(s_in);
+    auto& in = fs.get<Stream>(s_in);
     auto& out = fs.get<Stream>(s_out);
     auto& val = fs.get<Valve>(v);
 
@@ -194,12 +193,12 @@ namespace px {
     const double Cv  = 2.0e-4;
 
     in.molar_flow.set_val(Fin, true);
-    in.pressure  .set_val(Pin, true);
-    val.Cv       .set_val(Cv,  true);
+    in.pressure.set_val(Pin, true);
+    val.Cv.set_val(Cv,  true);
 
     // Unknowns
     out.molar_flow.set_val(0.0,  false); // F_out
-    out.pressure .set_val(1.0e5, false); // P_out
+    out.pressure.set_val(1.0e5, false); // P_out
 
     run();
 
@@ -214,10 +213,9 @@ namespace px {
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Fin_and_Fout) {
-    // Topology
-    auto s_in  = fs.add<Stream>();
+    auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
-    auto v     = fs.add<Valve>();
+    auto v = fs.add<Valve>();
 
     fs.connect_in<Valve>(v, s_in);
     fs.connect_out<Valve>(v, s_out);
@@ -226,14 +224,13 @@ namespace px {
     auto& out = fs.get<Stream>(s_out);
     auto& val = fs.get<Valve>(v);
 
-    // Given
-    const double Pin  = 3.0e5;
+    const double Pin = 3.0e5;
     const double Pout = 1.0e5;
-    const double Cv   = 2.0e-4;
+    const double Cv = 2.0e-4;
 
-    in.pressure  .set_val(Pin,  true);
-    out.pressure .set_val(Pout, true);
-    val.Cv       .set_val(Cv,   true);
+    in.pressure.set_val(Pin,  true);
+    out.pressure.set_val(Pout, true);
+    val.Cv.set_val(Cv,   true);
 
     // Unknowns
     in.molar_flow .set_val(0.0, false); // F_in
@@ -249,10 +246,9 @@ namespace px {
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Pin_and_Cv) {
-    // Topology
-    auto s_in  = fs.add<Stream>();
+    auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
-    auto v     = fs.add<Valve>();
+    auto v = fs.add<Valve>();
 
     fs.connect_in<Valve>(v, s_in);
     fs.connect_out<Valve>(v, s_out);
@@ -263,15 +259,15 @@ namespace px {
 
     // Given (both flows fixed/consistent; P_out fixed)
     const double Pout = 1.2e5;
-    const double F    = 12.0;
+    const double F = 12.0;
 
-    in.molar_flow .set_val(F,    true);
-    out.molar_flow.set_val(F,    true);
-    out.pressure  .set_val(Pout, true);
+    in.molar_flow .set_val(F, true);
+    out.molar_flow.set_val(F, true);
+    out.pressure.set_val(Pout, true);
 
     // Unknowns (under-determined without an extra condition; we assert consistency)
     in.pressure.set_val(2.0e5,  false); // P_in (free)
-    val.Cv     .set_val(1.0e-5, false); // Cv (free)
+    val.Cv.set_val(1.0e-5, false); // Cv (free)
 
     auto converged = run();
     ASSERT_FALSE(converged); // We expect it to FAIL!
