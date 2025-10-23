@@ -1,5 +1,6 @@
 #pragma once
 
+// STL includes
 #include <cassert>
 #include <cmath>
 #include <functional>
@@ -9,6 +10,7 @@
 #include <vector>
 #include <type_traits>
 #include <unordered_map> 
+#include <fstream> 
 
 // px includes
 #include "processX/core.h"
@@ -16,6 +18,12 @@
 #include "processX/stream.h"
 #include "processX/unitop.h"
 #include "processX/registry.h"
+
+// Cereal includes
+#include <cereal/access.hpp>
+#include <cereal/cereal.hpp>
+#include <cereal/archives/json.hpp>
+
 
 namespace px {
 
@@ -140,13 +148,13 @@ namespace px {
     }
   };
 
-  void SaveToJson(const Flowsheet& data, const std::string& file_name) {
+  inline void SaveToJson(const Flowsheet& data, const std::string& file_name) {
 		std::ofstream file(file_name);
 		cereal::JSONOutputArchive archive(file);
 		archive(data);
 	}
 
-	void LoadFromJson(Flowsheet& data, const std::string& file_name) {
+	inline void LoadFromJson(Flowsheet& data, const std::string& file_name) {
 		std::ifstream ifs(file_name);
 		cereal::JSONInputArchive archive(ifs);
 		archive(data);

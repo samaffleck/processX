@@ -87,6 +87,18 @@ namespace px {
     EXPECT_NEAR(mid.molar_flow.value, 0.0, 1e-12);
     EXPECT_NEAR(out.molar_flow.value, 0.0, 1e-12);
     EXPECT_NEAR(mid.pressure.value,   2.0e5, 1e-8);
+
+    const std::string file_path = "test.json";
+    SaveToJson(fs, file_path);
+    Flowsheet load_fs;
+    LoadFromJson(load_fs, file_path);
+    
+    run();
+
+    EXPECT_NEAR(in.molar_flow.value,  0.0, 1e-12);
+    EXPECT_NEAR(mid.molar_flow.value, 0.0, 1e-12);
+    EXPECT_NEAR(out.molar_flow.value, 0.0, 1e-12);
+    EXPECT_NEAR(mid.pressure.value,   2.0e5, 1e-8);
   }
 
   TEST_F(ProcessTest, MultiValveTest) {

@@ -12,6 +12,7 @@
 // Cereal includes
 #include <cereal/types/memory.hpp>
 #include <cereal/types/base_class.hpp>
+#include <cereal/types/vector.hpp>
 #include <cereal/access.hpp>
 #include <cereal/cereal.hpp>
 
@@ -44,11 +45,13 @@ namespace px {
   private:
     friend class cereal::access;
     template<class Archive>
-    void serialize(Archive& ar, std::uint32_t version) {
-      ar(cereal::make_nvp("Solt_Value", value),
-        cereal::make_nvp("Solt_Generation", generation),
+    void serialize(Archive& ar, std::uint32_t const version) {
+      ar(
+        cereal::make_nvp("Slot_Value", value),
+        cereal::make_nvp("Slot_Generation", generation),
         cereal::make_nvp("Slot_Alive", alive),
-        cereal::make_nvp("Slot_Next_Free", next_free));
+        cereal::make_nvp("Slot_Next_Free", next_free)
+      );
     }
   };
 
@@ -114,9 +117,11 @@ namespace px {
 
     friend class cereal::access;
     template<class Archive>
-    void serialize(Archive& ar, std::uint32_t version) {
-      ar(cereal::make_nvp("Registry_Slots", slots_),
-        cereal::make_nvp("Registry_Free_Head", free_head_));
+    void serialize(Archive& ar, std::uint32_t const version) {
+      ar(
+        cereal::make_nvp("Registry_Slots", slots_),
+        cereal::make_nvp("Registry_Free_Head", free_head_)
+      );
     }
   };
 
