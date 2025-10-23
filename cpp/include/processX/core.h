@@ -24,6 +24,7 @@ namespace px {
     Var() = default;
     Var(std::string n, double v, bool f=false) : name(std::move(n)), value(v), fixed(f) {}
     const std::string& GetName() const noexcept { return name; }
+    void set_val(double val, bool is_fixed) { value = val; fixed = is_fixed; }
 
     double value{0.0};
     bool fixed{false};
@@ -37,7 +38,13 @@ namespace px {
     
     void clear() { vars.clear(); }
     
-    void register_var(Var& v) { if (!v.fixed) vars.push_back(&v); }
+    void register_var(Var& v) {
+      if (v.fixed) return;
+      for (auto* p : vars) {
+        if (p == &v) return;
+      }
+      vars.push_back(&v);
+    }
     
     std::size_t size() const { return vars.size(); }
     
