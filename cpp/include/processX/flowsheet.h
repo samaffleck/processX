@@ -151,7 +151,7 @@ namespace px {
   inline void SaveToJson(const Flowsheet& data, const std::string& file_name) {
 		std::ofstream file(file_name);
 		cereal::JSONOutputArchive archive(file);
-		archive(data);
+		archive(cereal::make_nvp("Flowsheet_Data", data));
 	}
 
 	inline void LoadFromJson(Flowsheet& data, const std::string& file_name) {

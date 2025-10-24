@@ -52,6 +52,12 @@ namespace px {
     }
   };
 
+  TEST_F(ProcessTest, LoadTest) {
+    const std::string file_path = "gpt_test.json";
+    LoadFromJson(this->fs, file_path);
+    run();
+  }
+
   TEST_F(ProcessTest, MultiValveZeroFlowTest) {
     auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
