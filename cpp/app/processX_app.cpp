@@ -9,24 +9,22 @@
 
 #include "processX/flowsheet.h" 
 
+#include "node_editor.h"
 
-static void ShowPlantDock() {
-  ImGui::Begin("Flowsheet");
-
-  ImGui::End();
-}
+static px::Flowsheet flowsheet{};
 
 static void ShowMainDock() {
   static bool on_first_load = true;
-  
   if (on_first_load) {
     on_first_load = false;
-    ImGui::StyleColorsLight();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   }
 
-  ShowPlantDock();
+  static bool is_flowsheet_open = true;
+  ImGui::Begin("Flowsheet");
+  ShowFlowsheet(&is_flowsheet_open, flowsheet);
+  ImGui::End();
 }
 
 void InitializeImGuiFonts() {

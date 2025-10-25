@@ -76,6 +76,13 @@
     "valarray": "cpp",
     "variant": "cpp",
     "vector": "cpp",
-    "cstddef": "cpp"
+    "cstddef": "cpp",
+    "__config": "cpp",
+    "iterativelinearsolvers": "cpp",
+    "mprealsupport": "cpp",
+    "matrixfunctions": "cpp",
+    "nonlinearoptimization": "cpp",
+    "*.inc": "cpp",
+    "nnls": "cpp"
   }
 }

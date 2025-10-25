@@ -156,6 +156,40 @@ namespace px {
     EXPECT_NEAR(out.molar_flow.value, val2.Cv.value * (mid.pressure.value - out.pressure.value),  1e-10);
   }
 
+  TEST_F(ProcessTest, MixerValveTest) {
+    auto s_in1  = fs.add<Stream>();
+    auto s_in2 = fs.add<Stream>();
+    auto s_end = fs.add<Stream>();
+    auto m = fs.add<Mixer>();
+
+    auto& mixer = fs.get<Mixer>(m);
+
+    mixer.add_inlet(s_in1);
+    mixer.add_inlet(s_in2);
+    mixer.set_outlet(s_end);
+    
+    auto& in1 = fs.get<Stream>(s_in1);
+    auto& in2 = fs.get<Stream>(s_in2);
+    auto& out = fs.get<Stream>(s_end);
+    
+    const double P  = 1.0e5;
+    const double F1  = 1.5;
+    const double F2  = 0.2;
+
+    in1.pressure.set_val(P, true);
+    in2.pressure.set_val(P, true);
+    out.pressure.set_val(P, true);
+    in1.molar_flow.set_val(F1, true);
+    in2.molar_flow.set_val(F2, true);
+
+    out.molar_flow.set_val(0.8, false);
+    
+    run();
+
+    const double F = F1 + F2;
+    EXPECT_NEAR(out.molar_flow.value, F, 1e-10);
+  }
+
   TEST_F(ProcessTest, SingleValve_Unknown_Fout_and_Cv) {
     auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();

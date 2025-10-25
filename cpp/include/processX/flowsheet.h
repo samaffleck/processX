@@ -34,11 +34,14 @@ namespace px {
   public:
     Registry<Stream> streams_;
     Registry<Valve>  valves_;
+    Registry<Mixer> mixers_;
 
     std::vector<IUnitOp*> units_;
 
     UnknownsRegistry reg;
     ResidualSystem sys;
+
+    
 
     template<class T>
     Registry<T>& registry_for() {
@@ -46,6 +49,8 @@ namespace px {
         return streams_;
       } else if constexpr (std::is_same_v<T, Valve>) {
         return valves_;
+      } else if constexpr (std::is_same_v<T, Mixer>) {
+        return mixers_;
       } else {
         static_assert(dependent_false<T>::value, "Unsupported type in registry_for<T>()");
       }
@@ -57,6 +62,8 @@ namespace px {
         return streams_;
       } else if constexpr (std::is_same_v<T, Valve>) {
         return valves_;
+      } else if constexpr (std::is_same_v<T, Mixer>) {
+        return mixers_;
       } else {
         static_assert(dependent_false<T>::value, "Unsupported type in registry_for<T>()");
       }
@@ -75,6 +82,12 @@ namespace px {
         auto& u = r.get(h);
         if (u.name.empty()) u.name = next_auto_name(u.type_name());
         return h;
+      } else if constexpr (std::is_same_v<T, Mixer>) {
+        auto& r = registry_for<T>();
+        auto h = r.add(T{std::forward<Args>(args)...});
+        auto& u = r.get(h);
+        if (u.name.empty()) u.name = next_auto_name(u.type_name());
+        return h;
       } else {
         static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::add<T>()");
       }
@@ -84,6 +97,7 @@ namespace px {
     T& get(Handle<T> h) {
       if constexpr (std::is_same_v<T, Stream>) return streams_.get(h);
       else if constexpr (std::is_same_v<T, Valve>) return valves_.get(h);
+      else if constexpr (std::is_same_v<T, Mixer>) return mixers_.get(h);
       else { static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::get<T>()"); }
     }
 
@@ -91,6 +105,7 @@ namespace px {
     const T& get(Handle<T> h) const {
       if constexpr (std::is_same_v<T, Stream>) return streams_.get(h);
       else if constexpr (std::is_same_v<T, Valve>) return valves_.get(h);
+      else if constexpr (std::is_same_v<T, Mixer>) return mixers_.get(h);
       else { static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::get<T>()"); }
     }
 
@@ -98,6 +113,7 @@ namespace px {
     bool erase(Handle<T> h) {
       if constexpr (std::is_same_v<T, Stream>) return streams_.erase(h);
       else if constexpr (std::is_same_v<T, Valve>) return valves_.erase(h);
+      else if constexpr (std::is_same_v<T, Mixer>) return mixers_.erase(h);
       else { static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::erase<T>()"); }
     }
 
@@ -105,13 +121,14 @@ namespace px {
     void for_each(Fn&& fn) {
       if constexpr (std::is_same_v<T, Stream>) streams_.for_each(std::forward<Fn>(fn));
       else if constexpr (std::is_same_v<T, Valve>) valves_.for_each(std::forward<Fn>(fn));
+      else if constexpr (std::is_same_v<T, Mixer>) mixers_.for_each(std::forward<Fn>(fn));
       else { static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::for_each<T>()"); }
     }
 
     void build_unit_list() {
       units_.clear();
       valves_.for_each([&](Valve& v){ units_.push_back(&v); }); 
-      // Add other unit types similarly...
+      mixers_.for_each([&](Mixer& v){ units_.push_back(&v); }); 
     }
 
     bool assemble(std::string* err=nullptr);
@@ -143,7 +160,8 @@ namespace px {
 		void serialize(Archive& ar, std::uint32_t const version) {
 			ar(
 				cereal::make_nvp("Flowsheet_Stream_Registry", streams_),
-				cereal::make_nvp("Flowsheet_Valve_Registry", valves_)
+				cereal::make_nvp("Flowsheet_Valve_Registry", valves_),
+				cereal::make_nvp("Flowsheet_Mixer_Registry", mixers_)
 			);
     }
   };

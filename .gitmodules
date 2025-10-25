@@ -19,3 +19,12 @@
 [submodule "cpp/external/sundials"]
 	path = cpp/external/sundials
 	url = https://github.com/LLNL/sundials
+[submodule "cpp/external/ImNodes"]
+	path = cpp/external/ImNodes
+	url = https://github.com/rokups/ImNodes.git
+[submodule "cpp/external/imgui-node-editor"]
+	path = cpp/external/imgui-node-editor
+	url = https://github.com/thedmd/imgui-node-editor.git
+[submodule "cpp/external/ImNodeFlow"]
+	path = cpp/external/ImNodeFlow
+	url = https://github.com/Fattorino/ImNodeFlow
