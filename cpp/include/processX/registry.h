@@ -107,6 +107,15 @@ namespace px {
       for (auto& s : slots_) if (s.alive) fn(s.value);
     }
     
+    template <class Fn> void for_each_with_handle(Fn&& fn) {
+      for (size_t i = 0; i < slots_.size(); ++i) {
+        if (slots_[i].alive) {
+          H h{static_cast<uint32_t>(i), slots_[i].generation};
+          fn(slots_[i].value, h);
+        }
+      }
+    }
+    
     size_t size_alive() const {
       size_t n=0; for (auto& s: slots_) if (s.alive) ++n; return n;
     }
