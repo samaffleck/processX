@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Cpu, Zap, Users, TrendingUp, Droplets, Wind, Battery, Thermometer, Gauge, Snowflake } from 'lucide-react';
+import { Cpu, Zap, Users, TrendingUp, Droplets, Wind, Battery, Thermometer, Gauge, Snowflake, Bot } from 'lucide-react';
 
 export default function ProcessXLanding() {
   const [scrollY, setScrollY] = useState(0);
@@ -33,12 +33,15 @@ export default function ProcessXLanding() {
               ProcessX
             </span>
           </Link>
-          {/* <Link 
-            href="/waitlist"
-            className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition-all duration-300 hover:scale-105"
-          >
-            Join Waitlist
-          </Link> */}
+          <div className="flex items-center gap-3">
+            <Link 
+              href="/Copilot"
+              className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition-all duration-300 hover:scale-105 flex items-center gap-2"
+            >
+              <Bot className="w-4 h-4" />
+              Launch Copilot
+            </Link>
+          </div>
         </div>
       </nav>
 
@@ -72,8 +75,15 @@ export default function ProcessXLanding() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link 
+              href="/Copilot"
+              className="px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg font-semibold text-lg hover:shadow-2xl hover:shadow-cyan-500/50 transition-all duration-300 hover:scale-105 flex items-center gap-2"
+            >
+              <Bot className="w-5 h-5" />
+              Launch Copilot
+            </Link>
+            <Link 
               href="/waitlist"
-              className="px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg font-semibold text-lg hover:shadow-2xl hover:shadow-cyan-500/50 transition-all duration-300 hover:scale-105"
+              className="px-8 py-4 bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg font-semibold text-lg hover:bg-slate-800 transition-all duration-300"
             >
               Join Waitlist
             </Link>
