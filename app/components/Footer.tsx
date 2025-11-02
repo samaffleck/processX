@@ -1,0 +1,14 @@
+"use client";
+
+import React from 'react';
+
+export default function Footer() {
+  return (
+    <footer className="relative z-10 px-6 py-12 border-t border-slate-800/50 bg-slate-950/50 backdrop-blur-sm">
+      <div className="max-w-7xl mx-auto text-center text-slate-400">
+        <p>&copy; 2025 ProcessX. Reimagining process simulation for the modern era.</p>
+      </div>
+    </footer>
+  );
+}
+

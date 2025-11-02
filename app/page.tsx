@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Cpu, Zap, Users, TrendingUp, Droplets, Wind, Battery, Thermometer, Gauge, Snowflake, Bot } from 'lucide-react';
+import Header from './components/Header';
+import Footer from './components/Footer';
 
 export default function ProcessXLanding() {
   const [scrollY, setScrollY] = useState(0);
@@ -22,28 +24,7 @@ export default function ProcessXLanding() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
       </div>
 
-      {/* Navigation */}
-      <nav className="relative z-50 px-6 py-6">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-lg flex items-center justify-center">
-              <Cpu className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-              ProcessX
-            </span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link 
-              href="/Copilot"
-              className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition-all duration-300 hover:scale-105 flex items-center gap-2"
-            >
-              <Bot className="w-4 h-4" />
-              Launch Copilot
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Header />
 
       {/* Hero Section */}
       <section className="relative z-10 px-6 pt-20 pb-32">
@@ -91,12 +72,7 @@ export default function ProcessXLanding() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 px-6 py-12 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto text-center text-slate-400">
-          <p>&copy; 2025 ProcessX. Reimagining process simulation for the modern era.</p>
-        </div>
-      </footer>
+      <Footer />
 
       <style jsx>{`
         @keyframes fadeInUp {

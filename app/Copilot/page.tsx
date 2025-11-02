@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Upload, FileJson, X } from 'lucide-react';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 
 interface Message {
   id: string;
@@ -133,9 +135,10 @@ export default function CopilotPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white flex flex-col">
+      <Header />
+      <div className="flex-1 container mx-auto px-4 py-8 max-w-6xl">
+        {/* Page Title and JSON Input Controls */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -298,6 +301,7 @@ export default function CopilotPage() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
