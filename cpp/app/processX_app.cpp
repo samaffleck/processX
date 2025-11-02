@@ -11,12 +11,142 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdio>
+#include <ctime>
+#include <chrono>
+#include <sstream>
+#include <iomanip>
 
 #include "processX/flowsheet.h" 
 
 #include "node_editor.h"
 
 static px::Flowsheet flowsheet{};
+
+// Log system
+struct LogEntry {
+  std::string message;
+  std::string timestamp;
+  enum Type { Info, Success, Error } type;
+};
+
+static std::vector<LogEntry> log_messages;
+static constexpr size_t MAX_LOG_ENTRIES = 1000;
+
+static void AddLogEntry(LogEntry::Type type, const std::string& message) {
+  // Get current time
+  auto now = std::chrono::system_clock::now();
+  auto time_t = std::chrono::system_clock::to_time_t(now);
+  auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+    now.time_since_epoch()) % 1000;
+  
+  std::stringstream ss;
+  ss << std::put_time(std::localtime(&time_t), "%H:%M:%S");
+  ss << "." << std::setfill('0') << std::setw(3) << ms.count();
+  
+  LogEntry entry;
+  entry.message = message;
+  entry.timestamp = ss.str();
+  entry.type = type;
+  
+  log_messages.push_back(entry);
+  
+  // Limit log size
+  if (log_messages.size() > MAX_LOG_ENTRIES) {
+    log_messages.erase(log_messages.begin());
+  }
+}
+
+static void ShowLogWindow() {
+  ImGui::Begin("Log");
+  
+  // Auto-scroll to bottom if scrolled to bottom before
+  static bool auto_scroll = true;
+  
+  // Options and Solve button
+  if (ImGui::Button("Solve")) {
+    AddLogEntry(LogEntry::Info, "Starting solve...");
+    
+    // First, assemble the system
+    std::string assemble_error;
+    if (!flowsheet.assemble(&assemble_error)) {
+      AddLogEntry(LogEntry::Error, "Assembly failed: " + assemble_error);
+    } else {
+      AddLogEntry(LogEntry::Info, "System assembled successfully");
+      
+      // Configure solver options
+      px::NewtonOptions options;
+      options.max_iters = 50;
+      options.tol_res = 1e-10;
+      options.tol_step = 1e-12;
+      options.fd_rel = 1e-6;
+      options.fd_abs = 1e-8;
+      options.verbose = false; // We'll log ourselves
+      
+      // Run solver
+      px::NewtonReport report = flowsheet.solve(options);
+      
+      if (report.converged) {
+        std::string success_msg = "Solve converged! Iterations: " + std::to_string(report.iters) 
+                                  + ", Final residual: " + std::to_string(report.final_res);
+        AddLogEntry(LogEntry::Success, success_msg);
+        if (!report.msg.empty()) {
+          AddLogEntry(LogEntry::Info, "Message: " + report.msg);
+        }
+      } else {
+        std::string error_msg = "Solve failed: " + report.msg;
+        if (report.iters > 0) {
+          error_msg += " (Iterations: " + std::to_string(report.iters) 
+                      + ", Final residual: " + std::to_string(report.final_res) + ")";
+        }
+        AddLogEntry(LogEntry::Error, error_msg);
+      }
+    }
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("Clear")) {
+    log_messages.clear();
+  }
+  ImGui::SameLine();
+  ImGui::Checkbox("Auto-scroll", &auto_scroll);
+  
+  ImGui::Separator();
+  
+  // Log display
+  ImGui::BeginChild("LogContent", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+  
+  // Enable text wrapping - wrap at window edge (0 = auto)
+  ImGui::PushTextWrapPos(0.0f);
+  
+  for (const auto& entry : log_messages) {
+    // Color code by type
+    ImVec4 color;
+    switch (entry.type) {
+      case LogEntry::Info:
+        color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f); // White
+        break;
+      case LogEntry::Success:
+        color = ImVec4(0.0f, 1.0f, 0.0f, 1.0f); // Green
+        break;
+      case LogEntry::Error:
+        color = ImVec4(1.0f, 0.0f, 0.0f, 1.0f); // Red
+        break;
+    }
+    
+    ImGui::PushStyleColor(ImGuiCol_Text, color);
+    ImGui::TextWrapped("[%s] %s", entry.timestamp.c_str(), entry.message.c_str());
+    ImGui::PopStyleColor();
+  }
+  
+  ImGui::PopTextWrapPos();
+  
+  // Auto-scroll to bottom
+  if (auto_scroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 10) {
+    ImGui::SetScrollHereY(1.0f);
+  }
+  
+  ImGui::EndChild();
+  ImGui::End();
+}
 
 // Selection state - tracks which unit is currently selected
 enum class SelectionType { None, Valve, Mixer, Stream };
@@ -33,19 +163,25 @@ static void ShowUnitOperationsPalette() {
   ImGui::Text("Unit Operations");
   ImGui::Separator();
 
-  if (ImGui::Button("Mixer")) {
+  // Fixed square button size
+  ImVec2 button_dim(60.0f, 60.0f);
+
+  if (ImGui::Button("Mixer", button_dim)) {
     flowsheet.add<px::Mixer>();
     selected_unit.clear(); // Clear selection when adding new unit
+    AddLogEntry(LogEntry::Info, "Added new Mixer");
   }
   ImGui::SameLine();
-  if (ImGui::Button("Valve")) {
+  if (ImGui::Button("Valve", button_dim)) {
     flowsheet.add<px::Valve>();
     selected_unit.clear();
+    AddLogEntry(LogEntry::Info, "Added new Valve");
   }
   ImGui::SameLine();
-  if (ImGui::Button("Stream")) {
+  if (ImGui::Button("Stream", button_dim)) {
     flowsheet.add<px::Stream>();
     selected_unit.clear();
+    AddLogEntry(LogEntry::Info, "Added new Stream");
   }
 }
 
@@ -115,7 +251,7 @@ static void ShowValveProperties(px::Valve& valve) {
   char name_buffer[256];
   strncpy(name_buffer, valve.get_name().c_str(), sizeof(name_buffer));
   name_buffer[sizeof(name_buffer) - 1] = '\0';
-  if (ImGui::InputText("Name", name_buffer, sizeof(name_buffer))) {
+  if (ImGui::InputText("##Name", name_buffer, sizeof(name_buffer))) {
     valve.name = name_buffer;
   }
 
@@ -158,7 +294,7 @@ static void ShowMixerProperties(px::Mixer& mixer) {
   char name_buffer[256];
   strncpy(name_buffer, mixer.get_name().c_str(), sizeof(name_buffer));
   name_buffer[sizeof(name_buffer) - 1] = '\0';
-  if (ImGui::InputText("Name", name_buffer, sizeof(name_buffer))) {
+  if (ImGui::InputText("##Name", name_buffer, sizeof(name_buffer))) {
     mixer.name = name_buffer;
   }
 
@@ -213,7 +349,7 @@ static void ShowStreamProperties(px::Stream& stream) {
   char name_buffer[256];
   strncpy(name_buffer, stream.name.c_str(), sizeof(name_buffer));
   name_buffer[sizeof(name_buffer) - 1] = '\0';
-  if (ImGui::InputText("Name", name_buffer, sizeof(name_buffer))) {
+  if (ImGui::InputText("##Name", name_buffer, sizeof(name_buffer))) {
     stream.name = name_buffer;
   }
 
@@ -259,27 +395,63 @@ static void ShowSelectedUnitProperties() {
   bool found = false;
   if (selected_unit.type == SelectionType::Valve) {
     uint32_t idx = 0;
-    flowsheet.valves_.for_each([&](px::Valve& valve) {
+    flowsheet.valves_.for_each_with_handle([&](px::Valve& valve, px::Handle<px::Valve> handle) {
       if (!found && idx == selected_unit.index) {
         ShowValveProperties(valve);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Delete button
+        if (ImGui::Button("Delete Valve", ImVec2(-1, 0))) {
+          flowsheet.erase(handle);
+          selected_unit.clear();
+          found = true;
+          return;
+        }
         found = true;
       }
       idx++;
     });
   } else if (selected_unit.type == SelectionType::Mixer) {
     uint32_t idx = 0;
-    flowsheet.mixers_.for_each([&](px::Mixer& mixer) {
+    flowsheet.mixers_.for_each_with_handle([&](px::Mixer& mixer, px::Handle<px::Mixer> handle) {
       if (!found && idx == selected_unit.index) {
         ShowMixerProperties(mixer);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Delete button
+        if (ImGui::Button("Delete Mixer", ImVec2(-1, 0))) {
+          flowsheet.erase(handle);
+          selected_unit.clear();
+          found = true;
+          return;
+        }
         found = true;
       }
       idx++;
     });
   } else if (selected_unit.type == SelectionType::Stream) {
     uint32_t idx = 0;
-    flowsheet.streams_.for_each([&](px::Stream& stream) {
+    flowsheet.streams_.for_each_with_handle([&](px::Stream& stream, px::Handle<px::Stream> handle) {
       if (!found && idx == selected_unit.index) {
         ShowStreamProperties(stream);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Delete button
+        if (ImGui::Button("Delete Stream", ImVec2(-1, 0))) {
+          flowsheet.erase(handle);
+          selected_unit.clear();
+          found = true;
+          return;
+        }
         found = true;
       }
       idx++;
@@ -303,13 +475,22 @@ static void ShowUnitOperations() {
   if (flowsheet.valves_.size_alive() > 0) {
     if (ImGui::CollapsingHeader(("Valves (" + std::to_string(flowsheet.valves_.size_alive()) + ")").c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
       uint32_t idx = 0;
-      flowsheet.valves_.for_each([&](px::Valve& valve) {
+      flowsheet.valves_.for_each_with_handle([&](px::Valve& valve, px::Handle<px::Valve> handle) {
         bool is_selected = selected_unit.type == SelectionType::Valve && selected_unit.index == idx;
         std::string name = valve.get_name().empty() ? "(Unnamed Valve)" : valve.get_name();
+        
+        // Calculate available width
+        float available_width = ImGui::GetContentRegionAvail().x;
+        float button_width = 20.0f;
+        float selectable_width = available_width - button_width - ImGui::GetStyle().ItemSpacing.x;
+        
+        // Selectable takes most of the width
+        ImGui::PushItemWidth(selectable_width);
         if (ImGui::Selectable(name.c_str(), is_selected)) {
           selected_unit.type = SelectionType::Valve;
           selected_unit.index = idx;
         }
+        ImGui::PopItemWidth();
         idx++;
       });
     }
@@ -319,13 +500,22 @@ static void ShowUnitOperations() {
   if (flowsheet.mixers_.size_alive() > 0) {
     if (ImGui::CollapsingHeader(("Mixers (" + std::to_string(flowsheet.mixers_.size_alive()) + ")").c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
       uint32_t idx = 0;
-      flowsheet.mixers_.for_each([&](px::Mixer& mixer) {
+      flowsheet.mixers_.for_each_with_handle([&](px::Mixer& mixer, px::Handle<px::Mixer> handle) {
         bool is_selected = selected_unit.type == SelectionType::Mixer && selected_unit.index == idx;
         std::string name = mixer.get_name().empty() ? "(Unnamed Mixer)" : mixer.get_name();
+        
+        // Calculate available width
+        float available_width = ImGui::GetContentRegionAvail().x;
+        float button_width = 60.0f;
+        float selectable_width = available_width - button_width - ImGui::GetStyle().ItemSpacing.x;
+        
+        // Selectable takes most of the width
+        ImGui::PushItemWidth(selectable_width);
         if (ImGui::Selectable(name.c_str(), is_selected)) {
           selected_unit.type = SelectionType::Mixer;
           selected_unit.index = idx;
         }
+        ImGui::PopItemWidth();
         idx++;
       });
     }
@@ -335,13 +525,22 @@ static void ShowUnitOperations() {
   if (flowsheet.streams_.size_alive() > 0) {
     if (ImGui::CollapsingHeader(("Streams (" + std::to_string(flowsheet.streams_.size_alive()) + ")").c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
       uint32_t idx = 0;
-      flowsheet.streams_.for_each([&](px::Stream& stream) {
+      flowsheet.streams_.for_each_with_handle([&](px::Stream& stream, px::Handle<px::Stream> handle) {
         bool is_selected = selected_unit.type == SelectionType::Stream && selected_unit.index == idx;
         std::string name = stream.name.empty() ? "(Unnamed Stream)" : stream.name;
+        
+        // Calculate available width
+        float available_width = ImGui::GetContentRegionAvail().x;
+        float button_width = 60.0f;
+        float selectable_width = available_width - button_width - ImGui::GetStyle().ItemSpacing.x;
+        
+        // Selectable takes most of the width
+        ImGui::PushItemWidth(selectable_width);
         if (ImGui::Selectable(name.c_str(), is_selected)) {
           selected_unit.type = SelectionType::Stream;
           selected_unit.index = idx;
         }
+        ImGui::PopItemWidth();
         idx++;
       });
     }
@@ -361,6 +560,7 @@ static void ShowMainDock() {
     on_first_load = false;
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    AddLogEntry(LogEntry::Info, "Application started");
   }
 
   ImGui::Begin("Unit Operations");
@@ -374,6 +574,8 @@ static void ShowMainDock() {
   ImGui::Begin("Properties");
   ShowSelectedUnitProperties();
   ImGui::End();
+  
+  ShowLogWindow();
 }
 
 void InitializeImGuiFonts() {
