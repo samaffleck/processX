@@ -652,11 +652,6 @@ static void ShowGui()
     on_first_load = false;
     AddLogEntry(LogEntry::Info, "Application started");
     Themes::SetFluentUIColors();
-    
-    #ifdef EMSCRIPTEN
-    // Notify parent that WASM app is ready after initialization
-    notify_ready();
-    #endif
   }
 
   // Render all dockable windows
@@ -722,6 +717,11 @@ int main(int, char**) {
   
   // Set up docking layout - this creates the layout structure on first load
   params.dockingParams = CreateDefaultLayout();  
+
+  #ifdef EMSCRIPTEN
+  // Notify parent that WASM app is ready after initialization
+  notify_ready();
+  #endif
 
   try {
     HelloImGui::Run(params);
