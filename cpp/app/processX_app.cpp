@@ -15,10 +15,21 @@
 #include <chrono>
 #include <sstream>
 #include <iomanip>
-
 #include "processX/flowsheet.h" 
 
 #include "node_editor.h"
+#include "themes.h"
+
+// Emscripten Includes
+#ifdef EMSCRIPTEN
+#include <emscripten.h>
+#include <emscripten/bind.h>
+
+EM_JS(void, notify_ready, (), {
+  try { parent.postMessage({ type: 'wasmReady' }, window.location.origin); } catch (e) {}
+});
+#endif
+
 
 static px::Flowsheet flowsheet{};
 
@@ -554,15 +565,101 @@ static void ShowUnitOperations() {
   }
 }
 
-static void ShowMainDock() {
+// Docking layout functions
+std::vector<HelloImGui::DockingSplit> CreateDefaultDockingSplits()
+{
+  // Layout structure:
+  //    ┌──────────┬──────────────────┬──────────────┐
+  //    │          │   Flowsheet      │  Properties  │
+  //    │   Log    │   (top right)    │  (top right) │
+  //    │  (25%)   │                  │              │
+  //    │          ├──────────────────┴──────────────┤
+  //    │          │                                  │
+  //    │          │      Palette (bottom right)      │
+  //    │          │                                  │
+  //    └──────────┴──────────────────────────────────┘
+  
+  // Step 1: Split MainDockSpace left to create Log area (25% width)
+  // This leaves MainDockSpace as the right side (75% width)
+  HelloImGui::DockingSplit splitLeft;
+  splitLeft.initialDock = "MainDockSpace";
+  splitLeft.newDock = "LogSpace";
+  splitLeft.direction = ImGuiDir_Left;
+  splitLeft.ratio = 0.25f;
+  
+  // Step 2: Split MainDockSpace down to create bottom area for Palette (25% height)
+  // This leaves MainDockSpace as the top right area (75% height)
+  HelloImGui::DockingSplit splitBottom;
+  splitBottom.initialDock = "MainDockSpace";
+  splitBottom.newDock = "BottomRightSpace";
+  splitBottom.direction = ImGuiDir_Down;
+  splitBottom.ratio = 0.25f;
+  
+  // Step 3: Split MainDockSpace (top right) right to create Properties area (50% width of top right)
+  // This leaves MainDockSpace as Flowsheet (50% width of top right)
+  HelloImGui::DockingSplit splitRight;
+  splitRight.initialDock = "MainDockSpace";
+  splitRight.newDock = "RightSpace";
+  splitRight.direction = ImGuiDir_Right;
+  splitRight.ratio = 0.50f;
+  
+  std::vector<HelloImGui::DockingSplit> splits {splitLeft, splitBottom, splitRight};
+  return splits;
+}
+
+std::vector<HelloImGui::DockableWindow> CreateDockableWindows()
+{
+  std::vector<HelloImGui::DockableWindow> windows;
+  
+  // All windows have empty GuiFunction since we render them manually in ShowGui()
+  // The DockableWindow entries are just for docking layout - they tell hello_imgui where to dock windows
+  
+  // Log - left side (25% width)
+  windows.emplace_back("Log", "LogSpace", []() {}, true, true);
+  windows.back().callBeginEnd = false;
+  
+  // Flowsheet - top right, shares space with Properties (50% of top right)
+  windows.emplace_back("Flowsheet", "MainDockSpace", []() {}, true, true);
+  windows.back().callBeginEnd = false;
+  
+  // Properties - top right, shares space with Flowsheet (50% of top right)
+  windows.emplace_back("Properties", "RightSpace", []() {}, true, true);
+  windows.back().callBeginEnd = false;
+  
+  // Palette (Unit Operations) - bottom right
+  windows.emplace_back("Unit Operations", "BottomRightSpace", []() {}, true, true);
+  windows.back().callBeginEnd = false;
+  
+  return windows;
+}
+
+HelloImGui::DockingParams CreateDefaultLayout()
+{
+  HelloImGui::DockingParams dockingParams;
+  // Set up docking splits to create the layout structure
+  dockingParams.dockingSplits = CreateDefaultDockingSplits();
+  // Register dockable windows with their names and dock spaces - this tells hello_imgui where to dock them
+  dockingParams.dockableWindows = CreateDockableWindows();
+  return dockingParams;
+}
+
+// ShowGui callback - runs every frame, renders all dockable windows
+static void ShowGui()
+{
+  // Initialize on first load (runs once)
   static bool on_first_load = true;
   if (on_first_load) {
     on_first_load = false;
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     AddLogEntry(LogEntry::Info, "Application started");
+    Themes::SetFluentUIColors();
+    
+    #ifdef EMSCRIPTEN
+    // Notify parent that WASM app is ready after initialization
+    notify_ready();
+    #endif
   }
 
+  // Render all dockable windows
   ImGui::Begin("Unit Operations");
   ShowUnitOperationsPalette();
   ImGui::End();
@@ -581,23 +678,40 @@ static void ShowMainDock() {
 void InitializeImGuiFonts() {
   HelloImGui::ImGuiDefaultSettings::LoadDefaultFont_WithFontAwesomeIcons();
 
-  ImFontConfig config;
-  config.MergeMode = true;
-  config.PixelSnapH = true;
-
-  // Unicode Math Symbols block
-  static const ImWchar ranges[] = { 0x2200, 0x22FF, 0 };
-
-  ImGuiIO& io = ImGui::GetIO();
-  std::string fontPath = HelloImGui::AssetFileFullPath("fonts/DejaVuSans.ttf");
-  io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 20.0f, &config, ranges);
+  // Load DejaVuSans font for math symbols
+  // Use hello_imgui's LoadFont helper which handles cross-platform loading automatically
+  try {
+    // Unicode Math Symbols block
+    static const ImWchar ranges[] = { 0x2200, 0x22FF, 0 };
+    
+    ImFontConfig config;
+    config.MergeMode = true; // Merge with existing font
+    config.PixelSnapH = true;
+    config.GlyphRanges = ranges;
+    
+    HelloImGui::FontLoadingParams fontParams;
+    fontParams.fontConfig = config;
+    fontParams.mergeToLastFont = true; // Merge with the last font (default font)
+    fontParams.insideAssets = true; // Load from assets folder
+    fontParams.adjustSizeToDpi = true; // Adjust for High DPI
+    
+    ImFont* font = HelloImGui::LoadFont("fonts/DejaVuSans.ttf", 20.0f, fontParams);
+    if (!font) {
+      std::cerr << "Warning: Failed to load DejaVuSans.ttf font" << std::endl;
+    }
+  } catch (const std::exception& e) {
+    std::cerr << "Error loading font: " << e.what() << std::endl;
+    // Continue without the custom font
+  }
 }
 
 int main(int, char**) {
+  // Set assets folder first, before configuring callbacks that might need assets
+  HelloImGui::SetAssetsFolder("assets");
+  
   HelloImGui::RunnerParams params;
-  HelloImGui::SetAssetsFolder("assets");  
-  params.appWindowParams.windowTitle = "processX";
-  params.callbacks.ShowGui = ShowMainDock;
+  params.callbacks.ShowGui = ShowGui;
+  params.appWindowParams.windowTitle = "ProcessX";
   params.callbacks.LoadAdditionalFonts = InitializeImGuiFonts;
   params.appWindowParams.windowGeometry.windowSizeState = HelloImGui::WindowSizeState::Maximized;
   params.imGuiWindowParams.defaultImGuiWindowType = HelloImGui::DefaultImGuiWindowType::ProvideFullScreenDockSpace;
@@ -605,10 +719,9 @@ int main(int, char**) {
   params.imGuiWindowParams.showMenuBar = false;
   params.imGuiWindowParams.showMenu_App = false;
   params.imGuiWindowParams.showMenu_View = false;
-  // params.dockingParams = CreateDefaultLayout();
-  // #ifdef EMSCRIPTEN
-  // notify_ready(); 
-  // #endif
+  
+  // Set up docking layout - this creates the layout structure on first load
+  params.dockingParams = CreateDefaultLayout();  
 
   try {
     HelloImGui::Run(params);

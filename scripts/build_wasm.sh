@@ -40,10 +40,22 @@ emcmake cmake -S . -B build_wasm \
 # Build
 cmake --build build_wasm --config Release
 
-# Copy artifacts
-cp -f build_wasm/AdSim.html "$PROJECT_ROOT/public/wasm_app/"
-cp -f build_wasm/AdSim.js   "$PROJECT_ROOT/public/wasm_app/"
-cp -f build_wasm/AdSim.wasm "$PROJECT_ROOT/public/wasm_app/"
-cp -f build_wasm/AdSim.data "$PROJECT_ROOT/public/wasm_app/"
-
-echo "Build and copy complete!"
+# Copy artifacts (processX_app is the executable name)
+# Note: .data file may not exist if filesystem is disabled
+if [ -f "build_wasm/processX_app.html" ]; then
+  cp -f build_wasm/processX_app.html "$PROJECT_ROOT/public/wasm_app/"
+  cp -f build_wasm/processX_app.js   "$PROJECT_ROOT/public/wasm_app/"
+  cp -f build_wasm/processX_app.wasm "$PROJECT_ROOT/public/wasm_app/"
+  
+  # Copy .data file if it exists (only created when using filesystem preloading)
+  if [ -f "build_wasm/processX_app.data" ]; then
+    cp -f build_wasm/processX_app.data "$PROJECT_ROOT/public/wasm_app/"
+  fi
+  
+  echo "Build and copy complete!"
+  echo "WASM files copied to: $PROJECT_ROOT/public/wasm_app/"
+else
+  echo "[ERROR] processX_app.html not found in build_wasm/"
+  echo "Build may have failed. Check build output above."
+  exit 1
+fi

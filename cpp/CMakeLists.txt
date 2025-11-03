@@ -20,6 +20,31 @@ else()
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# ---- Emscripten global settings (must be before dependencies) ----
+if(EMSCRIPTEN)
+  # Create a list of Emscripten-specific flags
+  set(EMSCRIPTEN_FLAGS
+    "-fexceptions"
+    "-sNO_DISABLE_EXCEPTION_CATCHING=1"
+    "-sALLOW_MEMORY_GROWTH=1"
+    # "-sUSE_GLFW=3"
+    # "-sUSE_WEBGL2=1"
+    # "-sNO_EXIT_RUNTIME=1"
+    # "-sFULL_ES3=1"
+    # "-sASSERTIONS=2"
+  )
+  
+  # Convert the list to space-separated string
+  string(JOIN " " EMSCRIPTEN_FLAGS_STR ${EMSCRIPTEN_FLAGS})
+  
+  # Set the flags globally
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EMSCRIPTEN_FLAGS_STR}")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${EMSCRIPTEN_FLAGS_STR}")
+  
+  # Set additional linker flags for WASM and filesystem
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -sWASM=1 -sASSERTIONS=1 -sFORCE_FILESYSTEM=1")
+endif()
+
 # ---- Header-only helper targets (cereal, EnTT) ----
 add_library(cereal INTERFACE)
 target_include_directories(cereal INTERFACE
@@ -39,7 +64,25 @@ add_subdirectory(external/eigen EXCLUDE_FROM_ALL)  # Provides Eigen3::Eigen
 # ---- CoolProp (optional) ----
 if(PROCESSX_USE_COOLPROP)
   set(COOLPROP_STATIC_LIBRARY ON CACHE BOOL "Build CoolProp as a static library")
+  
+  # Emscripten-specific: Disable inline assembly (incbin) which doesn't work with WASM
+  if(EMSCRIPTEN)
+    # Add the define before CoolProp is configured
+    add_definitions(-DCOOLPROP_NO_INCBIN)
+    message(STATUS "CoolProp: Disabling inline assembly (COOLPROP_NO_INCBIN) for Emscripten/WASM")
+  endif()
+  
   add_subdirectory(external/CoolProp)
+  
+  # Also add the define to CoolProp targets after they're created
+  if(EMSCRIPTEN)
+    if(TARGET CoolProp)
+      target_compile_definitions(CoolProp PRIVATE COOLPROP_NO_INCBIN)
+    endif()
+    if(TARGET CoolProp::CoolProp)
+      target_compile_definitions(CoolProp::CoolProp INTERFACE COOLPROP_NO_INCBIN)
+    endif()
+  endif()
 endif()
 
 # ---- SUNDIALS (optional) ----
@@ -64,9 +107,13 @@ endif()
 
 # ---- hello_imgui (for apps/UI) ----
 if(PROCESSX_BUILD_APPS)
+  # Set hello_imgui options before adding subdirectory (important!)
   set(HELLOIMGUI_BUILD_DEMOS OFF CACHE BOOL "" FORCE)
   set(HELLOIMGUI_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-
+  set(HELLOIMGUI_ADD_APP_WITH_INSTALL OFF CACHE BOOL "" FORCE)
+  set(HELLOIMGUI_INSTALL OFF CACHE BOOL "" FORCE)
+  set(HELLOIMGUI_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+  
   # Disable Metal so the target isn't compiled as ObjC++
   set(HELLOIMGUI_USE_METAL OFF CACHE BOOL "" FORCE)   # <- primary switch
   # Some versions use different toggles; belt & suspenders:
@@ -118,20 +165,42 @@ endif()
 
 # ---- Apps (optional) ----
 if(PROCESSX_BUILD_APPS)
-  add_executable(processX_app app/processX_app.cpp)
-  # Link using plain target or the alias; both work
-  if(TARGET hello_imgui::hello_imgui)
-    target_link_libraries(processX_app PRIVATE ${PROJECT_NAME} hello_imgui::hello_imgui)
-  else()
-    target_link_libraries(processX_app PRIVATE ${PROJECT_NAME} hello_imgui)
+  # Disable macOS bundle creation for development (creates regular executable instead of .app bundle)
+  # Set to OFF if you want to create a .app bundle for distribution
+  if(APPLE AND NOT EMSCRIPTEN)
+    set(HELLOIMGUI_MACOS_NO_BUNDLE ON CACHE BOOL "Disable macOS app bundle creation" FORCE)
   endif()
+  
+  # Use hello_imgui_add_app which automatically handles:
+  # - Linking to hello_imgui
+  # - Asset bundling (including shell file for Emscripten)
+  # - Platform-specific customization
+  # Assets are at cpp/app/assets (relative to CMAKE_SOURCE_DIR which is cpp/)
+  hello_imgui_add_app(
+    processX_app 
+    app/processX_app.cpp
+    ASSETS_LOCATION "${CMAKE_SOURCE_DIR}/app/assets"
+  )
+  
+  # Link to processX library
+  target_link_libraries(processX_app PRIVATE ${PROJECT_NAME})
   target_compile_features(processX_app PRIVATE cxx_std_17)
-  # after add_executable(processX_app ...)
 
-  add_custom_command(TARGET processX_app POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_SOURCE_DIR}/app/assets"
-            "$<TARGET_FILE_DIR:processX_app>/assets")
+  # Emscripten/WASM specific configuration
+  if(EMSCRIPTEN)
+    message(STATUS "Configuring processX_app for Emscripten/WASM build")
+    
+    # Apply Emscripten flags to the target
+    target_compile_options(processX_app PRIVATE ${EMSCRIPTEN_FLAGS})
+    target_link_options(processX_app PRIVATE ${EMSCRIPTEN_FLAGS})
+    
+    # Emscripten target-specific link options (matching working example)
+    target_link_options(
+      processX_app PRIVATE
+        "SHELL:-sDISABLE_EXCEPTION_CATCHING=0"
+        "SHELL:-sASSERTIONS=2"
+    )
+  endif()
 endif()
 
 # ---- Tests (optional) ----
@@ -163,3 +232,6 @@ message(STATUS "  PROCESSX_BUILD_APPS   = ${PROCESSX_BUILD_APPS}")
 message(STATUS "  PROCESSX_BUILD_TESTS  = ${PROCESSX_BUILD_TESTS}")
 message(STATUS "  PROCESSX_USE_COOLPROP = ${PROCESSX_USE_COOLPROP}")
 message(STATUS "  PROCESSX_USE_SUNDIALS = ${PROCESSX_USE_SUNDIALS}")
+if(EMSCRIPTEN)
+  message(STATUS "  Building for Emscripten/WASM")
+endif()
