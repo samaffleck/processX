@@ -24,8 +24,6 @@
 // Emscripten Includes
 #ifdef EMSCRIPTEN
 #include <emscripten.h>
-#include <emscripten/bind.h>
-#include <emscripten/val.h>
 
 EM_JS(void, notify_ready, (), {
   try { parent.postMessage({ type: 'wasmReady' }, window.location.origin); } catch (e) {}
@@ -47,24 +45,51 @@ std::string GetFlowsheetJSONString() {
 
 // Expose function to JavaScript using Emscripten
 #ifdef EMSCRIPTEN
-// Using EMSCRIPTEN_KEEPALIVE to expose function
+// Internal C function that returns JSON string pointer
 extern "C" {
   EMSCRIPTEN_KEEPALIVE
-  const char* GetFlowsheetJSON() {
+  const char* GetFlowsheetJSONPtr() {
     static std::string json_str;
     json_str = GetFlowsheetJSONString();
     return json_str.c_str();
   }
 }
 
-// Alternative: Using emscripten::val for better JS integration
-emscripten::val GetFlowsheetJSONVal() {
-  return emscripten::val(GetFlowsheetJSONString());
-}
-
-EMSCRIPTEN_BINDINGS(flowsheet_module) {
-  emscripten::function("getFlowsheetJSON", &GetFlowsheetJSONVal);
-}
+// JavaScript wrapper function that converts pointer to string and returns it
+EM_JS(void, SetupGetFlowsheetJSON, (), {
+  Module.getFlowsheetJSON = function() {
+    var ptr = Module._GetFlowsheetJSONPtr();
+    if (!ptr) return null;
+    
+    // Find the length of the null-terminated string
+    var length = 0;
+    var start = ptr;
+    while (HEAP8[ptr]) {
+      length++;
+      ptr++;
+    }
+    
+    // Read UTF-8 bytes from memory
+    var bytes = new Uint8Array(length);
+    for (var i = 0; i < length; i++) {
+      bytes[i] = HEAP8[start + i];
+    }
+    
+    // Decode UTF-8 to JavaScript string
+    // Use TextDecoder if available, otherwise fall back to simple decoding
+    if (typeof TextDecoder !== 'undefined') {
+      var decoder = new TextDecoder('utf-8');
+      return decoder.decode(bytes);
+    } else {
+      // Fallback: simple ASCII/UTF-8 decoding (works for JSON)
+      var result = '';
+      for (var i = 0; i < length; i++) {
+        result += String.fromCharCode(bytes[i]);
+      }
+      return result;
+    }
+  };
+});
 #endif
 
 // Log system
@@ -686,6 +711,10 @@ static void ShowGui()
     on_first_load = false;
     AddLogEntry(LogEntry::Info, "Application started");
     Themes::SetFluentUIColors();
+    
+    #ifdef EMSCRIPTEN
+    SetupGetFlowsheetJSON();
+    #endif
   }
 
   // Render all dockable windows

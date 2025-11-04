@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Upload, FileJson, X } from 'lucide-react';
+import { Send, Bot, User } from 'lucide-react';
 import ProcessXWasmApp from '../components/ProcessXWasmApp';
 
 interface Message {
@@ -15,49 +15,72 @@ export default function CopilotPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [jsonData, setJsonData] = useState<any>(null);
-  const [jsonString, setJsonString] = useState('');
-  const [showJsonInput, setShowJsonInput] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Function to get flowsheet JSON from WASM module
+  const getFlowsheetJSON = (): any | null => {
+    try {
+      // Find the iframe containing the WASM app
+      const iframe = document.querySelector('iframe[src*="processX_app.html"]') as HTMLIFrameElement;
+      if (!iframe || !iframe.contentWindow) {
+        console.warn('WASM iframe not found');
+        return null;
+      }
+
+      // Access the Module from the iframe
+      const iframeWindow = iframe.contentWindow as any;
+      if (!iframeWindow.Module) {
+        console.warn('WASM Module not found in iframe');
+        return null;
+      }
+
+      // Call the exposed function (set up via EM_JS)
+      const Module = iframeWindow.Module;
+      
+      if (!Module) {
+        console.warn('WASM Module not found');
+        return null;
+      }
+
+      // Use the JavaScript wrapper function created by EM_JS
+      let jsonString: string | null = null;
+      try {
+        if (typeof Module.getFlowsheetJSON === 'function') {
+          jsonString = Module.getFlowsheetJSON();
+        } else {
+          console.warn('Module.getFlowsheetJSON function not found. Module may not be fully initialized.');
+          return null;
+        }
+      } catch (error) {
+        console.error('Error calling getFlowsheetJSON:', error);
+        return null;
+      }
+      
+      if (!jsonString) {
+        console.warn('Failed to get flowsheet JSON - function returned null');
+        return null;
+      }
+
+      // Parse and return the JSON
+      try {
+        return JSON.parse(jsonString);
+      } catch (parseError) {
+        console.error('Failed to parse flowsheet JSON:', parseError);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error getting flowsheet JSON:', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const content = e.target?.result as string;
-          const parsed = JSON.parse(content);
-          setJsonData(parsed);
-          setJsonString(content);
-          addMessage('assistant', `Successfully loaded JSON file: ${file.name}`);
-        } catch (error) {
-          addMessage('assistant', `Error: Invalid JSON file. ${error}`);
-        }
-      };
-      reader.readAsText(file);
-    }
-  };
-
-  const handlePasteJson = () => {
-    try {
-      const parsed = JSON.parse(jsonString);
-      setJsonData(parsed);
-      setShowJsonInput(false);
-      addMessage('assistant', 'JSON data loaded successfully! You can now ask questions about it.');
-    } catch (error) {
-      addMessage('assistant', `Error: Invalid JSON format. ${error}`);
-    }
-  };
 
   const addMessage = (role: 'user' | 'assistant', content: string) => {
     const newMessage: Message = {
@@ -79,19 +102,8 @@ export default function CopilotPage() {
     setIsLoading(true);
 
     try {
-      // Prepare JSON data - try to parse if jsonString exists, otherwise use jsonData
-      let parsedJsonData = null;
-      if (jsonData) {
-        parsedJsonData = jsonData;
-      } else if (jsonString.trim()) {
-        try {
-          parsedJsonData = JSON.parse(jsonString);
-        } catch (parseError) {
-          addMessage('assistant', 'Error: Invalid JSON format. Please upload or paste valid JSON data.');
-          setIsLoading(false);
-          return;
-        }
-      }
+      // Get flowsheet JSON from WASM module
+      const flowsheetJSON = getFlowsheetJSON();
 
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -100,7 +112,7 @@ export default function CopilotPage() {
         },
         body: JSON.stringify({
           message: userMessage,
-          jsonData: parsedJsonData, // Can be null if no JSON data
+          jsonData: flowsheetJSON, // Flowsheet JSON from WASM module
           conversationHistory: messages.map((m) => ({
             role: m.role,
             content: m.content,
@@ -142,114 +154,6 @@ export default function CopilotPage() {
 
       {/* Right Side - Chat */}
       <div className="w-[400px] h-full flex flex-col" style={{ backgroundColor: '#212121', borderLeft: '1px solid #4D4D4D' }}>
-        {/* JSON Controls - Compact Header */}
-        <div className="p-3 flex items-center gap-2 flex-shrink-0" style={{ borderBottom: '1px solid #4D4D4D' }}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="px-3 py-1.5 text-xs rounded-[5px] transition-colors flex items-center gap-1.5"
-            style={{ 
-              backgroundColor: '#404040',
-              border: '1px solid #4D4D4D',
-              color: '#F2F2F2'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4D4D4D'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#404040'}
-            title="Upload JSON"
-          >
-            <Upload className="w-3 h-3" />
-            <span>Upload</span>
-          </button>
-          <button
-            onClick={() => setShowJsonInput(!showJsonInput)}
-            className="px-3 py-1.5 text-xs rounded-[5px] transition-colors flex items-center gap-1.5"
-            style={{ 
-              backgroundColor: '#404040',
-              border: '1px solid #4D4D4D',
-              color: '#F2F2F2'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4D4D4D'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#404040'}
-            title="Paste JSON"
-          >
-            <FileJson className="w-3 h-3" />
-            <span>JSON</span>
-          </button>
-          {jsonData && (
-            <button
-              onClick={() => {
-                setJsonData(null);
-                setJsonString('');
-                addMessage('assistant', 'JSON data cleared.');
-              }}
-              className="px-2 py-1.5 text-xs rounded-[5px] transition-colors"
-              style={{ 
-                backgroundColor: '#404040',
-                border: '1px solid #4D4D4D',
-                color: '#F2F2F2'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4D4D4D'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#404040'}
-              title="Clear JSON"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
-        </div>
-
-        {/* JSON Input Modal */}
-        {showJsonInput && (
-          <div 
-            className="absolute top-12 right-[420px] w-96 p-4 rounded-[5px] shadow-xl z-50"
-            style={{ 
-              backgroundColor: '#2E2E2E',
-              border: '1px solid #4D4D4D'
-            }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium" style={{ color: '#F2F2F2' }}>Paste JSON Data</label>
-              <button
-                onClick={() => setShowJsonInput(false)}
-                className="p-1 rounded-[5px] transition-colors"
-                style={{ color: '#F2F2F2' }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333333'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <textarea
-              value={jsonString}
-              onChange={(e) => setJsonString(e.target.value)}
-              placeholder="Paste your JSON data here..."
-              className="w-full h-32 p-3 rounded-[5px] text-xs font-mono resize-none focus:outline-none"
-              style={{ 
-                backgroundColor: '#1A1A1A',
-                border: '1px solid #4D4D4D',
-                color: '#F2F2F2'
-              }}
-            />
-            <button
-              onClick={handlePasteJson}
-              className="mt-2 w-full px-3 py-2 rounded-[5px] transition-colors text-sm"
-              style={{ 
-                backgroundColor: '#404040',
-                color: '#F2F2F2'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4D4D4D'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#404040'}
-            >
-              Load JSON
-            </button>
-          </div>
-        )}
-
         {/* Chat Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
