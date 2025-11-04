@@ -15,6 +15,7 @@
 #include <chrono>
 #include <sstream>
 #include <iomanip>
+#include <cereal/archives/json.hpp>
 #include "processX/flowsheet.h" 
 
 #include "node_editor.h"
@@ -24,6 +25,7 @@
 #ifdef EMSCRIPTEN
 #include <emscripten.h>
 #include <emscripten/bind.h>
+#include <emscripten/val.h>
 
 EM_JS(void, notify_ready, (), {
   try { parent.postMessage({ type: 'wasmReady' }, window.location.origin); } catch (e) {}
@@ -32,6 +34,38 @@ EM_JS(void, notify_ready, (), {
 
 
 static px::Flowsheet flowsheet{};
+
+// Function to serialize flowsheet to JSON string
+std::string GetFlowsheetJSONString() {
+  std::ostringstream oss;
+  {
+    cereal::JSONOutputArchive archive(oss);
+    archive(cereal::make_nvp("Flowsheet_Data", flowsheet));
+  }
+  return oss.str();
+}
+
+// Expose function to JavaScript using Emscripten
+#ifdef EMSCRIPTEN
+// Using EMSCRIPTEN_KEEPALIVE to expose function
+extern "C" {
+  EMSCRIPTEN_KEEPALIVE
+  const char* GetFlowsheetJSON() {
+    static std::string json_str;
+    json_str = GetFlowsheetJSONString();
+    return json_str.c_str();
+  }
+}
+
+// Alternative: Using emscripten::val for better JS integration
+emscripten::val GetFlowsheetJSONVal() {
+  return emscripten::val(GetFlowsheetJSONString());
+}
+
+EMSCRIPTEN_BINDINGS(flowsheet_module) {
+  emscripten::function("getFlowsheetJSON", &GetFlowsheetJSONVal);
+}
+#endif
 
 // Log system
 struct LogEntry {
