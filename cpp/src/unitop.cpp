@@ -30,7 +30,9 @@ namespace px {
     auto& so = fs.get<Stream>(out);
     sys.add(name + ": balance", [&](){ return si.molar_flow.value - so.molar_flow.value; });
     sys.add(name + ": PF",      [&, self](){ return so.molar_flow.value - self->Cv.value * (si.pressure.value - so.pressure.value); });
-    sys.add(name + ": energy",  [&](){ return so.molar_enthalpy.value * so.molar_flow.value - si.molar_enthalpy.value * si.molar_flow.value; });
+    // For adiabatic valve: H_in = H_out (enthalpy equality)
+    // Energy balance H_out * F_out = H_in * F_in with F_in = F_out gives H_out = H_in
+    sys.add(name + ": h_equal", [&](){ return si.molar_enthalpy.value - so.molar_enthalpy.value; });
   }
 
   bool Mixer::validate(const Flowsheet& fs, std::string* why) const {

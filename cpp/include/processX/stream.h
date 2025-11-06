@@ -19,7 +19,7 @@ namespace px {
     Var molar_flow{"Molar Flowrate", 0.0, false}; // mol/s
     Var pressure{"Pressure", 0.0, false};   // Pa
     Var temperature{"Temperature", 300.0, true}; // K
-    Var molar_enthalpy{"Molar Enthalpy", 0.0, true}; // J/mol
+    Var molar_enthalpy{"Molar Enthalpy", 0.0, false}; // J/mol
     
   private:
     friend class cereal::access;

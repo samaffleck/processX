@@ -85,6 +85,10 @@ namespace px {
     out.molar_flow.set_val(1, false);
     mid.molar_flow.set_val(1, false);
     mid.pressure.set_val(1, false);
+    
+    // Fix enthalpies: each valve needs 1 fixed (2 valves, 3 streams, need 2 fixed)
+    in.molar_enthalpy.set_val(0.0, true);
+    mid.molar_enthalpy.set_val(0.0, true);
 
     run();
 
@@ -138,6 +142,10 @@ namespace px {
     mid.molar_flow.set_val(0.0, false);
     out.molar_flow.set_val(0.0, false);
     mid.pressure.set_val((Pin + Pout) * 0.5, false);
+    
+    // Fix enthalpies: each valve needs 1 fixed (2 valves, 3 streams, need 2 fixed)
+    in.molar_enthalpy.set_val(0.0, true);
+    mid.molar_enthalpy.set_val(0.0, true);
 
     run();
 
@@ -183,6 +191,10 @@ namespace px {
 
     out.molar_flow.set_val(0.8, false);
     
+    // Fix enthalpies: mixer has 3 enthalpies, 1 energy balance, need to fix 2
+    in1.molar_enthalpy.set_val(0.0, true);
+    in2.molar_enthalpy.set_val(0.0, true);
+    
     run();
 
     const double F = F1 + F2;
@@ -220,6 +232,9 @@ namespace px {
     out1.molar_flow.set_val(F1, true);
     out2.molar_flow.set_val(F2, false);  // Unknown - should equal F - F1
     
+    // Fix enthalpy: splitter has enthalpy equality (H_in = H_out1 = H_out2), so fix 1
+    in.molar_enthalpy.set_val(0.0, true);
+    
     run();
 
     EXPECT_NEAR(in.molar_flow.value, out1.molar_flow.value + out2.molar_flow.value, 1e-10);
@@ -251,6 +266,9 @@ namespace px {
     // Unknowns
     out.molar_flow.set_val(0.0,   false);  // F_out
     val.Cv.set_val(1.0,   false);  // Cv
+    
+    // Fix enthalpy: valve has 2 enthalpies, 1 energy balance, need to fix 1
+    in.molar_enthalpy.set_val(0.0, true);
 
     run();
 
@@ -288,6 +306,9 @@ namespace px {
     // Unknowns
     out.molar_flow.set_val(0.0,  false); // F_out
     out.pressure.set_val(1.0e5, false); // P_out
+    
+    // Fix enthalpy: valve has 2 enthalpies, 1 energy balance, need to fix 1
+    in.molar_enthalpy.set_val(0.0, true);
 
     run();
 
@@ -324,6 +345,9 @@ namespace px {
     // Unknowns
     in.molar_flow .set_val(0.0, false); // F_in
     out.molar_flow.set_val(0.0, false); // F_out
+    
+    // Fix enthalpy: valve has 2 enthalpies, 1 energy balance, need to fix 1
+    in.molar_enthalpy.set_val(0.0, true);
 
     run();
 
@@ -357,6 +381,9 @@ namespace px {
     // Unknowns (under-determined without an extra condition; we assert consistency)
     in.pressure.set_val(2.0e5,  false); // P_in (free)
     val.Cv.set_val(1.0e-5, false); // Cv (free)
+    
+    // Fix enthalpy: valve has 2 enthalpies, 1 energy balance, need to fix 1
+    in.molar_enthalpy.set_val(0.0, true);
 
     auto converged = run();
     ASSERT_FALSE(converged); // We expect it to FAIL!
@@ -409,6 +436,17 @@ namespace px {
     // Set initial guesses for unknowns
     middle.molar_flow.set_val(15.0, false);  // Should be F_in + F_recycle = 15
     out.molar_flow.set_val(10.0, false);    // Should be F_in = 10
+    
+    // Fix enthalpies:
+    // Mixer: 3 enthalpies (in, recycle, middle), 1 energy balance → fix 2
+    // Splitter: 3 enthalpies (middle, out, recycle), but enthalpy equality (H_middle = H_out = H_recycle) → fix 1
+    // Strategy: Fix in and recycle for mixer (2 fixed), and middle for splitter (1 fixed, determines out and recycle by equality)
+    // But recycle is shared, so if we fix recycle for mixer and middle for splitter, recycle is determined by splitter equality
+    // Better: Fix in and recycle for mixer, then splitter equality determines middle, out, and recycle (but recycle already fixed)
+    // Actually: Fix in and recycle for mixer, then middle is determined by mixer energy balance, then splitter equality determines out
+    in.molar_enthalpy.set_val(0.0, true);
+    recycle.molar_enthalpy.set_val(0.0, true);
+    // middle will be determined by mixer energy balance, then splitter equality will determine out
     
     std::cout << "\n=== Recycle Loop Test ===" << std::endl;
 
