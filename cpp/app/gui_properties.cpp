@@ -198,6 +198,13 @@ void ShowStreamProperties(px::Stream& stream) {
   ImGui::SameLine();
   ImGui::Checkbox("Fixed##TemperatureFixed", &stream.temperature.fixed);
 
+  ImGui::Text("Molar Enthalpy (J/mol):");
+  if (ImGui::InputDouble("##MolarEnthalpy", &stream.molar_enthalpy.value)) {
+    // Value updated
+  }
+  ImGui::SameLine();
+  ImGui::Checkbox("Fixed##MolarEnthalpyFixed", &stream.molar_enthalpy.fixed);
+
   ImGui::PopItemWidth();
 }
 
