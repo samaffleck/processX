@@ -43,7 +43,8 @@ namespace px {
   static NewtonReport newton_solve(UnknownsRegistry& reg, ResidualSystem& sys, const NewtonOptions& opt={}){
     NewtonReport rep;
     size_t n=reg.size(), m=sys.size();
-    if(n!=m){ rep.msg="DOF mismatch: unknowns="+std::to_string(n)+" equations="+std::to_string(m); if(opt.verbose){ std::cerr<<"[Newton] "<<rep.msg<<"\nUnknowns: "<<reg.unknowns_list()<<"\n"; for(size_t i=0;i<sys.names.size();++i) std::cerr<<"  Eq"<<i<<": "<<sys.names[i]<<"\n"; } return rep; }
+    // Allow equations >= unknowns (redundancy handled by rank analysis in assemble)
+    if(n>m){ rep.msg="DOF mismatch: unknowns="+std::to_string(n)+" > equations="+std::to_string(m)+" (under-specified)"; if(opt.verbose){ std::cerr<<"[Newton] "<<rep.msg<<"\nUnknowns: "<<reg.unknowns_list()<<"\n"; for(size_t i=0;i<sys.names.size();++i) std::cerr<<"  Eq"<<i<<": "<<sys.names[i]<<"\n"; } return rep; }
     if(n==0){ rep.converged=true; rep.msg="Nothing to solve."; return rep; }
 
     for(int it=0; it<opt.max_iters; ++it){
@@ -64,9 +65,37 @@ namespace px {
         for(size_t i=0;i<m;++i) J[i][j]=(rph[i]-r[i])/h;
       }
 
-      std::vector<double> rhs(n,0.0);
-      for(size_t i=0;i<n;++i) rhs[i]=-r[i];
-      auto [ok, dx] = solve_linear(J, rhs);
+      // For overdetermined systems (m > n), use least squares: solve J^T J dx = -J^T r
+      // For square systems (m == n), solve J dx = -r directly
+      std::vector<double> rhs;
+      std::vector<std::vector<double>> A_solve;
+      
+      if (m > n) {
+        // Overdetermined: form normal equations J^T J dx = -J^T r
+        A_solve.assign(n, std::vector<double>(n, 0.0));
+        rhs.assign(n, 0.0);
+        for (size_t i = 0; i < n; ++i) {
+          for (size_t j = 0; j < n; ++j) {
+            double sum = 0.0;
+            for (size_t k = 0; k < m; ++k) {
+              sum += J[k][i] * J[k][j];
+            }
+            A_solve[i][j] = sum;
+          }
+          double sum = 0.0;
+          for (size_t k = 0; k < m; ++k) {
+            sum += J[k][i] * (-r[k]);
+          }
+          rhs[i] = sum;
+        }
+      } else {
+        // Square system: use J directly
+        A_solve = J;
+        rhs.assign(n, 0.0);
+        for(size_t i=0;i<n;++i) rhs[i]=-r[i];
+      }
+      
+      auto [ok, dx] = solve_linear(A_solve, rhs);
       if(!ok){ rep.msg="Singular Jacobian."; if(opt.verbose) std::cerr<<"[Newton] "<<rep.msg<<"\n"; return rep; }
 
       double alpha=1.0, c1=1e-4; bool accepted=false;

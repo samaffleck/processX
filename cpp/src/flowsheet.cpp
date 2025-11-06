@@ -22,12 +22,13 @@ namespace px {
     for (auto* u : units_) u->register_unknowns(*this, reg);
     for (auto* u : units_) u->add_equations(*this, sys);
 
-    // DOF check
-    if (reg.size() != sys.size()) {
+    // DOF check: allow equations >= unknowns (redundancy will be caught by rank analysis)
+    if (reg.size() > sys.size()) {
       if (err) *err = "DOF mismatch: unknowns=" + std::to_string(reg.size())
-                    + " equations=" + std::to_string(sys.size());
+                    + " > equations=" + std::to_string(sys.size()) + " (under-specified)";
       return false;
     }
+    // Note: equations > unknowns is OK - rank analysis will detect redundant equations
 
     // Structural analysis (same helpers we built earlier)
     auto a = analyze_system(reg, sys, /*fd_rel=*/1e-6, /*fd_abs=*/1e-8);
@@ -39,9 +40,11 @@ namespace px {
       }
       return false;
     }
-    if (!a.redundant_eqs.empty()) {
+    // Check for redundant equations - only fail if rank is insufficient
+    // Redundant equations with zero residual are OK (e.g., pressure equalities when all pressures are fixed)
+    if (!a.redundant_eqs.empty() && a.rank < (int)reg.size()) {
       if (err) {
-        *err = "Redundant equations:\n";
+        *err = "Redundant equations causing rank deficiency:\n";
         for (int i : a.redundant_eqs) *err += "  - " + sys.names[(size_t)i] + "\n";
         *err += "rank(J)=" + std::to_string(a.rank) + " < unknowns=" + std::to_string(reg.size());
       }

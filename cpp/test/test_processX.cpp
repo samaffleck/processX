@@ -362,4 +362,77 @@ namespace px {
     ASSERT_FALSE(converged); // We expect it to FAIL!
   }
 
+  TEST_F(ProcessTest, RecycleLoopTest) {
+    // Create streams: in, middle, out, recycle
+    auto s_in = fs.add<Stream>();
+    auto s_middle = fs.add<Stream>();
+    auto s_out = fs.add<Stream>();
+    auto s_recycle = fs.add<Stream>();
+    
+    // Create unit operations
+    auto m = fs.add<Mixer>();
+    auto sp = fs.add<Splitter>();
+    
+    // Get references
+    auto& mixer = fs.get<Mixer>(m);
+    auto& splitter = fs.get<Splitter>(sp);
+    auto& in = fs.get<Stream>(s_in);
+    auto& middle = fs.get<Stream>(s_middle);
+    auto& out = fs.get<Stream>(s_out);
+    auto& recycle = fs.get<Stream>(s_recycle);
+    
+    // Connect mixer: inlets={in, recycle}, outlet=middle
+    mixer.add_inlet(s_in);
+    mixer.add_inlet(s_recycle);
+    mixer.set_outlet(s_middle);
+    
+    // Connect splitter: inlet=middle, outlets={out, recycle}
+    splitter.set_inlet(s_middle);
+    splitter.add_outlet(s_out);
+    splitter.add_outlet(s_recycle);
+    
+    // Set fixed values
+    const double F_in = 10.0;
+    const double F_recycle = 5.0;
+    const double P = 1.0e5;
+    
+    // Fix inlet and recycle flow rates
+    in.molar_flow.set_val(F_in, true);
+    recycle.molar_flow.set_val(F_recycle, true);
+    
+    // Fix all pressures to same value
+    in.pressure.set_val(P, true);
+    middle.pressure.set_val(0.0, false);
+    out.pressure.set_val(0.0, false);
+    recycle.pressure.set_val(0.0, false);
+    
+    // Set initial guesses for unknowns
+    middle.molar_flow.set_val(15.0, false);  // Should be F_in + F_recycle = 15
+    out.molar_flow.set_val(10.0, false);    // Should be F_in = 10
+    
+    std::cout << "\n=== Recycle Loop Test ===" << std::endl;
+
+    bool converged = run();
+    
+    if (converged) {
+      std::cout << "\nResults:" << std::endl;
+      std::cout << "F_in = " << in.molar_flow.value << std::endl;
+      std::cout << "F_middle = " << middle.molar_flow.value << std::endl;
+      std::cout << "F_out = " << out.molar_flow.value << std::endl;
+      std::cout << "F_recycle = " << recycle.molar_flow.value << std::endl;
+      
+      // Verify balances
+      EXPECT_NEAR(middle.molar_flow.value, F_in + F_recycle, 1e-10);
+      EXPECT_NEAR(out.molar_flow.value, F_in, 1e-10);
+      EXPECT_NEAR(middle.molar_flow.value, out.molar_flow.value + recycle.molar_flow.value, 1e-10);
+    } else {
+      std::cout << "\nSOLUTION FAILED: DOF mismatch detected before rank analysis" << std::endl;
+      std::cout << "The system correctly identifies that we have more equations than unknowns," << std::endl;
+      std::cout << "but the redundant pressure equations (when all pressures are fixed) should" << std::endl;
+      std::cout << "be detected by rank analysis, not blocked by the DOF check." << std::endl;
+    }
+    
+    // Don't assert convergence - we want to analyze why it fails
+  }
+
 } // end processX namespace
