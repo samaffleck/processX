@@ -32,7 +32,7 @@ namespace px {
 
   bool Mixer::validate(const Flowsheet& fs, std::string* why) const {
     if (!out.valid()) { if (why) *why = "outlet not connected"; return false; }
-    if (in.size() < 2) { if (why) *why = "mixer needs at least two inlets"; return false; }
+    if (in.size() < 1) { if (why) *why = "mixer needs at least one inlet"; return false; }
     for (size_t i = 0; i < in.size(); ++i) {
       if (!in[i].valid()) { if (why) *why = "one or more inlets not connected"; return false; }
     }
@@ -68,6 +68,44 @@ namespace px {
     }
   }
 
+  bool Splitter::validate(const Flowsheet& fs, std::string* why) const {
+    if (!in.valid()) { if (why) *why = "inlet not connected"; return false; }
+    if (out.size() < 1) { if (why) *why = "splitter needs at least one outlet"; return false; }
+    for (size_t i = 0; i < out.size(); ++i) {
+      if (!out[i].valid()) { if (why) *why = "one or more outlets not connected"; return false; }
+    }
+    return true;
+  }
+
+  void Splitter::register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) {
+    auto& si = fs.get<Stream>(in);
+    reg.register_var(si.molar_flow);
+    reg.register_var(si.pressure);
+
+    for (auto h : out) {
+      auto& so = fs.get<Stream>(h);
+      reg.register_var(so.molar_flow);
+      reg.register_var(so.pressure);
+    }
+  }
+
+  void Splitter::add_equations(Flowsheet& fs, ResidualSystem& sys) {
+    auto& si = fs.get<Stream>(in);
+
+    sys.add(name + ": total balance", [&]() {
+      double sum_out = 0.0;
+      for (auto h : out) sum_out += fs.get<Stream>(h).molar_flow.value;
+      return si.molar_flow.value - sum_out;
+    });
+
+    for (size_t i = 0; i < out.size(); ++i) {
+      auto& so = fs.get<Stream>(out[i]);
+      sys.add(name + ": p_equal[" + std::to_string(i) + "]", [&si, &so]() {
+        return si.pressure.value - so.pressure.value;
+      });
+    }
+  }
+
 } // namespace px
 
 CEREAL_REGISTER_TYPE(px::Valve)
@@ -77,3 +115,7 @@ CEREAL_CLASS_VERSION(px::Valve, 0)
 CEREAL_REGISTER_TYPE(px::Mixer)
 CEREAL_REGISTER_POLYMORPHIC_RELATION(px::IUnitOp, px::Mixer)
 CEREAL_CLASS_VERSION(px::Mixer, 0)
+
+CEREAL_REGISTER_TYPE(px::Splitter)
+CEREAL_REGISTER_POLYMORPHIC_RELATION(px::IUnitOp, px::Splitter)
+CEREAL_CLASS_VERSION(px::Splitter, 0)

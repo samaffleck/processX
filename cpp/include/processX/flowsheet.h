@@ -35,6 +35,7 @@ namespace px {
     Registry<Stream> streams_;
     Registry<Valve>  valves_;
     Registry<Mixer> mixers_;
+    Registry<Splitter> splitters_;
 
     std::vector<IUnitOp*> units_;
 
@@ -51,6 +52,8 @@ namespace px {
         return valves_;
       } else if constexpr (std::is_same_v<T, Mixer>) {
         return mixers_;
+      } else if constexpr (std::is_same_v<T, Splitter>) {
+        return splitters_;
       } else {
         static_assert(dependent_false<T>::value, "Unsupported type in registry_for<T>()");
       }
@@ -64,6 +67,8 @@ namespace px {
         return valves_;
       } else if constexpr (std::is_same_v<T, Mixer>) {
         return mixers_;
+      } else if constexpr (std::is_same_v<T, Splitter>) {
+        return splitters_;
       } else {
         static_assert(dependent_false<T>::value, "Unsupported type in registry_for<T>()");
       }
@@ -88,8 +93,15 @@ namespace px {
         auto& u = r.get(h);
         if (u.name.empty()) u.name = next_auto_name(u.type_name());
         return h;
+      } else if constexpr (std::is_same_v<T, Splitter>) {
+        auto& r = registry_for<T>();
+        auto h = r.add(T{std::forward<Args>(args)...});
+        auto& u = r.get(h);
+        if (u.name.empty()) u.name = next_auto_name(u.type_name());
+        return h;
       } else {
-        static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::add<T>()");
+        static_assert(dependent_false<T>::value, "Unsupported type in Flowsheet::add<T>()");
+        return Handle<T>{}; // Never reached, but satisfies compiler
       }
     }
 
@@ -98,7 +110,11 @@ namespace px {
       if constexpr (std::is_same_v<T, Stream>) return streams_.get(h);
       else if constexpr (std::is_same_v<T, Valve>) return valves_.get(h);
       else if constexpr (std::is_same_v<T, Mixer>) return mixers_.get(h);
-      else { static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::get<T>()"); }
+      else if constexpr (std::is_same_v<T, Splitter>) return splitters_.get(h);
+      else { 
+        static_assert(dependent_false<T>::value, "Unsupported type in Flowsheet::get<T>()");
+        return streams_.get(Handle<Stream>{}); // Never reached, but satisfies compiler
+      }
     }
 
     template <class T>
@@ -106,7 +122,11 @@ namespace px {
       if constexpr (std::is_same_v<T, Stream>) return streams_.get(h);
       else if constexpr (std::is_same_v<T, Valve>) return valves_.get(h);
       else if constexpr (std::is_same_v<T, Mixer>) return mixers_.get(h);
-      else { static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::get<T>()"); }
+      else if constexpr (std::is_same_v<T, Splitter>) return splitters_.get(h);
+      else { 
+        static_assert(dependent_false<T>::value, "Unsupported type in Flowsheet::get<T>()");
+        return streams_.get(Handle<Stream>{}); // Never reached, but satisfies compiler
+      }
     }
 
     template <class T>
@@ -114,7 +134,11 @@ namespace px {
       if constexpr (std::is_same_v<T, Stream>) return streams_.erase(h);
       else if constexpr (std::is_same_v<T, Valve>) return valves_.erase(h);
       else if constexpr (std::is_same_v<T, Mixer>) return mixers_.erase(h);
-      else { static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::erase<T>()"); }
+      else if constexpr (std::is_same_v<T, Splitter>) return splitters_.erase(h);
+      else { 
+        static_assert(dependent_false<T>::value, "Unsupported type in Flowsheet::erase<T>()");
+        return false; // Never reached, but satisfies compiler
+      }
     }
 
     template <class T, class Fn>
@@ -122,13 +146,17 @@ namespace px {
       if constexpr (std::is_same_v<T, Stream>) streams_.for_each(std::forward<Fn>(fn));
       else if constexpr (std::is_same_v<T, Valve>) valves_.for_each(std::forward<Fn>(fn));
       else if constexpr (std::is_same_v<T, Mixer>) mixers_.for_each(std::forward<Fn>(fn));
-      else { static_assert(sizeof(T) == 0, "Unsupported type in Flowsheet::for_each<T>()"); }
+      else if constexpr (std::is_same_v<T, Splitter>) splitters_.for_each(std::forward<Fn>(fn));
+      else { 
+        static_assert(dependent_false<T>::value, "Unsupported type in Flowsheet::for_each<T>()");
+      }
     }
 
     void build_unit_list() {
       units_.clear();
       valves_.for_each([&](Valve& v){ units_.push_back(&v); }); 
       mixers_.for_each([&](Mixer& v){ units_.push_back(&v); }); 
+      splitters_.for_each([&](Splitter& v){ units_.push_back(&v); }); 
     }
 
     bool assemble(std::string* err=nullptr);
@@ -157,11 +185,12 @@ namespace px {
   private:
 		friend class cereal::access;
 		template <class Archive>
-		void serialize(Archive& ar, std::uint32_t const version) {
+		void serialize(Archive& ar, std::uint32_t const /* version */) {
 			ar(
 				cereal::make_nvp("Flowsheet_Stream_Registry", streams_),
 				cereal::make_nvp("Flowsheet_Valve_Registry", valves_),
-				cereal::make_nvp("Flowsheet_Mixer_Registry", mixers_)
+				cereal::make_nvp("Flowsheet_Mixer_Registry", mixers_),
+				cereal::make_nvp("Flowsheet_Splitter_Registry", splitters_)
 			);
     }
   };

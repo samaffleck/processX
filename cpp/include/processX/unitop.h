@@ -20,7 +20,7 @@
 
 namespace px {
 
-  enum class UnitType { Valve, Mixer, Inlet, Outlet };
+  enum class UnitType { Valve, Mixer, Inlet, Outlet, Splitter };
 
   class Flowsheet;
 
@@ -137,8 +137,56 @@ namespace px {
 		void serialize(Archive& ar, std::uint32_t const version) {
 			ar(
 				cereal::virtual_base_class<IUnitOp>(this),
-				cereal::make_nvp("Mixer_Inlet_ID_Handles", in),
+				cereal::make_nvp("Mixer_Inlets", in),
 				cereal::make_nvp("Mixer_Outlet_ID_Handle", out)			
+      );
+		}
+  };
+
+  class Splitter : public IUnitOp {
+  public:
+    Handle<Stream> in{};
+    std::vector<Handle<Stream>> out{};
+
+    UnitType get_type() const override { return UnitType::Splitter; }
+    const char* type_name() const override { return "Splitter"; }
+
+    bool validate(const Flowsheet& fs, std::string* why) const override;
+    void register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) override;
+    void add_equations(Flowsheet& fs, ResidualSystem& sys) override;
+    int num_inputs() override { return 1; };
+    int num_outputs() override { return out.size(); };
+
+    size_t add_outlet(const Handle<Stream>& outlet) {
+      if (!outlet.valid()) throw std::invalid_argument("add_splitter_outlet: outlet handle is invalid");
+
+      auto it = std::find_if(out.begin(), out.end(),
+                            [&](const Handle<Stream>& x){ return x.index == outlet.index; });
+      if (it == out.end()) {
+        out.push_back(outlet);
+        return out.size() - 1;
+      }
+      return static_cast<size_t>(std::distance(out.begin(), it));
+    }
+
+    void set_inlet(const Handle<Stream>& inlet) {
+      if (!inlet.valid()) throw std::invalid_argument("set_splitter_inlet: inlet handle is invalid");
+      in = inlet;
+    }
+
+  private:
+    bool contains_handle(const Handle<Stream>& h) const {
+      auto it = std::find_if(out.begin(), out.end(), [&](const Handle<Stream>& x){ return x.index == h.index; });
+      return it != out.end();
+    }
+
+		friend class cereal::access;
+		template <class Archive>
+		void serialize(Archive& ar, std::uint32_t const version) {
+			ar(
+				cereal::virtual_base_class<IUnitOp>(this),
+				cereal::make_nvp("Splitter_Inlet_ID_Handles", in),
+				cereal::make_nvp("Splitter_Outlets", out)			
       );
 		}
   };
