@@ -171,36 +171,8 @@ if(PROCESSX_BUILD_APPS)
     set(HELLOIMGUI_MACOS_NO_BUNDLE ON CACHE BOOL "Disable macOS app bundle creation" FORCE)
   endif()
   
-  # Use hello_imgui_add_app which automatically handles:
-  # - Linking to hello_imgui
-  # - Asset bundling (including shell file for Emscripten)
-  # - Platform-specific customization
-  # Assets are at cpp/app/assets (relative to CMAKE_SOURCE_DIR which is cpp/)
-  hello_imgui_add_app(
-    processX_app 
-    app/processX_app.cpp
-    ASSETS_LOCATION "${CMAKE_SOURCE_DIR}/app/assets"
-  )
-  
-  # Link to processX library
-  target_link_libraries(processX_app PRIVATE ${PROJECT_NAME})
-  target_compile_features(processX_app PRIVATE cxx_std_17)
-
-  # Emscripten/WASM specific configuration
-  if(EMSCRIPTEN)
-    message(STATUS "Configuring processX_app for Emscripten/WASM build")
-    
-    # Apply Emscripten flags to the target
-    target_compile_options(processX_app PRIVATE ${EMSCRIPTEN_FLAGS})
-    target_link_options(processX_app PRIVATE ${EMSCRIPTEN_FLAGS})
-    
-    # Emscripten target-specific link options (matching working example)
-    target_link_options(
-      processX_app PRIVATE
-        "SHELL:-sDISABLE_EXCEPTION_CATCHING=0"
-        "SHELL:-sASSERTIONS=2"
-    )
-  endif()
+  # Add app subdirectory - app/CMakeLists.txt handles all app-specific configuration
+  add_subdirectory(app)
 endif()
 
 # ---- Tests (optional) ----

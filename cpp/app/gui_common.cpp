@@ -1,0 +1,129 @@
+#include "gui_common.h"
+#include <cereal/archives/json.hpp>
+#include <sstream>
+#include <imgui.h>
+
+#ifdef EMSCRIPTEN
+#include <emscripten.h>
+
+EM_JS(void, SetupGetFlowsheetJSON_Impl, (), {
+  Module.getFlowsheetJSON = function() {
+    var ptr = Module._GetFlowsheetJSONPtr();
+    if (!ptr) return null;
+    
+    // Find the length of the null-terminated string
+    var length = 0;
+    var start = ptr;
+    while (HEAP8[ptr]) {
+      length++;
+      ptr++;
+    }
+    
+    // Read UTF-8 bytes from memory
+    var bytes = new Uint8Array(length);
+    for (var i = 0; i < length; i++) {
+      bytes[i] = HEAP8[start + i];
+    }
+    
+    // Decode UTF-8 to JavaScript string
+    // Use TextDecoder if available, otherwise fall back to simple decoding
+    if (typeof TextDecoder !== 'undefined') {
+      var decoder = new TextDecoder('utf-8');
+      return decoder.decode(bytes);
+    } else {
+      // Fallback: simple ASCII/UTF-8 decoding (works for JSON)
+      var result = '';
+      for (var i = 0; i < length; i++) {
+        result += String.fromCharCode(bytes[i]);
+      }
+      return result;
+    }
+  };
+});
+
+void SetupGetFlowsheetJSON() {
+  SetupGetFlowsheetJSON_Impl();
+}
+#endif
+
+// Global flowsheet instance
+px::Flowsheet flowsheet{};
+
+// Global selection state
+Selection selected_unit{};
+
+// Function to serialize flowsheet to JSON string
+std::string GetFlowsheetJSONString() {
+  std::ostringstream oss;
+  {
+    cereal::JSONOutputArchive archive(oss);
+    archive(cereal::make_nvp("Flowsheet_Data", flowsheet));
+  }
+  return oss.str();
+}
+
+#ifdef EMSCRIPTEN
+// Internal C function that returns JSON string pointer
+extern "C" {
+  EMSCRIPTEN_KEEPALIVE
+  const char* GetFlowsheetJSONPtr() {
+    static std::string json_str;
+    json_str = GetFlowsheetJSONString();
+    return json_str.c_str();
+  }
+}
+#endif
+
+// Helper function to build stream list for dropdown
+std::vector<StreamItem> GetStreamList() {
+  std::vector<StreamItem> streams;
+  streams.push_back({px::Handle<px::Stream>{}, "(None)"}); // Option to disconnect
+  
+  flowsheet.streams_.for_each_with_handle([&](px::Stream& stream, px::Handle<px::Stream> handle) {
+    std::string display_name = stream.name.empty() ? "(Unnamed Stream)" : stream.name;
+    streams.push_back({handle, display_name});
+  });
+  
+  return streams;
+}
+
+// Helper to show stream dropdown and update handle
+bool StreamCombo(const char* label, px::Handle<px::Stream>& current_handle, const std::vector<StreamItem>& streams) {
+  // Find current selection index
+  int current_selection = 0;
+  if (current_handle.valid()) {
+    for (size_t i = 1; i < streams.size(); ++i) {
+      if (streams[i].handle.index == current_handle.index && 
+          streams[i].handle.generation == current_handle.generation) {
+        current_selection = static_cast<int>(i);
+        break;
+      }
+    }
+  }
+  
+  // Build combo preview string
+  std::string combo_preview = current_selection == 0 ? "(None)" : streams[current_selection].display_name;
+  
+  if (ImGui::BeginCombo(label, combo_preview.c_str())) {
+    for (size_t i = 0; i < streams.size(); ++i) {
+      bool is_selected = (current_selection == static_cast<int>(i));
+      if (ImGui::Selectable(streams[i].display_name.c_str(), is_selected)) {
+        if (i == 0) {
+          // Selected "(None)" - disconnect
+          current_handle = px::Handle<px::Stream>{};
+        } else {
+          // Selected a stream - connect it
+          current_handle = streams[i].handle;
+        }
+        ImGui::EndCombo();
+        return true;
+      }
+      if (is_selected) {
+        ImGui::SetItemDefaultFocus();
+      }
+    }
+    ImGui::EndCombo();
+  }
+  return false;
+}
+

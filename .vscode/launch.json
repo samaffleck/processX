@@ -5,8 +5,8 @@
       "name": "processX_app (LLDB)",
       "type": "lldb",
       "request": "launch",
-      "program": "${command:cmake.buildDirectory}/processX_app",
-      "cwd": "${command:cmake.buildDirectory}",
+      "program": "${workspaceFolder}/cpp/build/mac-debug/app/processX_app",
+      "cwd": "${workspaceFolder}/cpp/app",
       "preLaunchTask": "CMake: build",
       "args": [],
       "console": "integratedTerminal"
@@ -15,8 +15,8 @@
       "name": "processX_tests (LLDB)",
       "type": "lldb",
       "request": "launch",
-      "program": "${command:cmake.buildDirectory}/processX_tests",
-      "cwd": "${command:cmake.buildDirectory}",
+      "program": "${workspaceFolder}/cpp/build/mac-debug/processX_tests",
+      "cwd": "${workspaceFolder}/cpp/build/mac-debug",
       "preLaunchTask": "CMake: build",
       "args": [],
       "console": "integratedTerminal"

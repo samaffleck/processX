@@ -1,0 +1,46 @@
+#pragma once
+
+#include "processX/flowsheet.h"
+#include <vector>
+#include <string>
+
+// Global flowsheet instance
+extern px::Flowsheet flowsheet;
+
+// Selection state - tracks which unit is currently selected
+enum class SelectionType { None, Valve, Mixer, Splitter, Stream };
+
+struct Selection {
+  SelectionType type = SelectionType::None;
+  uint32_t index = UINT32_MAX;
+  
+  bool valid() const { return type != SelectionType::None && index != UINT32_MAX; }
+  void clear() { type = SelectionType::None; index = UINT32_MAX; }
+};
+
+extern Selection selected_unit;
+
+// Helper function to build stream list for dropdown
+struct StreamItem {
+  px::Handle<px::Stream> handle;
+  std::string display_name;
+};
+
+std::vector<StreamItem> GetStreamList();
+
+// Helper to show stream dropdown and update handle
+bool StreamCombo(const char* label, px::Handle<px::Stream>& current_handle, const std::vector<StreamItem>& streams);
+
+// Function to serialize flowsheet to JSON string
+std::string GetFlowsheetJSONString();
+
+#ifdef EMSCRIPTEN
+// Expose function to JavaScript using Emscripten
+extern "C" {
+  const char* GetFlowsheetJSONPtr();
+}
+void SetupGetFlowsheetJSON();
+#endif
+
+#include <imgui.h>
+
