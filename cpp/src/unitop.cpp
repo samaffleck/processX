@@ -19,6 +19,8 @@ namespace px {
     reg.register_var(so.molar_flow);
     reg.register_var(si.pressure);
     reg.register_var(so.pressure);
+    reg.register_var(si.molar_enthalpy);
+    reg.register_var(so.molar_enthalpy);
     reg.register_var(Cv);
   }
 
@@ -28,6 +30,7 @@ namespace px {
     auto& so = fs.get<Stream>(out);
     sys.add(name + ": balance", [&](){ return si.molar_flow.value - so.molar_flow.value; });
     sys.add(name + ": PF",      [&, self](){ return so.molar_flow.value - self->Cv.value * (si.pressure.value - so.pressure.value); });
+    sys.add(name + ": energy",  [&](){ return so.molar_enthalpy.value * so.molar_flow.value - si.molar_enthalpy.value * si.molar_flow.value; });
   }
 
   bool Mixer::validate(const Flowsheet& fs, std::string* why) const {
@@ -43,11 +46,13 @@ namespace px {
     auto& so = fs.get<Stream>(out);
     reg.register_var(so.molar_flow);
     reg.register_var(so.pressure);
+    reg.register_var(so.molar_enthalpy);
 
     for (auto h : in) {
       auto& si = fs.get<Stream>(h);
       reg.register_var(si.molar_flow);
       reg.register_var(si.pressure);
+      reg.register_var(si.molar_enthalpy);
     }
   }
 
@@ -58,6 +63,15 @@ namespace px {
       double sum_in = 0.0;
       for (auto h : in) sum_in += fs.get<Stream>(h).molar_flow.value;
       return sum_in - so.molar_flow.value;
+    });
+
+    sys.add(name + ": energy balance", [&]() {
+      double sum_in = 0.0;
+      for (auto h : in) {
+        auto& s = fs.get<Stream>(h);
+        sum_in += s.molar_flow.value * s.molar_enthalpy.value;
+      }
+      return sum_in - so.molar_flow.value * so.molar_enthalpy.value;
     });
 
     for (size_t i = 0; i < in.size(); ++i) {
@@ -81,11 +95,13 @@ namespace px {
     auto& si = fs.get<Stream>(in);
     reg.register_var(si.molar_flow);
     reg.register_var(si.pressure);
+    reg.register_var(si.molar_enthalpy);
 
     for (auto h : out) {
       auto& so = fs.get<Stream>(h);
       reg.register_var(so.molar_flow);
       reg.register_var(so.pressure);
+      reg.register_var(so.molar_enthalpy);
     }
   }
 
@@ -98,10 +114,22 @@ namespace px {
       return si.molar_flow.value - sum_out;
     });
 
+    sys.add(name + ": energy balance", [&]() {
+      double sum_out = 0.0;
+      for (auto h : out) {
+        auto& s = fs.get<Stream>(h);
+        sum_out += s.molar_flow.value * s.molar_enthalpy.value;
+      }
+      return si.molar_flow.value * si.molar_enthalpy.value - sum_out;
+    });
+
     for (size_t i = 0; i < out.size(); ++i) {
       auto& so = fs.get<Stream>(out[i]);
       sys.add(name + ": p_equal[" + std::to_string(i) + "]", [&si, &so]() {
         return si.pressure.value - so.pressure.value;
+      });
+      sys.add(name + ": h_equal[" + std::to_string(i) + "]", [&si, &so]() {
+        return si.molar_enthalpy.value - so.molar_enthalpy.value;
       });
     }
   }
