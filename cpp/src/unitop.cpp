@@ -4,7 +4,7 @@
 #include "processX/flowsheet.h"
 #include "processX/registry.h"
 
-namespace px {  
+namespace px {
 
   bool Valve::validate(const Flowsheet& fs, std::string* why) const {
     if (!in.valid())  { if (why) *why = "inlet not connected";  return false; }
@@ -21,6 +21,8 @@ namespace px {
     reg.register_var(so.pressure);
     reg.register_var(si.molar_enthalpy);
     reg.register_var(so.molar_enthalpy);
+    reg.register_var(si.temperature);  // Needed for state equation: T = f(H, P)
+    reg.register_var(so.temperature);  // Needed for state equation: T = f(H, P)
     reg.register_var(Cv);
   }
 
@@ -30,9 +32,8 @@ namespace px {
     auto& so = fs.get<Stream>(out);
     sys.add(name + ": balance", [&](){ return si.molar_flow.value - so.molar_flow.value; });
     sys.add(name + ": PF",      [&, self](){ return so.molar_flow.value - self->Cv.value * (si.pressure.value - so.pressure.value); });
-    // For adiabatic valve: H_in = H_out (enthalpy equality)
-    // Energy balance H_out * F_out = H_in * F_in with F_in = F_out gives H_out = H_in
     sys.add(name + ": h_equal", [&](){ return si.molar_enthalpy.value - so.molar_enthalpy.value; });
+    // Note: State equations are added once per stream in Flowsheet::assemble() to avoid duplicates
   }
 
   bool Mixer::validate(const Flowsheet& fs, std::string* why) const {
@@ -49,12 +50,14 @@ namespace px {
     reg.register_var(so.molar_flow);
     reg.register_var(so.pressure);
     reg.register_var(so.molar_enthalpy);
+    reg.register_var(so.temperature);  // Needed for state equation: T = f(H, P)
 
     for (auto h : in) {
       auto& si = fs.get<Stream>(h);
       reg.register_var(si.molar_flow);
       reg.register_var(si.pressure);
       reg.register_var(si.molar_enthalpy);
+      reg.register_var(si.temperature);  // Needed for state equation: T = f(H, P)
     }
   }
 
@@ -81,6 +84,7 @@ namespace px {
       sys.add(name + ": p_equal[" + std::to_string(i) + "]", [&si, &so]() {
         return si.pressure.value - so.pressure.value;
       });
+      // Note: State equations are added once per stream in Flowsheet::assemble() to avoid duplicates
     }
   }
 
@@ -98,12 +102,14 @@ namespace px {
     reg.register_var(si.molar_flow);
     reg.register_var(si.pressure);
     reg.register_var(si.molar_enthalpy);
+    reg.register_var(si.temperature);  // Needed for state equation: T = f(H, P)
 
     for (auto h : out) {
       auto& so = fs.get<Stream>(h);
       reg.register_var(so.molar_flow);
       reg.register_var(so.pressure);
       reg.register_var(so.molar_enthalpy);
+      reg.register_var(so.temperature);  // Needed for state equation: T = f(H, P)
     }
   }
 
@@ -133,6 +139,7 @@ namespace px {
       sys.add(name + ": h_equal[" + std::to_string(i) + "]", [&si, &so]() {
         return si.molar_enthalpy.value - so.molar_enthalpy.value;
       });
+      // Note: State equations are added once per stream in Flowsheet::assemble() to avoid duplicates
     }
   }
 

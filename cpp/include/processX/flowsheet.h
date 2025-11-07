@@ -24,6 +24,10 @@
 #include <cereal/cereal.hpp>
 #include <cereal/archives/json.hpp>
 
+// CoolProp includes
+#include <CoolProp.h>
+#include <AbstractState.h>
+
 
 namespace px {
 
@@ -32,6 +36,14 @@ namespace px {
 
   class Flowsheet {
   public:
+    Flowsheet() {
+      fluid = std::shared_ptr<CoolProp::AbstractState>(
+        CoolProp::AbstractState::factory("HEOS", "Water")
+      );
+      // For pure fluids, mole fractions are automatically set to {1.0}
+      // Only need to set for mixtures
+    }
+
     Registry<Stream> streams_;
     Registry<Valve>  valves_;
     Registry<Mixer> mixers_;
@@ -42,7 +54,7 @@ namespace px {
     UnknownsRegistry reg;
     ResidualSystem sys;
 
-    
+    std::shared_ptr<CoolProp::AbstractState> fluid;
 
     template<class T>
     Registry<T>& registry_for() {
