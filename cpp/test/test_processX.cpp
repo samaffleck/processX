@@ -3,6 +3,7 @@
 #include <cmath>
 #include <numeric>
 #include <cstring>
+#include <memory>
 
 // Gtest includes
 #include <gtest/gtest.h>
@@ -471,6 +472,36 @@ namespace px {
     }
     
     // Don't assert convergence - we want to analyze why it fails
+  }
+
+  TEST(WaterEnthalpyTest, MolarEnthalpyAtRoomTempAndPressure) {
+    const double P_std = 101325.0; // Pa
+    const double Hmolar = 1890.0; // J/mol
+
+    auto t0 = std::chrono::steady_clock::now();
+    std::shared_ptr<CoolProp::AbstractState> mix(
+      CoolProp::AbstractState::factory("HEOS", "Water")
+    );
+    auto t1 = std::chrono::steady_clock::now();
+    mix->set_mole_fractions({1.0});
+    auto t2 = std::chrono::steady_clock::now();
+    mix->update(CoolProp::HmolarP_INPUTS, Hmolar, P_std);
+    auto t3 = std::chrono::steady_clock::now();
+    std::cerr
+      << "factory: " << (t1-t0).count() << " ms, "
+      << "set_z: "  << (t2-t1).count() << " ms, "
+      << "Update: "    << (t3-t2).count() << " ms\n";
+
+    double temp = CoolProp::PropsSI("T", "P", P_std, "Hmolar", Hmolar, "IF97::Water");
+    
+    std::cout << "\n=== Water Molar Enthalpy Test ===" << std::endl;
+    std::cout << "Temperature: " << temp << " K (" << (temp - 273.15) << " °C)" << std::endl;
+    std::cout << "Pressure: " << P_std << " Pa (" << (P_std / 101325.0) << " atm)" << std::endl;
+    std::cout << "Molar Enthalpy: " << Hmolar << " J/mol" << std::endl;
+    
+    // Verify the value is reasonable
+    EXPECT_GT(temp, 295) << "Molar enthalpy seems too negative";
+    EXPECT_LT(temp, 300) << "Molar enthalpy seems too positive for liquid water";
   }
 
 } // end processX namespace
