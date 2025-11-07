@@ -11,6 +11,7 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
         "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
+        "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
 
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_C_FLAGS_DEBUG": "-O0 -g3 -fno-omit-frame-pointer -fstandalone-debug",
@@ -35,11 +36,12 @@
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
         "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
+        "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
 
         "PROCESSX_BUILD_APPS": "ON",
         "PROCESSX_BUILD_TESTS": "ON",
         "PROCESSX_USE_SUNDIALS": "OFF",
-        "PROCESSX_USE_COOLPROP": "OFF"
+        "PROCESSX_USE_COOLPROP": "ON"
       }
     }
   ],

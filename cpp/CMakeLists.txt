@@ -49,6 +49,8 @@ endif()
 add_library(cereal INTERFACE)
 target_include_directories(cereal INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/external/cereal/include)
+target_compile_definitions(cereal INTERFACE CEREAL_RAPIDJSON_NAMESPACE=cereal_rapidjson)
+
 
 add_library(EnTT INTERFACE)
 # Use either single_include or include depending on your preference
@@ -61,7 +63,7 @@ set(EIGEN_BUILD_PKGCONFIG OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/eigen EXCLUDE_FROM_ALL)  # Provides Eigen3::Eigen
 
-# ---- CoolProp (optional) ----
+# ---- CoolProp ----
 if(PROCESSX_USE_COOLPROP)
   set(COOLPROP_STATIC_LIBRARY ON CACHE BOOL "Build CoolProp as a static library")
   
@@ -74,6 +76,25 @@ if(PROCESSX_USE_COOLPROP)
   
   add_subdirectory(external/CoolProp)
   
+  if(TARGET CoolProp)
+    # Make CoolProp fast even in Debug builds
+    #  - disable asserts via NDEBUG
+    #  - turn on optimization for this target only
+    target_compile_definitions(CoolProp PRIVATE
+      $<$<CONFIG:Debug>:NDEBUG>
+    )
+    if (MSVC)
+      target_compile_options(CoolProp PRIVATE
+        $<$<CONFIG:Debug>:/O2>
+      )
+    else()
+      target_compile_options(CoolProp PRIVATE
+        $<$<CONFIG:Debug>:-O3>
+      )
+    endif()
+  endif()
+
+
   # Also add the define to CoolProp targets after they're created
   if(EMSCRIPTEN)
     if(TARGET CoolProp)
