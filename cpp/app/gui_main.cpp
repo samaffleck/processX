@@ -11,14 +11,6 @@
 #include <iostream>
 #include <cstdio>
 
-#ifdef EMSCRIPTEN
-#include <emscripten.h>
-
-EM_JS(void, notify_ready, (), {
-  try { parent.postMessage({ type: 'wasmReady' }, window.location.origin); } catch (e) {}
-});
-#endif
-
 void ShowGui()
 {
   // Initialize on first load (runs once)

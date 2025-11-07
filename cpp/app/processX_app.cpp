@@ -4,6 +4,16 @@
 
 #include "gui_main.h"
 #include "gui_docking.h"
+#include "gui_common.h"
+
+#ifdef EMSCRIPTEN
+#include <emscripten.h>
+
+EM_JS(void, notify_ready, (), {
+  try { parent.postMessage({ type: 'wasmReady' }, window.location.origin); } catch (e) {}
+});
+#endif
+
 
 int main(int, char**) {
   // Set assets folder first, before configuring callbacks that might need assets

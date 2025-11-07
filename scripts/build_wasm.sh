@@ -41,21 +41,22 @@ emcmake cmake -S . -B build_wasm \
 cmake --build build_wasm --config Release
 
 # Copy artifacts (processX_app is the executable name)
+# Note: With add_subdirectory(app), files are in build_wasm/app/
 # Note: .data file may not exist if filesystem is disabled
-if [ -f "build_wasm/processX_app.html" ]; then
-  cp -f build_wasm/processX_app.html "$PROJECT_ROOT/public/wasm_app/"
-  cp -f build_wasm/processX_app.js   "$PROJECT_ROOT/public/wasm_app/"
-  cp -f build_wasm/processX_app.wasm "$PROJECT_ROOT/public/wasm_app/"
+if [ -f "build_wasm/app/processX_app.html" ]; then
+  cp -f build_wasm/app/processX_app.html "$PROJECT_ROOT/public/wasm_app/"
+  cp -f build_wasm/app/processX_app.js   "$PROJECT_ROOT/public/wasm_app/"
+  cp -f build_wasm/app/processX_app.wasm "$PROJECT_ROOT/public/wasm_app/"
   
   # Copy .data file if it exists (only created when using filesystem preloading)
-  if [ -f "build_wasm/processX_app.data" ]; then
-    cp -f build_wasm/processX_app.data "$PROJECT_ROOT/public/wasm_app/"
+  if [ -f "build_wasm/app/processX_app.data" ]; then
+    cp -f build_wasm/app/processX_app.data "$PROJECT_ROOT/public/wasm_app/"
   fi
   
   echo "Build and copy complete!"
   echo "WASM files copied to: $PROJECT_ROOT/public/wasm_app/"
 else
-  echo "[ERROR] processX_app.html not found in build_wasm/"
+  echo "[ERROR] processX_app.html not found in build_wasm/app/"
   echo "Build may have failed. Check build output above."
   exit 1
 fi
