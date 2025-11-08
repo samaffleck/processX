@@ -1,0 +1,122 @@
+{
+    "Flowsheet_Data": {
+        "cereal_class_version": 0,
+        "Flowsheet_Stream_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [
+                {
+                    "cereal_class_version": 0,
+                    "Slot_Value": {
+                        "cereal_class_version": 0,
+                        "Stream_Name": "stream-1",
+                        "Stream_Molar_Flowrate": {
+                            "cereal_class_version": 0,
+                            "Variable_Name": "Molar Flowrate",
+                            "Variable_Value": 8.0,
+                            "Variable_Is_Fixed": true
+                        },
+                        "Stream_Pressure": {
+                            "Variable_Name": "Pressure",
+                            "Variable_Value": 300000.0,
+                            "Variable_Is_Fixed": true
+                        },
+                        "Stream_Temperature": {
+                            "Variable_Name": "Temperature",
+                            "Variable_Value": 300.0,
+                            "Variable_Is_Fixed": true
+                        }
+                    },
+                    "Slot_Generation": 1,
+                    "Slot_Alive": true,
+                    "Slot_Next_Free": 4294967295
+                },
+                {
+                    "Slot_Value": {
+                        "Stream_Name": "stream-2",
+                        "Stream_Molar_Flowrate": {
+                            "Variable_Name": "Molar Flowrate",
+                            "Variable_Value": 8.0,
+                            "Variable_Is_Fixed": false
+                        },
+                        "Stream_Pressure": {
+                            "Variable_Name": "Pressure",
+                            "Variable_Value": 260000.0,
+                            "Variable_Is_Fixed": false
+                        },
+                        "Stream_Temperature": {
+                            "Variable_Name": "Temperature",
+                            "Variable_Value": 300.0088091879548,
+                            "Variable_Is_Fixed": false
+                        }
+                    },
+                    "Slot_Generation": 1,
+                    "Slot_Alive": true,
+                    "Slot_Next_Free": 4294967295
+                }
+            ],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_Valve_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [
+                {
+                    "cereal_class_version": 0,
+                    "Slot_Value": {
+                        "cereal_class_version": 0,
+                        "value0": {
+                            "cereal_class_version": 0,
+                            "Unit_Operation_Name": "Valve-1",
+                            "Unit_Position_In_Flowsheet": {
+                                "cereal_class_version": 0,
+                                "x": 0.0,
+                                "y": 0.0
+                            },
+                            "Unit_Size": {
+                                "x": 0.0,
+                                "y": 0.0
+                            }
+                        },
+                        "Valve_Inlet_ID_Handle": {
+                            "cereal_class_version": 0,
+                            "Handle_Index": 0,
+                            "Handle_Generation": 1
+                        },
+                        "Valve_Outlet_ID_Handle": {
+                            "Handle_Index": 1,
+                            "Handle_Generation": 1
+                        },
+                        "Valve_Flow_Coefficient": {
+                            "Variable_Name": "Cv",
+                            "Variable_Value": 0.0002,
+                            "Variable_Is_Fixed": true
+                        }
+                    },
+                    "Slot_Generation": 1,
+                    "Slot_Alive": true,
+                    "Slot_Next_Free": 4294967295
+                }
+            ],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_Mixer_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_Splitter_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_HeatExchanger_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_SimpleHeatExchanger_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
+            "Registry_Free_Head": 4294967295
+        }
+    }
+}
