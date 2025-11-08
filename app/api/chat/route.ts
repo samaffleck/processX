@@ -3,17 +3,24 @@ import OpenAI from 'openai';
 
 // System prompt for the AI assistant
 const SYSTEM_PROMPT = `You are an expert chemical process engineer assistant. 
-You analyze flowsheet data and provide insights on process optimization, 
-safety considerations, and operational efficiency.
+You analyze and edit flowsheet data to help optimize processes, adjust configurations, 
+and make improvements based on user requests.
 
-When analyzing flowsheet JSON data, focus on:
-- Stream conditions (pressure, temperature, flowrate)
-- Valve and unit operation configurations
-- Potential issues or optimization opportunities
-- Safety considerations
-- Energy efficiency improvements
+IMPORTANT: When the user requests changes to the flowsheet, you MUST return ONLY the 
+complete edited JSON object in your response. The JSON must be valid and maintain the 
+exact structure of the original flowsheet data.
 
-Provide clear, actionable insights based on the flowsheet data.`;
+Your response format:
+- If the user asks to modify the flowsheet, return ONLY the complete edited JSON object
+- If the user asks a question (without requesting changes), provide a text explanation
+
+When editing flowsheet JSON data, you can modify:
+- Stream conditions (pressure, temperature, flowrate, molar_flow, molar_enthalpy)
+- Valve configurations (Cv values)
+- Unit operation settings
+- Stream connections
+
+Always preserve the overall structure and required fields of the JSON.`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,7 +56,7 @@ export async function POST(request: NextRequest) {
       const jsonStr = JSON.stringify(jsonData, null, 2);
       messages.push({
         role: 'system',
-        content: `Here is the flowsheet JSON data to analyze:\n\n${jsonStr}`,
+        content: `Here is the current flowsheet JSON data. When the user requests changes, return the complete edited JSON object:\n\n${jsonStr}`,
       });
     } else {
       // If no JSON data, adjust system prompt to be more general
@@ -80,12 +87,38 @@ export async function POST(request: NextRequest) {
       model: 'gpt-4o', // Change to 'gpt-5-high' if available and add reasoning_effort: 'high'
       messages: messages,
       temperature: 0.7,
-      max_tokens: 2000,
+      max_tokens: 4000, // Increased for JSON responses
     });
 
     const response = completion.choices[0]?.message?.content || 'No response generated';
 
-    return NextResponse.json({ response });
+    // Try to parse response as JSON to check if it's an edited flowsheet
+    let editedJson = null;
+    let isJsonResponse = false;
+    
+    try {
+      // Try to extract JSON from response (might be wrapped in markdown code blocks or plain JSON)
+      let jsonStr = response.trim();
+      
+      // Remove markdown code blocks if present
+      if (jsonStr.startsWith('```json')) {
+        jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      
+      editedJson = JSON.parse(jsonStr);
+      isJsonResponse = true;
+    } catch (e) {
+      // Response is not JSON, treat as text response
+      isJsonResponse = false;
+    }
+
+    return NextResponse.json({ 
+      response: isJsonResponse ? 'Flowsheet updated successfully!' : response,
+      editedJson: editedJson,
+      isJsonResponse: isJsonResponse
+    });
   } catch (error) {
     console.error('Error calling OpenAI API:', error);
     

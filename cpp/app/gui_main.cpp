@@ -22,7 +22,26 @@ void ShowGui()
     
     #ifdef EMSCRIPTEN
     SetupGetFlowsheetJSON();
+    SetupLoadFlowsheetJSON();
     #endif
+  }
+
+  // Show data loaded modal if needed
+  if (ShouldShowDataLoadedModal()) {
+    ImGui::OpenPopup("Data Loaded");
+    // Always center modal when appearing
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+  }
+  
+  if (ImGui::BeginPopupModal("Data Loaded", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
+    ImGui::Text("Data loaded successfully!");
+    ImGui::Spacing();
+    if (ImGui::Button("OK", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+      ClearDataLoadedModal();
+      ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
   }
 
   // Render all dockable windows

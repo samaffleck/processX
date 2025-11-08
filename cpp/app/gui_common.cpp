@@ -1,7 +1,9 @@
 #include "gui_common.h"
+#include "gui_log.h"
 #include <cereal/archives/json.hpp>
 #include <sstream>
 #include <imgui.h>
+#include <iostream>
 
 #ifdef EMSCRIPTEN
 #include <emscripten.h>
@@ -44,6 +46,120 @@ EM_JS(void, SetupGetFlowsheetJSON_Impl, (), {
 void SetupGetFlowsheetJSON() {
   SetupGetFlowsheetJSON_Impl();
 }
+
+EM_JS(void, SetupLoadFlowsheetJSON_Impl, (), {
+  Module.loadFlowsheetJSON = function(jsonString) {
+    console.log('[loadFlowsheetJSON] Called with string length:', jsonString ? jsonString.length : 'null');
+    
+    if (!jsonString || typeof jsonString !== 'string') {
+      console.error('[loadFlowsheetJSON] ❌ Invalid JSON string:', typeof jsonString, jsonString);
+      return false;
+    }
+    
+    try {
+      // Use ccall if available (recommended Emscripten way - now exported)
+      if (typeof Module.ccall === 'function') {
+        console.log('[loadFlowsheetJSON] Using ccall method');
+        var result = Module.ccall('LoadFlowsheetFromJSON', 'number', ['string'], [jsonString]);
+        console.log('[loadFlowsheetJSON] ccall returned:', result);
+        return result === 1;
+      }
+      
+      // Fallback: use stringToUTF8 with manual allocation (now exported)
+      if (typeof Module.stringToUTF8 === 'function' && typeof Module.lengthBytesUTF8 === 'function') {
+        console.log('[loadFlowsheetJSON] Using stringToUTF8 method');
+        var length = Module.lengthBytesUTF8(jsonString) + 1;
+        console.log('[loadFlowsheetJSON] Required buffer length:', length);
+        var mallocFunc = Module._malloc || Module.malloc;
+        if (typeof mallocFunc !== 'function') {
+          console.error('[loadFlowsheetJSON] ❌ malloc function not found');
+          return false;
+        }
+        
+        var ptr = mallocFunc(length);
+        if (!ptr) {
+          console.error('[loadFlowsheetJSON] ❌ Failed to allocate memory');
+          return false;
+        }
+        console.log('[loadFlowsheetJSON] Allocated pointer:', ptr);
+        
+        Module.stringToUTF8(jsonString, ptr, length);
+        var result = Module._LoadFlowsheetFromJSON(ptr);
+        console.log('[loadFlowsheetJSON] _LoadFlowsheetFromJSON returned:', result);
+        var freeFunc = Module._free || Module.free;
+        if (typeof freeFunc === 'function') {
+          freeFunc(ptr);
+        } else {
+          console.warn('[loadFlowsheetJSON] Warning: No free function found, memory leak possible');
+        }
+        return result === 1;
+      }
+      
+      // Last resort: manual encoding with TextEncoder
+      console.log('[loadFlowsheetJSON] Using manual TextEncoder method');
+      var encoder = new TextEncoder();
+      var utf8Bytes = encoder.encode(jsonString);
+      var length = utf8Bytes.length;
+      console.log('[loadFlowsheetJSON] UTF-8 encoded length:', length);
+      
+      var mallocFunc = Module._malloc || Module.malloc;
+      if (typeof mallocFunc !== 'function') {
+        console.error('[loadFlowsheetJSON] ❌ malloc function not found');
+        console.log('[loadFlowsheetJSON] Available methods:', {
+          allocateUTF8: typeof Module.allocateUTF8,
+          stringToUTF8: typeof Module.stringToUTF8,
+          lengthBytesUTF8: typeof Module.lengthBytesUTF8,
+          _malloc: typeof Module._malloc,
+          malloc: typeof Module.malloc,
+          _LoadFlowsheetFromJSON: typeof Module._LoadFlowsheetFromJSON
+        });
+        return false;
+      }
+      
+      var ptr = mallocFunc(length + 1);
+      if (!ptr) {
+        console.error('[loadFlowsheetJSON] ❌ Failed to allocate memory');
+        return false;
+      }
+      console.log('[loadFlowsheetJSON] Allocated pointer:', ptr);
+      
+      // Access HEAP8 through Module
+      var HEAP8 = Module.HEAP8;
+      if (!HEAP8) {
+        console.error('[loadFlowsheetJSON] ❌ HEAP8 not found');
+        var freeFunc = Module._free || Module.free;
+        if (typeof freeFunc === 'function') {
+          freeFunc(ptr);
+        }
+        return false;
+      }
+      
+      for (var i = 0; i < length; i++) {
+        HEAP8[ptr + i] = utf8Bytes[i];
+      }
+      HEAP8[ptr + length] = 0; // Null terminator
+      console.log('[loadFlowsheetJSON] Copied bytes to WASM memory');
+      
+      var result = Module._LoadFlowsheetFromJSON(ptr);
+      console.log('[loadFlowsheetJSON] _LoadFlowsheetFromJSON returned:', result);
+      var freeFunc = Module._free || Module.free;
+      if (typeof freeFunc === 'function') {
+        freeFunc(ptr);
+      } else {
+        console.warn('[loadFlowsheetJSON] Warning: No free function found, memory leak possible');
+      }
+      return result === 1;
+    } catch (error) {
+      console.error('[loadFlowsheetJSON] ❌ Exception caught:', error);
+      console.error('[loadFlowsheetJSON] Error stack:', error.stack);
+      return false;
+    }
+  };
+});
+
+void SetupLoadFlowsheetJSON() {
+  SetupLoadFlowsheetJSON_Impl();
+}
 #endif
 
 // Global flowsheet instance
@@ -51,6 +167,9 @@ px::Flowsheet flowsheet{};
 
 // Global selection state
 Selection selected_unit{};
+
+// Flag to show data loaded modal
+static bool show_data_loaded_modal = false;
 
 // Function to serialize flowsheet to JSON string
 std::string GetFlowsheetJSONString() {
@@ -62,6 +181,69 @@ std::string GetFlowsheetJSONString() {
   return oss.str();
 }
 
+bool LoadFlowsheetFromJSONString(const std::string& json_string) {
+  std::cerr << "[LoadFlowsheetFromJSONString] Starting load process..." << std::endl;
+  std::cerr << "[LoadFlowsheetFromJSONString] JSON string length: " << json_string.length() << std::endl;
+  
+  if (json_string.empty()) {
+    std::cerr << "[LoadFlowsheetFromJSONString] ERROR: JSON string is empty!" << std::endl;
+    AddLogEntry(LogEntry::Error, "Failed to load flowsheet: Empty JSON string");
+    return false;
+  }
+  
+  // Log first 200 characters for debugging
+  std::string preview = json_string.substr(0, std::min(200UL, json_string.length()));
+  std::cerr << "[LoadFlowsheetFromJSONString] JSON preview (first 200 chars): " << preview << std::endl;
+  
+  try {
+    std::cerr << "[LoadFlowsheetFromJSONString] Creating input stream..." << std::endl;
+    std::istringstream iss(json_string);
+    
+    std::cerr << "[LoadFlowsheetFromJSONString] Creating JSON archive..." << std::endl;
+    cereal::JSONInputArchive archive(iss);
+    
+    std::cerr << "[LoadFlowsheetFromJSONString] Deserializing flowsheet..." << std::endl;
+    archive(flowsheet);
+    
+    std::cerr << "[LoadFlowsheetFromJSONString] Deserialization successful!" << std::endl;
+    
+    // Clear selection when loading new data
+    selected_unit.clear();
+    std::cerr << "[LoadFlowsheetFromJSONString] Selection cleared" << std::endl;
+    
+    // Set flag to show modal
+    show_data_loaded_modal = true;
+    std::cerr << "[LoadFlowsheetFromJSONString] Modal flag set" << std::endl;
+    
+    // Add log entry
+    AddLogEntry(LogEntry::Success, "Flowsheet data loaded successfully");
+    std::cerr << "[LoadFlowsheetFromJSONString] ✅ Load completed successfully!" << std::endl;
+    
+    return true;
+  } catch (const cereal::Exception& e) {
+    std::cerr << "[LoadFlowsheetFromJSONString] ❌ Cereal exception: " << e.what() << std::endl;
+    AddLogEntry(LogEntry::Error, "Failed to load flowsheet (Cereal error): " + std::string(e.what()));
+    return false;
+  } catch (const std::exception& e) {
+    std::cerr << "[LoadFlowsheetFromJSONString] ❌ Standard exception: " << e.what() << std::endl;
+    std::cerr << "[LoadFlowsheetFromJSONString] Exception type: " << typeid(e).name() << std::endl;
+    AddLogEntry(LogEntry::Error, "Failed to load flowsheet: " + std::string(e.what()));
+    return false;
+  } catch (...) {
+    std::cerr << "[LoadFlowsheetFromJSONString] ❌ Unknown exception caught!" << std::endl;
+    AddLogEntry(LogEntry::Error, "Failed to load flowsheet: Unknown error");
+    return false;
+  }
+}
+
+bool ShouldShowDataLoadedModal() {
+  return show_data_loaded_modal;
+}
+
+void ClearDataLoadedModal() {
+  show_data_loaded_modal = false;
+}
+
 #ifdef EMSCRIPTEN
 // Internal C function that returns JSON string pointer
 extern "C" {
@@ -70,6 +252,15 @@ extern "C" {
     static std::string json_str;
     json_str = GetFlowsheetJSONString();
     return json_str.c_str();
+  }
+  
+  EMSCRIPTEN_KEEPALIVE
+  int LoadFlowsheetFromJSON(const char* json_string) {
+    if (!json_string) {
+      return 0; // Failure
+    }
+    bool success = LoadFlowsheetFromJSONString(std::string(json_string));
+    return success ? 1 : 0;
   }
 }
 #endif

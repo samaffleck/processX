@@ -21,30 +21,33 @@ export default function CopilotPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Function to get flowsheet JSON from WASM module
-  const getFlowsheetJSON = (): any | null => {
+  // Function to get WASM module from iframe
+  const getWasmModule = (): any | null => {
     try {
-      // Find the iframe containing the WASM app
       const iframe = document.querySelector('iframe[src*="processX_app.html"]') as HTMLIFrameElement;
       if (!iframe || !iframe.contentWindow) {
         console.warn('WASM iframe not found');
         return null;
       }
 
-      // Access the Module from the iframe
       const iframeWindow = iframe.contentWindow as any;
       if (!iframeWindow.Module) {
         console.warn('WASM Module not found in iframe');
         return null;
       }
 
-      // Call the exposed function (set up via EM_JS)
-      const Module = iframeWindow.Module;
-      
-      if (!Module) {
-        console.warn('WASM Module not found');
-        return null;
-      }
+      return iframeWindow.Module;
+    } catch (error) {
+      console.error('Error getting WASM module:', error);
+      return null;
+    }
+  };
+
+  // Function to get flowsheet JSON from WASM module
+  const getFlowsheetJSON = (): any | null => {
+    try {
+      const Module = getWasmModule();
+      if (!Module) return null;
 
       // Use the JavaScript wrapper function created by EM_JS
       let jsonString: string | null = null;
@@ -75,6 +78,54 @@ export default function CopilotPage() {
     } catch (error) {
       console.error('Error getting flowsheet JSON:', error);
       return null;
+    }
+  };
+
+  // Function to load flowsheet JSON into WASM module
+  const loadFlowsheetJSON = (jsonData: any): boolean => {
+    try {
+      console.log('=== Loading Flowsheet JSON ===');
+      console.log('JSON Data:', jsonData);
+      console.log('JSON Data Type:', typeof jsonData);
+      
+      const Module = getWasmModule();
+      if (!Module) {
+        console.error('WASM module not available');
+        return false;
+      }
+      console.log('WASM Module found');
+
+      // Check if loadFlowsheetJSON function exists
+      if (typeof Module.loadFlowsheetJSON !== 'function') {
+        console.error('Module.loadFlowsheetJSON function not found');
+        console.log('Available Module functions:', Object.keys(Module).filter(k => typeof Module[k] === 'function'));
+        return false;
+      }
+      console.log('Module.loadFlowsheetJSON function found');
+
+      // Convert JSON object to string
+      const jsonString = JSON.stringify(jsonData);
+      console.log('JSON String length:', jsonString.length);
+      console.log('JSON String preview (first 200 chars):', jsonString.substring(0, 200));
+      
+      // Call the load function
+      console.log('Calling Module.loadFlowsheetJSON...');
+      const success = Module.loadFlowsheetJSON(jsonString);
+      console.log('Module.loadFlowsheetJSON returned:', success);
+      
+      if (success) {
+        console.log('✅ Flowsheet JSON loaded successfully');
+        return true;
+      } else {
+        console.error('❌ Failed to load flowsheet JSON - function returned false');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error loading flowsheet JSON:', error);
+      if (error instanceof Error) {
+        console.error('Error stack:', error.stack);
+      }
+      return false;
     }
   };
 
@@ -128,7 +179,16 @@ export default function CopilotPage() {
       
       if (data.error) {
         addMessage('assistant', `Error: ${data.error}${data.details ? '\n\n' + data.details : ''}`);
+      } else if (data.isJsonResponse && data.editedJson) {
+        // LLM returned edited JSON - load it into WASM
+        const loadSuccess = loadFlowsheetJSON(data.editedJson);
+        if (loadSuccess) {
+          addMessage('assistant', data.response || 'Flowsheet updated successfully!');
+        } else {
+          addMessage('assistant', 'Received edited flowsheet but failed to load it. Please try again.');
+        }
       } else {
+        // Regular text response
         addMessage('assistant', data.response);
       }
     } catch (error) {

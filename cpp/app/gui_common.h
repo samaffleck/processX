@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 
+#include <imgui.h>
+
 // Global flowsheet instance
 extern px::Flowsheet flowsheet;
 
@@ -34,13 +36,21 @@ bool StreamCombo(const char* label, px::Handle<px::Stream>& current_handle, cons
 // Function to serialize flowsheet to JSON string
 std::string GetFlowsheetJSONString();
 
+// Function to load flowsheet from JSON string
+bool LoadFlowsheetFromJSONString(const std::string& json_string);
+
+// Function to check if data was just loaded (for modal popup)
+bool ShouldShowDataLoadedModal();
+void ClearDataLoadedModal();
+
 #ifdef EMSCRIPTEN
 // Expose function to JavaScript using Emscripten
 extern "C" {
   const char* GetFlowsheetJSONPtr();
+  int LoadFlowsheetFromJSON(const char* json_string);
 }
 void SetupGetFlowsheetJSON();
+void SetupLoadFlowsheetJSON();
 #endif
 
-#include <imgui.h>
 

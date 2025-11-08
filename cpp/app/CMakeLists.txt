@@ -41,6 +41,7 @@ if(EMSCRIPTEN)
     processX_app PRIVATE
       "SHELL:-sDISABLE_EXCEPTION_CATCHING=0"
       "SHELL:-sASSERTIONS=2"
+      "SHELL:-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','lengthBytesUTF8']"
   )
 endif()
 
