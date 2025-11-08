@@ -52,19 +52,12 @@ namespace px {
     // This provides sensible initial guesses to avoid CoolProp exceptions
     streams_.for_each([this](Stream& s) {
       // Only initialize if enthalpy is not fixed and has a zero or unreasonable value
-      if (!s.molar_enthalpy.fixed && 
-          (s.molar_enthalpy.value == 0.0 || 
-           s.molar_enthalpy.value < -1e6 || 
-           s.molar_enthalpy.value > 1e6)) {
-        // Check if we have reasonable T and P values to calculate H from
-        if (s.temperature.value > 0.0 && s.temperature.value < 10000.0 &&
-            s.pressure.value > 100.0 && s.pressure.value < 1e10) {
-          try {
-            fluid->update(CoolProp::PT_INPUTS, s.pressure.value, s.temperature.value);
-            s.molar_enthalpy.value = fluid->hmolar();
-          } catch (...) {
-            // If CoolProp fails, leave enthalpy as is (will be set by solver)
-          }
+      if (!s.molar_enthalpy.fixed) {
+        try {
+          fluid->update(CoolProp::PT_INPUTS, s.pressure.value, s.temperature.value);
+          s.molar_enthalpy.value = fluid->hmolar();
+        } catch (...) {
+          // If CoolProp fails, leave enthalpy as is (will be set by solver)
         }
       }
     });

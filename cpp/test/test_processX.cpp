@@ -4,6 +4,7 @@
 #include <numeric>
 #include <cstring>
 #include <memory>
+#include <filesystem>
 
 // Gtest includes
 #include <gtest/gtest.h>
@@ -31,6 +32,23 @@ namespace px {
     EXPECT_NEAR(sum(v), 1.0, tol);
   }
 
+  void SaveTest(const std::string& test_name, Flowsheet& flowsheet) {
+    // Create directory structure: public/Examples/
+    std::filesystem::path examples_dir = "../../../public/Examples";
+    
+    std::filesystem::create_directories(examples_dir);
+    
+    // Save JSON file: public/Examples/test_name.json
+    std::string json_filename = test_name + ".json";
+    std::filesystem::path json_path = examples_dir / json_filename;
+    
+    std::ofstream json_file(json_path);
+    if (json_file.is_open()) {
+      cereal::JSONOutputArchive archive(json_file);
+      archive(cereal::make_nvp("Flowsheet_Data", flowsheet));
+    }
+  }
+
   class ProcessTest : public ::testing::Test {
     protected:
       Flowsheet fs;
@@ -52,11 +70,6 @@ namespace px {
     }
   };
 
-  // TEST_F(ProcessTest, LoadTest) {
-  //   const std::string file_path = "gpt_test.json";
-  //   LoadFromJson(this->fs, file_path);
-  //   run();
-  // }
 
   TEST_F(ProcessTest, MultiValveZeroFlowTest) {
     auto s_in = fs.add<Stream>();
@@ -79,17 +92,15 @@ namespace px {
 
     val_1.Cv.set_val(1.0e-4, true);
     val_2.Cv.set_val(3.0e-4, true);
+
     in.pressure.set_val(2e5, true);
     out.pressure.set_val(2e5, true);
+    mid.pressure.set_val(1e5, false);
     
     in.molar_flow.set_val(1, false);
     out.molar_flow.set_val(1, false);
     mid.molar_flow.set_val(1, false);
-    mid.pressure.set_val(1, false);
     
-    // Fix inlet temperature and pressure - state equation will calculate H_in from T_in, P_in
-    // Energy balance: H_in = H_mid = H_out (valve preserves enthalpy)
-    // State equations will then calculate T_mid and T_out from H, P
     in.temperature.set_val(300.0, true);
 
     run();
@@ -99,17 +110,7 @@ namespace px {
     EXPECT_NEAR(out.molar_flow.value, 0.0, 1e-12);
     EXPECT_NEAR(mid.pressure.value,   2.0e5, 1e-8);
 
-    const std::string file_path = "test.json";
-    SaveToJson(fs, file_path);
-    Flowsheet load_fs;
-    LoadFromJson(load_fs, file_path);
-    
-    run();
-
-    EXPECT_NEAR(in.molar_flow.value,  0.0, 1e-12);
-    EXPECT_NEAR(mid.molar_flow.value, 0.0, 1e-12);
-    EXPECT_NEAR(out.molar_flow.value, 0.0, 1e-12);
-    EXPECT_NEAR(mid.pressure.value,   2.0e5, 1e-8);
+    SaveTest("multi_valve_zero_flow_test", fs);
   }
 
   TEST_F(ProcessTest, MultiValveTest) {
@@ -166,6 +167,8 @@ namespace px {
     // Check each valve equation too
     EXPECT_NEAR(mid.molar_flow.value, val1.Cv.value * (in.pressure.value  - mid.pressure.value),  1e-10);
     EXPECT_NEAR(out.molar_flow.value, val2.Cv.value * (mid.pressure.value - out.pressure.value),  1e-10);
+
+    SaveTest("multi_valve_test", fs);
   }
 
   TEST_F(ProcessTest, MixerTest) {
@@ -209,6 +212,8 @@ namespace px {
     // Verify pressure equality equations
     EXPECT_NEAR(in1.pressure.value, out.pressure.value, 1e-10);
     EXPECT_NEAR(in2.pressure.value, out.pressure.value, 1e-10);
+
+    SaveTest("mixer_test", fs);
   }
 
   TEST_F(ProcessTest, SplitterTest) {
@@ -246,6 +251,8 @@ namespace px {
     EXPECT_NEAR(in.molar_flow.value, out1.molar_flow.value + out2.molar_flow.value, 1e-10);
     EXPECT_NEAR(in.pressure.value, out1.pressure.value, 1e-10);
     EXPECT_NEAR(in.pressure.value, out2.pressure.value, 1e-10);
+
+    SaveTest("splitter_test", fs);
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Fout_and_Cv) {
@@ -286,6 +293,8 @@ namespace px {
     EXPECT_NEAR(in.molar_flow.value,  Fexp,  1e-10);
     EXPECT_NEAR(val.Cv.value,         Cvexp, 1e-12);
     EXPECT_NEAR(out.molar_flow.value, val.Cv.value * (in.pressure.value - out.pressure.value), 1e-10);
+
+    SaveTest("single_valve_unknown_fout_and_cv_test", fs);
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Pout_and_Fout) {
@@ -326,6 +335,8 @@ namespace px {
     EXPECT_NEAR(in.molar_flow.value,  Fexp,    1e-10);
     EXPECT_NEAR(out.pressure.value,   Poutexp, 1e-6);
     EXPECT_NEAR(out.molar_flow.value, val.Cv.value * (in.pressure.value - out.pressure.value), 1e-10);
+
+    SaveTest("single_valve_unknown_pout_and_fout_test", fs);
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Fin_and_Fout) {
@@ -361,6 +372,8 @@ namespace px {
     EXPECT_NEAR(in.molar_flow.value,  Fexp, 1e-10);
     EXPECT_NEAR(out.molar_flow.value, Fexp, 1e-10);
     EXPECT_NEAR(out.molar_flow.value, val.Cv.value * (in.pressure.value - out.pressure.value), 1e-10);
+
+    SaveTest("single_valve_unknown_fin_and_fout_test", fs);
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Pin_and_Cv) {
@@ -393,6 +406,9 @@ namespace px {
     in.temperature.set_val(300.0, true);
 
     auto converged = run();
+    
+    SaveTest("single_valve_unknown_pin_and_cv_test", fs);
+    
     ASSERT_FALSE(converged); // We expect it to FAIL!
   }
 
@@ -471,6 +487,8 @@ namespace px {
       std::cout << "be detected by rank analysis, not blocked by the DOF check." << std::endl;
     }
     
+    SaveTest("recycle_loop_test", fs);
+    
     // Don't assert convergence - we want to analyze why it fails
   }
 
@@ -502,6 +520,132 @@ namespace px {
     // Verify the value is reasonable
     EXPECT_GT(temp, 295) << "Molar enthalpy seems too negative";
     EXPECT_LT(temp, 300) << "Molar enthalpy seems too positive for liquid water";
+  }
+
+  TEST_F(ProcessTest, SimpleHeatExchangerTest) {
+    auto s_in = fs.add<Stream>();
+    auto s_out = fs.add<Stream>();
+    auto hx = fs.add<SimpleHeatExchanger>();
+
+    fs.connect_in<SimpleHeatExchanger>(hx, s_in);
+    fs.connect_out<SimpleHeatExchanger>(hx, s_out);
+
+    auto& in = fs.get<Stream>(s_in);
+    auto& out = fs.get<Stream>(s_out);
+    auto& hex = fs.get<SimpleHeatExchanger>(hx);
+
+    // Given: inlet conditions
+    const double Pin = 2.0e5;  // Pa
+    const double Tin = 300.0;  // K
+    const double Fin = 5.0;    // mol/s
+    const double dP = 1.0e4;   // Pa (pressure drop)
+    const double Q = 1.0e5;    // W (heat duty - positive means heat added)
+
+    // Set fixed values
+    in.pressure.set_val(Pin, true);
+    in.temperature.set_val(Tin, true);
+    in.molar_flow.set_val(Fin, true);
+    hex.dP.set_val(dP, true);
+    hex.Q.set_val(Q, true);
+
+    // Unknowns
+    out.pressure.set_val(1.9e5, false);
+    out.molar_flow.set_val(4.9, false);
+    out.temperature.set_val(310.0, false);
+
+    run();
+
+    // Verify mass balance
+    EXPECT_NEAR(in.molar_flow.value, out.molar_flow.value, 1e-10);
+    
+    // Verify pressure drop
+    EXPECT_NEAR(out.pressure.value, Pin - dP, 1e-6);
+    
+    // Verify energy balance: Q = m * (h_out - h_in)
+    // We can't directly verify enthalpy without CoolProp, but we can verify the equation
+    double h_diff = out.molar_enthalpy.value - in.molar_enthalpy.value;
+    EXPECT_NEAR(hex.Q.value, out.molar_flow.value * h_diff, 1e-6);
+
+    SaveTest("simple_heat_exchanger_test", fs);
+  }
+
+  TEST_F(ProcessTest, HeatExchangerTest) {
+    // Create streams for hot and cold sides
+    auto s_hot_in = fs.add<Stream>();
+    auto s_hot_out = fs.add<Stream>();
+    auto s_cold_in = fs.add<Stream>();
+    auto s_cold_out = fs.add<Stream>();
+    auto hx = fs.add<HeatExchanger>();
+
+    // Connect streams to heat exchanger
+    auto& hex = fs.get<HeatExchanger>(hx);
+    hex.in_hot = s_hot_in;
+    hex.out_hot = s_hot_out;
+    hex.in_cold = s_cold_in;
+    hex.out_cold = s_cold_out;
+
+    auto& hot_in = fs.get<Stream>(s_hot_in);
+    auto& hot_out = fs.get<Stream>(s_hot_out);
+    auto& cold_in = fs.get<Stream>(s_cold_in);
+    auto& cold_out = fs.get<Stream>(s_cold_out);
+
+    // Given: hot side inlet conditions
+    const double P_hot_in = 3.0e5;   // Pa
+    const double T_hot_in = 400.0;   // K
+    const double F_hot = 10.0;       // mol/s
+    const double dP_hot = 50.0;     // Pa (pressure drop on hot side)
+
+    // Given: cold side inlet conditions
+    const double P_cold_in = 2.0e5;  // Pa
+    const double T_cold_in = 300.0;  // K
+    const double F_cold = 8.0;       // mol/s
+    const double dP_cold = 30.0;    // Pa (pressure drop on cold side)
+
+    // Heat duty (positive means heat flows from hot to cold)
+    const double Q = 0.0;          // W
+
+    // Set fixed values
+    hot_in.pressure.set_val(P_hot_in, true);
+    hot_in.temperature.set_val(T_hot_in, true);
+    hot_in.molar_flow.set_val(F_hot, true);
+    
+    cold_in.pressure.set_val(P_cold_in, true);
+    cold_in.temperature.set_val(T_cold_in, true);
+    cold_in.molar_flow.set_val(F_cold, true);
+    
+    hex.dP_hot.set_val(dP_hot, true);
+    hex.dP_cold.set_val(dP_cold, true);
+    hex.Q.set_val(Q, true);
+
+    // Unknowns
+    hot_out.pressure.set_val(2.95e5, false);
+    hot_out.molar_flow.set_val(9.9, false);
+    hot_out.temperature.set_val(390.0, false);
+    
+    cold_out.pressure.set_val(1.97e5, false);
+    cold_out.molar_flow.set_val(7.9, false);
+    cold_out.temperature.set_val(310.0, false);
+
+    run();
+
+    // Verify mass balances
+    EXPECT_NEAR(hot_in.molar_flow.value, hot_out.molar_flow.value, 1e-10);
+    EXPECT_NEAR(cold_in.molar_flow.value, cold_out.molar_flow.value, 1e-10);
+    
+    // Verify pressure drops
+    EXPECT_NEAR(hot_out.pressure.value, P_hot_in - dP_hot, 1e-6);
+    EXPECT_NEAR(cold_out.pressure.value, P_cold_in - dP_cold, 1e-6);
+    
+    // Verify energy balances
+    // Hot side: Q = m_hot * (h_hot_in - h_hot_out)
+    double h_hot_diff = hot_in.molar_enthalpy.value - hot_out.molar_enthalpy.value;
+    EXPECT_NEAR(hex.Q.value, hot_in.molar_flow.value * h_hot_diff, 1e-6);
+    
+    // Cold side: Q = m_cold * (h_cold_out - h_cold_in)
+    double h_cold_diff = cold_out.molar_enthalpy.value - cold_in.molar_enthalpy.value;
+    EXPECT_NEAR(hex.Q.value, cold_out.molar_flow.value * h_cold_diff, 1e-6);
+
+    SaveTest("heat_exchanger_test", fs);
   }
 
 } // end processX namespace

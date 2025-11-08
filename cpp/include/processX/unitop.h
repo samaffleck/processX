@@ -20,7 +20,7 @@
 
 namespace px {
 
-  enum class UnitType { Valve, Mixer, Inlet, Outlet, Splitter };
+  enum class UnitType { Valve, Mixer, Inlet, Outlet, Splitter, HeatExchanger, SimpleHeatExchanger };
 
   class Flowsheet;
 
@@ -188,6 +188,72 @@ namespace px {
 				cereal::make_nvp("Splitter_Inlet_ID_Handles", in),
 				cereal::make_nvp("Splitter_Outlets", out)			
       );
+		}
+  };
+
+  class HeatExchanger : public IUnitOp {
+  public:
+    Handle<Stream> in_hot{};
+    Handle<Stream> out_hot{};
+    Handle<Stream> in_cold{};
+    Handle<Stream> out_cold{};
+    Var dP_hot{"dP_hot", 0.0, false};  // Pressure drop on hot side (Pa)
+    Var dP_cold{"dP_cold", 0.0, false};  // Pressure drop on cold side (Pa)
+    Var Q{"Q", 0.0, false};  // Heat duty (W) - positive when heat flows from hot to cold
+
+    UnitType get_type() const override { return UnitType::HeatExchanger; }
+    const char* type_name() const override { return "HeatExchanger"; }
+
+    bool validate(const Flowsheet& fs, std::string* why) const override;
+    void register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) override;
+    void add_equations(Flowsheet& fs, ResidualSystem& sys) override;
+    int num_inputs() override { return 2; };
+    int num_outputs() override { return 2; };
+
+  private:
+		friend class cereal::access;
+		template <class Archive>
+		void serialize(Archive& ar, std::uint32_t const version) {
+			ar(
+				cereal::virtual_base_class<IUnitOp>(this),
+				cereal::make_nvp("HeatExchanger_Hot_Inlet", in_hot),
+				cereal::make_nvp("HeatExchanger_Hot_Outlet", out_hot),
+				cereal::make_nvp("HeatExchanger_Cold_Inlet", in_cold),
+				cereal::make_nvp("HeatExchanger_Cold_Outlet", out_cold),
+				cereal::make_nvp("HeatExchanger_Pressure_Drop_Hot", dP_hot),
+				cereal::make_nvp("HeatExchanger_Pressure_Drop_Cold", dP_cold),
+				cereal::make_nvp("HeatExchanger_Heat_Duty", Q)
+			);
+		}
+  };
+
+  class SimpleHeatExchanger : public IUnitOp {
+  public:
+    Handle<Stream> in{};
+    Handle<Stream> out{};
+    Var dP{"dP", 0.0, false};  // Pressure drop (Pa)
+    Var Q{"Q", 0.0, false};  // Heat duty (W) - positive when heat is added to stream
+
+    UnitType get_type() const override { return UnitType::SimpleHeatExchanger; }
+    const char* type_name() const override { return "SimpleHeatExchanger"; }
+
+    bool validate(const Flowsheet& fs, std::string* why) const override;
+    void register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) override;
+    void add_equations(Flowsheet& fs, ResidualSystem& sys) override;
+    int num_inputs() override { return 1; };
+    int num_outputs() override { return 1; };
+
+  private:
+		friend class cereal::access;
+		template <class Archive>
+		void serialize(Archive& ar, std::uint32_t const version) {
+			ar(
+				cereal::virtual_base_class<IUnitOp>(this),
+				cereal::make_nvp("SimpleHeatExchanger_Inlet", in),
+				cereal::make_nvp("SimpleHeatExchanger_Outlet", out),
+				cereal::make_nvp("SimpleHeatExchanger_Pressure_Drop", dP),
+				cereal::make_nvp("SimpleHeatExchanger_Heat_Duty", Q)
+			);
 		}
   };
 
