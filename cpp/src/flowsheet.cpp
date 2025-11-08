@@ -124,6 +124,10 @@ namespace px {
           return state_equation_residual(s, this->fluid, this);
         });
       }
+
+      if (!s.molar_flow.fixed && s.molar_flow.value == 0.0) {
+        s.molar_flow.value = 1e-12;
+      }
     });
 
     // DOF check: allow equations >= unknowns (redundancy will be caught by rank analysis)

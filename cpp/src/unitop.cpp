@@ -200,18 +200,6 @@ namespace px {
       return si_cold.molar_flow.value - so_cold.molar_flow.value;
     });
 
-    // Energy balance - hot side: Q = m_hot * (h_hot_in - h_hot_out)
-    // Hot side loses heat, so enthalpy decreases
-    sys.add(name + ": hot energy balance", [&, self]() {
-      return self->Q.value - si_hot.molar_flow.value * (si_hot.molar_enthalpy.value - so_hot.molar_enthalpy.value);
-    });
-
-    // Energy balance - cold side: Q = m_cold * (h_cold_out - h_cold_in)
-    // Cold side gains heat, so enthalpy increases
-    sys.add(name + ": cold energy balance", [&, self]() {
-      return self->Q.value - so_cold.molar_flow.value * (so_cold.molar_enthalpy.value - si_cold.molar_enthalpy.value);
-    });
-
     // Pressure drop - hot side: P_out = P_in - dP
     sys.add(name + ": hot pressure drop", [&, self]() {
       return so_hot.pressure.value - (si_hot.pressure.value - self->dP_hot.value);
@@ -221,6 +209,32 @@ namespace px {
     sys.add(name + ": cold pressure drop", [&, self]() {
       return so_cold.pressure.value - (si_cold.pressure.value - self->dP_cold.value);
     });
+
+    // Energy balance equations
+    if (self->Q.fixed) {
+      // When Q is fixed, we have two independent equations:
+      // Q = m_hot * (h_hot_in - h_hot_out) - constrains hot side
+      // Q = m_cold * (h_cold_out - h_cold_in) - constrains cold side
+      sys.add(name + ": hot energy balance", [&, self]() {
+        return self->Q.value - si_hot.molar_flow.value * (si_hot.molar_enthalpy.value - so_hot.molar_enthalpy.value);
+      });
+      sys.add(name + ": cold energy balance", [&, self]() {
+        return self->Q.value - so_cold.molar_flow.value * (so_cold.molar_enthalpy.value - si_cold.molar_enthalpy.value);
+      });
+    } else {
+      // When Q is not fixed, we need:
+      // 1. Energy balance: heat lost by hot equals heat gained by cold
+      // 2. One equation to determine Q
+      sys.add(name + ": energy balance", [&]() {
+        double Q_hot = si_hot.molar_flow.value * (si_hot.molar_enthalpy.value - so_hot.molar_enthalpy.value);
+        double Q_cold = so_cold.molar_flow.value * (so_cold.molar_enthalpy.value - si_cold.molar_enthalpy.value);
+        return Q_hot - Q_cold;
+      });
+      sys.add(name + ": heat duty", [&, self]() {
+        double Q_hot = si_hot.molar_flow.value * (si_hot.molar_enthalpy.value - so_hot.molar_enthalpy.value);
+        return self->Q.value - Q_hot;
+      });
+    }
 
     // Note: State equations are added once per stream in Flowsheet::assemble() to avoid duplicates
   }
