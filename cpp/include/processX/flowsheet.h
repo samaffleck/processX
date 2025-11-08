@@ -10,7 +10,8 @@
 #include <vector>
 #include <type_traits>
 #include <unordered_map> 
-#include <fstream> 
+#include <fstream>
+#include <functional>
 
 // px includes
 #include "processX/core.h"
@@ -40,6 +41,11 @@ namespace px {
       // Don't initialize fluid here - it may be called before CoolProp is initialized
       // Instead, initialize it lazily when first needed via ensure_fluid_initialized()
     }
+
+    // Logging callback - can be set to receive log messages (e.g., from GUI)
+    using LogCallback = std::function<void(const std::string& message, bool is_error)>;
+    void set_log_callback(LogCallback cb) { log_callback_ = cb; }
+    void clear_log_callback() { log_callback_ = nullptr; }
 
     Registry<Stream> streams_;
     Registry<Valve>  valves_;
@@ -215,8 +221,16 @@ namespace px {
     template <typename UnitOpType>
     void disconnect_out(Handle<UnitOpType> v) { get(v).out = {}; }
 
+    // Internal logging function (can be called from static helpers)
+    void log_message(const std::string& message, bool is_error = false) {
+      if (log_callback_) {
+        log_callback_(message, is_error);
+      }
+    }
+
   private:
     std::unordered_map<std::string, uint32_t> counters_;
+    LogCallback log_callback_;
 
     std::string next_auto_name(const std::string& prefix) {
       auto& n = counters_[prefix];

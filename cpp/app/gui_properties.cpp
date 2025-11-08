@@ -208,6 +208,131 @@ void ShowStreamProperties(px::Stream& stream) {
   ImGui::PopItemWidth();
 }
 
+void ShowSimpleHeatExchangerProperties(px::SimpleHeatExchanger& hex) {
+  ImGui::Text("SimpleHeatExchanger Properties");
+  ImGui::Separator();
+
+  // Name editing
+  char name_buffer[256];
+  strncpy(name_buffer, hex.get_name().c_str(), sizeof(name_buffer));
+  name_buffer[sizeof(name_buffer) - 1] = '\0';
+  if (ImGui::InputText("##Name", name_buffer, sizeof(name_buffer))) {
+    hex.name = name_buffer;
+  }
+
+  ImGui::Spacing();
+
+  // Parameters editing
+  ImGui::Text("Parameters:");
+  ImGui::PushItemWidth(200);
+  
+  ImGui::Text("Pressure Drop (Pa):");
+  if (ImGui::InputDouble("##dP", &hex.dP.value)) {
+    // Value updated
+  }
+  ImGui::SameLine();
+  ImGui::Checkbox("Fixed##dPFixed", &hex.dP.fixed);
+
+  ImGui::Text("Heat Duty (W):");
+  if (ImGui::InputDouble("##Q", &hex.Q.value)) {
+    // Value updated
+  }
+  ImGui::SameLine();
+  ImGui::Checkbox("Fixed##QFixed", &hex.Q.fixed);
+
+  ImGui::PopItemWidth();
+
+  ImGui::Spacing();
+
+  // Connections with dropdowns
+  ImGui::Text("Connections:");
+  
+  // Build stream list
+  std::vector<StreamItem> stream_list = GetStreamList();
+  
+  // Inlet dropdown
+  ImGui::Text("Inlet:");
+  ImGui::SameLine(100);
+  StreamCombo("##SimpleHXInlet", hex.in, stream_list);
+  
+  // Outlet dropdown
+  ImGui::Text("Outlet:");
+  ImGui::SameLine(100);
+  StreamCombo("##SimpleHXOutlet", hex.out, stream_list);
+}
+
+void ShowHeatExchangerProperties(px::HeatExchanger& hex) {
+  ImGui::Text("HeatExchanger Properties");
+  ImGui::Separator();
+
+  // Name editing
+  char name_buffer[256];
+  strncpy(name_buffer, hex.get_name().c_str(), sizeof(name_buffer));
+  name_buffer[sizeof(name_buffer) - 1] = '\0';
+  if (ImGui::InputText("##Name", name_buffer, sizeof(name_buffer))) {
+    hex.name = name_buffer;
+  }
+
+  ImGui::Spacing();
+
+  // Parameters editing
+  ImGui::Text("Parameters:");
+  ImGui::PushItemWidth(200);
+  
+  ImGui::Text("Pressure Drop Hot (Pa):");
+  if (ImGui::InputDouble("##dP_hot", &hex.dP_hot.value)) {
+    // Value updated
+  }
+  ImGui::SameLine();
+  ImGui::Checkbox("Fixed##dP_hotFixed", &hex.dP_hot.fixed);
+
+  ImGui::Text("Pressure Drop Cold (Pa):");
+  if (ImGui::InputDouble("##dP_cold", &hex.dP_cold.value)) {
+    // Value updated
+  }
+  ImGui::SameLine();
+  ImGui::Checkbox("Fixed##dP_coldFixed", &hex.dP_cold.fixed);
+
+  ImGui::Text("Heat Duty (W):");
+  if (ImGui::InputDouble("##Q", &hex.Q.value)) {
+    // Value updated
+  }
+  ImGui::SameLine();
+  ImGui::Checkbox("Fixed##QFixed", &hex.Q.fixed);
+
+  ImGui::PopItemWidth();
+
+  ImGui::Spacing();
+
+  // Connections with dropdowns
+  ImGui::Text("Connections:");
+  
+  // Build stream list
+  std::vector<StreamItem> stream_list = GetStreamList();
+  
+  // Hot side
+  ImGui::Text("Hot Side:");
+  ImGui::Text("  Inlet:");
+  ImGui::SameLine(100);
+  StreamCombo("##HXHotInlet", hex.in_hot, stream_list);
+  
+  ImGui::Text("  Outlet:");
+  ImGui::SameLine(100);
+  StreamCombo("##HXHotOutlet", hex.out_hot, stream_list);
+  
+  ImGui::Spacing();
+  
+  // Cold side
+  ImGui::Text("Cold Side:");
+  ImGui::Text("  Inlet:");
+  ImGui::SameLine(100);
+  StreamCombo("##HXColdInlet", hex.in_cold, stream_list);
+  
+  ImGui::Text("  Outlet:");
+  ImGui::SameLine(100);
+  StreamCombo("##HXColdOutlet", hex.out_cold, stream_list);
+}
+
 void ShowSelectedUnitProperties() {
   if (!selected_unit.valid()) {
     ImGui::Text("No unit selected");
@@ -292,6 +417,48 @@ void ShowSelectedUnitProperties() {
         
         // Delete button
         if (ImGui::Button("Delete Stream", ImVec2(-1, 0))) {
+          flowsheet.erase(handle);
+          selected_unit.clear();
+          found = true;
+          return;
+        }
+        found = true;
+      }
+      idx++;
+    });
+  } else if (selected_unit.type == SelectionType::SimpleHeatExchanger) {
+    uint32_t idx = 0;
+    flowsheet.simple_heat_exchangers_.for_each_with_handle([&](px::SimpleHeatExchanger& hex, px::Handle<px::SimpleHeatExchanger> handle) {
+      if (!found && idx == selected_unit.index) {
+        ShowSimpleHeatExchangerProperties(hex);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Delete button
+        if (ImGui::Button("Delete SimpleHeatExchanger", ImVec2(-1, 0))) {
+          flowsheet.erase(handle);
+          selected_unit.clear();
+          found = true;
+          return;
+        }
+        found = true;
+      }
+      idx++;
+    });
+  } else if (selected_unit.type == SelectionType::HeatExchanger) {
+    uint32_t idx = 0;
+    flowsheet.heat_exchangers_.for_each_with_handle([&](px::HeatExchanger& hex, px::Handle<px::HeatExchanger> handle) {
+      if (!found && idx == selected_unit.index) {
+        ShowHeatExchangerProperties(hex);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Delete button
+        if (ImGui::Button("Delete HeatExchanger", ImVec2(-1, 0))) {
           flowsheet.erase(handle);
           selected_unit.clear();
           found = true;

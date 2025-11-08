@@ -42,6 +42,11 @@ void ShowLogWindow() {
   if (ImGui::Button("Solve")) {
     AddLogEntry(LogEntry::Info, "Starting solve...");
     
+    // Set up logging callback to capture CoolProp exceptions
+    flowsheet.set_log_callback([](const std::string& message, bool is_error) {
+      AddLogEntry(is_error ? LogEntry::Error : LogEntry::Info, message);
+    });
+    
     // First, assemble the system
     std::string assemble_error;
     if (!flowsheet.assemble(&assemble_error)) {
@@ -77,6 +82,9 @@ void ShowLogWindow() {
         AddLogEntry(LogEntry::Error, error_msg);
       }
     }
+    
+    // Clear the logging callback after solve completes
+    flowsheet.clear_log_callback();
   }
   ImGui::SameLine();
   if (ImGui::Button("Clear")) {

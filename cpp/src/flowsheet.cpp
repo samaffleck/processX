@@ -4,6 +4,8 @@
 #include <CoolProp.h>
 #include <AbstractState.h>
 #include <unordered_set>
+#include <iostream>
+#include <exception>
 
 namespace px {
 
@@ -12,18 +14,58 @@ namespace px {
   // Requires: P must be fixed, and at least one of (T, H) must be fixed
   static double state_equation_residual(
     Stream& stream,
-    std::shared_ptr<CoolProp::AbstractState>& fluid
+    std::shared_ptr<CoolProp::AbstractState>& fluid,
+    Flowsheet* flowsheet
   ) {    
     if (stream.temperature.fixed) {
       // T and P are fixed -> calculate H and compare
-      fluid->update(CoolProp::PT_INPUTS, stream.pressure.value, stream.temperature.value);
-      double calculated_h = fluid->hmolar();
-      return stream.molar_enthalpy.value - calculated_h;
+      try {
+        fluid->update(CoolProp::PT_INPUTS, stream.pressure.value, stream.temperature.value);
+        double calculated_h = fluid->hmolar();
+        return stream.molar_enthalpy.value - calculated_h;
+      } catch (const std::exception& e) {
+        std::string msg = "CoolProp exception (PT_INPUTS): " + std::string(e.what()) + 
+                         " | Stream: " + (stream.name.empty() ? "(unnamed)" : stream.name) +
+                         " | P = " + std::to_string(stream.pressure.value) + " Pa, T = " + std::to_string(stream.temperature.value) + " K";
+        std::cerr << "[state_equation_residual] " << msg << std::endl;
+        // Also log to callback if available
+        if (flowsheet) {
+          flowsheet->log_message(msg, true);
+        }
+        // Return a large residual to indicate failure
+        return 1e10;
+      } catch (...) {
+        std::string msg = "Unknown exception in CoolProp update (PT_INPUTS) | Stream: " + (stream.name.empty() ? "(unnamed)" : stream.name);
+        std::cerr << "[state_equation_residual] " << msg << std::endl;
+        if (flowsheet) {
+          flowsheet->log_message(msg, true);
+        }
+        return 1e10;
+      }
     }
     // H and P are fixed -> calculate T and compare
-    fluid->update(CoolProp::HmolarP_INPUTS, stream.molar_enthalpy.value, stream.pressure.value);
-    double calculated_t = fluid->T();
-    return stream.temperature.value - calculated_t;
+    try {
+      fluid->update(CoolProp::HmolarP_INPUTS, stream.molar_enthalpy.value, stream.pressure.value);
+      double calculated_t = fluid->T();
+      return stream.temperature.value - calculated_t;
+    } catch (const std::exception& e) {
+      std::string msg = "CoolProp exception (HmolarP_INPUTS): " + std::string(e.what()) + 
+                       " | Stream: " + (stream.name.empty() ? "(unnamed)" : stream.name) +
+                       " | P = " + std::to_string(stream.pressure.value) + " Pa, H = " + std::to_string(stream.molar_enthalpy.value) + " J/mol";
+      std::cerr << "[state_equation_residual] " << msg << std::endl;
+      if (flowsheet) {
+        flowsheet->log_message(msg, true);
+      }
+      // Return a large residual to indicate failure
+      return 1e10;
+    } catch (...) {
+      std::string msg = "Unknown exception in CoolProp update (HmolarP_INPUTS) | Stream: " + (stream.name.empty() ? "(unnamed)" : stream.name);
+      std::cerr << "[state_equation_residual] " << msg << std::endl;
+      if (flowsheet) {
+        flowsheet->log_message(msg, true);
+      }
+      return 1e10;
+    }
   }
 
   bool Flowsheet::assemble(std::string* err) {
@@ -56,8 +98,17 @@ namespace px {
         try {
           fluid->update(CoolProp::PT_INPUTS, s.pressure.value, s.temperature.value);
           s.molar_enthalpy.value = fluid->hmolar();
-        } catch (...) {
+        } catch (const std::exception& e) {
           // If CoolProp fails, leave enthalpy as is (will be set by solver)
+          std::string msg = "CoolProp exception during enthalpy initialization: " + std::string(e.what()) + 
+                           " | Stream: " + (s.name.empty() ? "(unnamed)" : s.name) +
+                           " | P = " + std::to_string(s.pressure.value) + " Pa, T = " + std::to_string(s.temperature.value) + " K";
+          std::cerr << "[Flowsheet::assemble] " << msg << std::endl;
+          log_message(msg, true);
+        } catch (...) {
+          std::string msg = "Unknown exception in CoolProp update during enthalpy initialization | Stream: " + (s.name.empty() ? "(unnamed)" : s.name);
+          std::cerr << "[Flowsheet::assemble] " << msg << std::endl;
+          log_message(msg, true);
         }
       }
     });
@@ -70,7 +121,7 @@ namespace px {
       if (streams_with_state_eq.find(h.index) == streams_with_state_eq.end()) {
         streams_with_state_eq.insert(h.index);
         sys.add("state_eq[" + s.name + "]", [&s, this]() {
-          return state_equation_residual(s, this->fluid);
+          return state_equation_residual(s, this->fluid, this);
         });
       }
     });
