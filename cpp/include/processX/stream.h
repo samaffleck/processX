@@ -17,8 +17,8 @@ namespace px {
   public:
     std::string name;
     Var molar_flow{"Molar Flowrate", 0.0, false}; // mol/s
-    Var pressure{"Pressure", 0.0, false};   // Pa
-    Var temperature{"Temperature", 300.0, true}; // K
+    Var pressure{"Pressure", 1.0e5, false};   // Pa
+    Var temperature{"Temperature", 300.0, false}; // K
     Var molar_enthalpy{"Molar Enthalpy", 0.0, false}; // J/mol
     
   private:

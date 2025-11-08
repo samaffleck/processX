@@ -27,6 +27,9 @@ namespace px {
   }
 
   bool Flowsheet::assemble(std::string* err) {
+    // Ensure fluid is initialized before using it
+    ensure_fluid_initialized();
+    
     units_.clear();
     build_unit_list();
 

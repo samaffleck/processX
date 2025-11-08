@@ -37,11 +37,8 @@ namespace px {
   class Flowsheet {
   public:
     Flowsheet() {
-      fluid = std::shared_ptr<CoolProp::AbstractState>(
-        CoolProp::AbstractState::factory("HEOS", "Water")
-      );
-      // For pure fluids, mole fractions are automatically set to {1.0}
-      // Only need to set for mixtures
+      // Don't initialize fluid here - it may be called before CoolProp is initialized
+      // Instead, initialize it lazily when first needed via ensure_fluid_initialized()
     }
 
     Registry<Stream> streams_;
@@ -192,6 +189,17 @@ namespace px {
     std::string next_auto_name(const std::string& prefix) {
       auto& n = counters_[prefix];
       return prefix + "-" + std::to_string(++n);
+    }
+
+    // Lazy initialization of CoolProp fluid - ensures it's created after CoolProp is initialized
+    void ensure_fluid_initialized() {
+      if (!fluid) {
+        fluid = std::shared_ptr<CoolProp::AbstractState>(
+          CoolProp::AbstractState::factory("HEOS", "Water")
+        );
+        // For pure fluids, mole fractions are automatically set to {1.0}
+        // Only need to set for mixtures
+      }
     }
 
   private:
