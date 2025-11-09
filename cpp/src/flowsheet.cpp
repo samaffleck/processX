@@ -7,6 +7,7 @@
 #include <iostream>
 #include <exception>
 #include <cmath>
+#include <algorithm>
 
 namespace px {
 
@@ -303,29 +304,100 @@ namespace px {
     return true;
   }
 
+  // Helper function to clean up invalid stream references from unit operations
+  static void cleanup_invalid_stream_references(Flowsheet& fs) {
+    // Clean up valves
+    fs.valves_.for_each([&](Valve& v) {
+      if (v.in.valid() && !fs.streams_.contains(v.in)) {
+        v.in = Handle<Stream>{}; // Clear invalid handle
+      }
+      if (v.out.valid() && !fs.streams_.contains(v.out)) {
+        v.out = Handle<Stream>{}; // Clear invalid handle
+      }
+    });
+    
+    // Clean up mixers
+    fs.mixers_.for_each([&](Mixer& m) {
+      // Remove invalid inlets
+      m.in.erase(
+        std::remove_if(m.in.begin(), m.in.end(),
+          [&](const Handle<Stream>& h) {
+            return h.valid() && !fs.streams_.contains(h);
+          }),
+        m.in.end()
+      );
+      // Clear invalid outlet
+      if (m.out.valid() && !fs.streams_.contains(m.out)) {
+        m.out = Handle<Stream>{};
+      }
+    });
+    
+    // Clean up splitters
+    fs.splitters_.for_each([&](Splitter& s) {
+      // Clear invalid inlet
+      if (s.in.valid() && !fs.streams_.contains(s.in)) {
+        s.in = Handle<Stream>{};
+      }
+      // Remove invalid outlets
+      s.out.erase(
+        std::remove_if(s.out.begin(), s.out.end(),
+          [&](const Handle<Stream>& h) {
+            return h.valid() && !fs.streams_.contains(h);
+          }),
+        s.out.end()
+      );
+    });
+    
+    // Clean up heat exchangers
+    fs.heat_exchangers_.for_each([&](HeatExchanger& hx) {
+      if (hx.in_hot.valid() && !fs.streams_.contains(hx.in_hot)) {
+        hx.in_hot = Handle<Stream>{};
+      }
+      if (hx.out_hot.valid() && !fs.streams_.contains(hx.out_hot)) {
+        hx.out_hot = Handle<Stream>{};
+      }
+      if (hx.in_cold.valid() && !fs.streams_.contains(hx.in_cold)) {
+        hx.in_cold = Handle<Stream>{};
+      }
+      if (hx.out_cold.valid() && !fs.streams_.contains(hx.out_cold)) {
+        hx.out_cold = Handle<Stream>{};
+      }
+    });
+    
+    // Clean up simple heat exchangers
+    fs.simple_heat_exchangers_.for_each([&](SimpleHeatExchanger& shx) {
+      if (shx.in.valid() && !fs.streams_.contains(shx.in)) {
+        shx.in = Handle<Stream>{};
+      }
+      if (shx.out.valid() && !fs.streams_.contains(shx.out)) {
+        shx.out = Handle<Stream>{};
+      }
+    });
+  }
+
   // Helper function to validate that connected streams have the same fluid package
   static bool validate_fluid_consistency(IUnitOp* u, Flowsheet& fs, std::string* err) {
     // Get all connected streams for this unit operation
     std::vector<Handle<Stream>> connected_streams;
     
     if (auto* v = dynamic_cast<Valve*>(u)) {
-      if (v->in.valid()) connected_streams.push_back(v->in);
-      if (v->out.valid()) connected_streams.push_back(v->out);
+      if (v->in.valid() && fs.streams_.contains(v->in)) connected_streams.push_back(v->in);
+      if (v->out.valid() && fs.streams_.contains(v->out)) connected_streams.push_back(v->out);
     } else if (auto* m = dynamic_cast<Mixer*>(u)) {
       for (const auto& h : m->in) {
-        if (h.valid()) connected_streams.push_back(h);
+        if (h.valid() && fs.streams_.contains(h)) connected_streams.push_back(h);
       }
-      if (m->out.valid()) connected_streams.push_back(m->out);
+      if (m->out.valid() && fs.streams_.contains(m->out)) connected_streams.push_back(m->out);
     } else if (auto* s = dynamic_cast<Splitter*>(u)) {
-      if (s->in.valid()) connected_streams.push_back(s->in);
+      if (s->in.valid() && fs.streams_.contains(s->in)) connected_streams.push_back(s->in);
       for (const auto& h : s->out) {
-        if (h.valid()) connected_streams.push_back(h);
+        if (h.valid() && fs.streams_.contains(h)) connected_streams.push_back(h);
       }
     } else if (auto* hx = dynamic_cast<HeatExchanger*>(u)) {
       // For heat exchangers, hot side and cold side can have different fluids
       // But streams on the same side must have the same fluid
-      if (hx->in_hot.valid()) connected_streams.push_back(hx->in_hot);
-      if (hx->out_hot.valid()) connected_streams.push_back(hx->out_hot);
+      if (hx->in_hot.valid() && fs.streams_.contains(hx->in_hot)) connected_streams.push_back(hx->in_hot);
+      if (hx->out_hot.valid() && fs.streams_.contains(hx->out_hot)) connected_streams.push_back(hx->out_hot);
       // Check hot side consistency
       if (connected_streams.size() >= 2) {
         size_t hot_fluid_id = fs.get<Stream>(connected_streams[0]).fluid_package_id;
@@ -338,8 +410,8 @@ namespace px {
         }
       }
       connected_streams.clear();
-      if (hx->in_cold.valid()) connected_streams.push_back(hx->in_cold);
-      if (hx->out_cold.valid()) connected_streams.push_back(hx->out_cold);
+      if (hx->in_cold.valid() && fs.streams_.contains(hx->in_cold)) connected_streams.push_back(hx->in_cold);
+      if (hx->out_cold.valid() && fs.streams_.contains(hx->out_cold)) connected_streams.push_back(hx->out_cold);
       // Check cold side consistency
       if (connected_streams.size() >= 2) {
         size_t cold_fluid_id = fs.get<Stream>(connected_streams[0]).fluid_package_id;
@@ -353,8 +425,8 @@ namespace px {
       }
       return true; // Heat exchanger validation complete
     } else if (auto* shx = dynamic_cast<SimpleHeatExchanger*>(u)) {
-      if (shx->in.valid()) connected_streams.push_back(shx->in);
-      if (shx->out.valid()) connected_streams.push_back(shx->out);
+      if (shx->in.valid() && fs.streams_.contains(shx->in)) connected_streams.push_back(shx->in);
+      if (shx->out.valid() && fs.streams_.contains(shx->out)) connected_streams.push_back(shx->out);
     }
     
     // For all other unit operations, check that all connected streams have the same fluid package
@@ -375,6 +447,9 @@ namespace px {
   bool Flowsheet::assemble(std::string* err) {
     // Ensure fluid is initialized before using it
     ensure_fluid_initialized();
+    
+    // Clean up invalid stream references from unit operations (e.g., deleted streams)
+    cleanup_invalid_stream_references(*this);
     
     units_.clear();
     build_unit_list();
