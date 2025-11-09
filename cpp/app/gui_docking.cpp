@@ -64,6 +64,10 @@ std::vector<HelloImGui::DockableWindow> CreateDockableWindows()
   windows.emplace_back("Unit Operations", "BottomRightSpace", []() {}, true, true);
   windows.back().callBeginEnd = false;
   
+  // Fluid Packages - can dock anywhere
+  windows.emplace_back("Fluid Packages", "RightSpace", []() {}, true, true);
+  windows.back().callBeginEnd = false;
+  
   return windows;
 }
 
