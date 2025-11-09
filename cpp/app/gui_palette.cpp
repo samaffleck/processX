@@ -34,13 +34,13 @@ void ShowUnitOperationsPalette() {
     AddLogEntry(LogEntry::Info, "Added new Stream");
   }
   ImGui::SameLine();
-  if (ImGui::Button("SimpleHX", button_dim)) {
+  if (ImGui::Button("HX(1)", button_dim)) {
     flowsheet.add<px::SimpleHeatExchanger>();
     selected_unit.clear();
     AddLogEntry(LogEntry::Info, "Added new SimpleHeatExchanger");
   }
   ImGui::SameLine();
-  if (ImGui::Button("HeatX", button_dim)) {
+  if (ImGui::Button("HX(2)", button_dim)) {
     flowsheet.add<px::HeatExchanger>();
     selected_unit.clear();
     AddLogEntry(LogEntry::Info, "Added new HeatExchanger");

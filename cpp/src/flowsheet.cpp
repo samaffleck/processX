@@ -27,7 +27,54 @@ namespace px {
         flowsheet->log_message(msg, true);
       }
       return 1e10;
-    }    
+    }
+    
+    // Set mole fractions from stream variables if this is a mixture
+    auto components = flowsheet->fluids.GetComponents(stream.fluid_package_id);
+    if (components.size() > 1 && stream.mole_fractions.size() == components.size()) {
+      try {
+        std::vector<double> mole_fracs;
+        mole_fracs.reserve(stream.mole_fractions.size());
+        double sum = 0.0;
+        for (const auto& mf : stream.mole_fractions) {
+          double val = mf.value;
+          if (val < 0.0) val = 0.0; // Clamp negative values
+          mole_fracs.push_back(val);
+          sum += val;
+        }
+        
+        // Normalize to sum to 1.0 (CoolProp requirement)
+        if (sum > 1e-10) {
+          for (auto& mf : mole_fracs) {
+            mf /= sum;
+          }
+        } else {
+          // If sum is too small, use equal fractions
+          double equal_frac = 1.0 / mole_fracs.size();
+          for (auto& mf : mole_fracs) {
+            mf = equal_frac;
+          }
+        }
+        
+        fluid->set_mole_fractions(mole_fracs);
+        
+        // Build phase envelope for mixtures if needed (lazy initialization)
+        try {
+          fluid->build_phase_envelope("none");
+        } catch (...) {
+          // Phase envelope build may fail, continue anyway
+        }
+      } catch (const std::exception& e) {
+        std::string msg = "Failed to set mole fractions: " + std::string(e.what()) + 
+                         " | Stream: " + (stream.name.empty() ? "(unnamed)" : stream.name);
+        std::cerr << "[state_equation_residual] " << msg << std::endl;
+        if (flowsheet) {
+          flowsheet->log_message(msg, true);
+        }
+        return 1e10;
+      }
+    }
+    
     if (stream.temperature.fixed) {
       // T and P are fixed -> calculate H and compare
       try {
@@ -56,9 +103,9 @@ namespace px {
     }
     // H and P are fixed -> calculate T and compare
     try {
-      auto components = flowsheet->fluids.GetComponents(stream.fluid_package_id);
       double calculated_t;
       
+      // components was already retrieved above for setting mole fractions
       if (components.size() > 1) {
         // For mixtures, HmolarP_INPUTS is not supported, use iterative approach
         // Use PT_INPUTS to find T that gives the desired H

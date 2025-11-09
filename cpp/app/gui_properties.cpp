@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <cstring>
 #include <cstdio>
+#include <cmath>
 
 void ShowValveProperties(px::Valve& valve) {
   ImGui::Text("Valve Properties");
@@ -206,6 +207,223 @@ void ShowStreamProperties(px::Stream& stream) {
   ImGui::Checkbox("Fixed##MolarEnthalpyFixed", &stream.molar_enthalpy.fixed);
 
   ImGui::PopItemWidth();
+
+  ImGui::Spacing();
+  ImGui::Separator();
+  ImGui::Spacing();
+
+  // Fluid Package selection
+  ImGui::Text("Fluid Package:");
+  
+  // Get all available fluid package IDs
+  std::vector<size_t> package_ids = flowsheet.fluids.GetAllPackageIds();
+  
+  if (package_ids.empty()) {
+    ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "No fluid packages available");
+    ImGui::Text("Create a fluid package in the 'Fluid Packages' window first.");
+  } else {
+    // Build display strings for combo box
+    std::vector<std::string> package_labels;
+    package_labels.reserve(package_ids.size() + 1);
+    package_labels.push_back("(None)");
+    
+    int current_selection = 0; // Default to "(None)"
+    
+    for (size_t i = 0; i < package_ids.size(); ++i) {
+      size_t pkg_id = package_ids[i];
+      auto components = flowsheet.fluids.GetComponents(pkg_id);
+      std::string backend = flowsheet.fluids.GetThermoPackage(pkg_id);
+      
+      // Build label: "PackageName: Component1, Component2, ... (Backend)"
+      std::string pkg_name = flowsheet.fluids.GetPackageName(pkg_id);
+      std::string label = pkg_name + ": ";
+      if (components.empty()) {
+        label += "(empty)";
+      } else {
+        for (size_t j = 0; j < components.size(); ++j) {
+          if (j > 0) label += ", ";
+          label += components[j];
+        }
+      }
+      label += " (" + backend + ")";
+      package_labels.push_back(label);
+      
+      // Check if this is the current package
+      if (stream.fluid_package_id == pkg_id) {
+        current_selection = static_cast<int>(i + 1); // +1 because index 0 is "(None)"
+      }
+    }
+    
+    // Create C-style string array for ImGui::Combo
+    std::vector<const char*> combo_items;
+    combo_items.reserve(package_labels.size());
+    for (const auto& label : package_labels) {
+      combo_items.push_back(label.c_str());
+    }
+    
+    // Combo box
+    ImGui::PushItemWidth(400);
+    if (ImGui::Combo("##FluidPackage", &current_selection, combo_items.data(), 
+                     static_cast<int>(combo_items.size()))) {
+      // Selection changed
+      if (current_selection == 0) {
+        // Selected "(None)" - set to 0
+        stream.fluid_package_id = 0;
+        stream.mole_fractions.clear();
+        stream.mole_fractions_liquid.clear();
+        stream.mole_fractions_vapor.clear();
+      } else {
+        // Selected a package
+        size_t selected_pkg_id = package_ids[current_selection - 1];
+        stream.fluid_package_id = selected_pkg_id;
+        // Initialize composition variables based on fluid package components
+        auto components = flowsheet.fluids.GetComponents(selected_pkg_id);
+        stream.initialize_composition(components.size(), components);
+      }
+    }
+    ImGui::PopItemWidth();
+    
+    // Show current package info if selected
+    if (stream.fluid_package_id != 0) {
+      auto components = flowsheet.fluids.GetComponents(stream.fluid_package_id);
+      std::string backend = flowsheet.fluids.GetThermoPackage(stream.fluid_package_id);
+      
+      ImGui::Text("Components: ");
+      ImGui::SameLine();
+      if (components.empty()) {
+        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "(empty - add components in Fluid Packages window)");
+      } else {
+        std::string comp_list;
+        for (size_t i = 0; i < components.size(); ++i) {
+          if (i > 0) comp_list += ", ";
+          comp_list += components[i];
+        }
+        ImGui::Text("%s", comp_list.c_str());
+      }
+      
+      ImGui::Text("Backend: %s", backend.c_str());
+      
+      ImGui::Spacing();
+      ImGui::Separator();
+      ImGui::Spacing();
+      
+      // Composition editing
+      if (!components.empty()) {
+        ImGui::Text("Composition:");
+        ImGui::Spacing();
+        
+        // Ensure composition variables are initialized
+        if (stream.mole_fractions.size() != components.size()) {
+          stream.initialize_composition(components.size(), components);
+        }
+        
+        ImGui::PushItemWidth(200);
+        
+        // Overall mole fractions
+        if (ImGui::CollapsingHeader("Overall Mole Fractions", ImGuiTreeNodeFlags_DefaultOpen)) {
+          double sum = 0.0;
+          for (size_t i = 0; i < components.size() && i < stream.mole_fractions.size(); ++i) {
+            ImGui::Text("%s:", components[i].c_str());
+            ImGui::SameLine(150);
+            char label[64];
+            snprintf(label, sizeof(label), "##MoleFrac_%zu", i);
+            if (ImGui::InputDouble(label, &stream.mole_fractions[i].value)) {
+              // Value updated
+            }
+            ImGui::SameLine();
+            snprintf(label, sizeof(label), "Fixed##MoleFracFixed_%zu", i);
+            ImGui::Checkbox(label, &stream.mole_fractions[i].fixed);
+            sum += stream.mole_fractions[i].value;
+          }
+          ImGui::Text("Sum: %.6f", sum);
+          if (std::abs(sum - 1.0) > 1e-6 && sum > 0.0) {
+            ImGui::SameLine();
+            if (ImGui::Button("Normalize")) {
+              for (size_t i = 0; i < stream.mole_fractions.size(); ++i) {
+                stream.mole_fractions[i].value /= sum;
+              }
+            }
+          }
+        }
+        
+        ImGui::Spacing();
+        
+        // Liquid phase mole fractions
+        if (ImGui::CollapsingHeader("Liquid Phase Mole Fractions")) {
+          double sum_liq = 0.0;
+          for (size_t i = 0; i < components.size() && i < stream.mole_fractions_liquid.size(); ++i) {
+            ImGui::Text("%s:", components[i].c_str());
+            ImGui::SameLine(150);
+            char label[64];
+            snprintf(label, sizeof(label), "##MoleFracLiq_%zu", i);
+            if (ImGui::InputDouble(label, &stream.mole_fractions_liquid[i].value)) {
+              // Value updated
+            }
+            ImGui::SameLine();
+            snprintf(label, sizeof(label), "Fixed##MoleFracLiqFixed_%zu", i);
+            ImGui::Checkbox(label, &stream.mole_fractions_liquid[i].fixed);
+            sum_liq += stream.mole_fractions_liquid[i].value;
+          }
+          ImGui::Text("Sum: %.6f", sum_liq);
+          if (std::abs(sum_liq - 1.0) > 1e-6 && sum_liq > 0.0) {
+            ImGui::SameLine();
+            if (ImGui::Button("Normalize##Liq")) {
+              for (size_t i = 0; i < stream.mole_fractions_liquid.size(); ++i) {
+                stream.mole_fractions_liquid[i].value /= sum_liq;
+              }
+            }
+          }
+        }
+        
+        ImGui::Spacing();
+        
+        // Vapor phase mole fractions
+        if (ImGui::CollapsingHeader("Vapor Phase Mole Fractions")) {
+          double sum_vap = 0.0;
+          for (size_t i = 0; i < components.size() && i < stream.mole_fractions_vapor.size(); ++i) {
+            ImGui::Text("%s:", components[i].c_str());
+            ImGui::SameLine(150);
+            char label[64];
+            snprintf(label, sizeof(label), "##MoleFracVap_%zu", i);
+            if (ImGui::InputDouble(label, &stream.mole_fractions_vapor[i].value)) {
+              // Value updated
+            }
+            ImGui::SameLine();
+            snprintf(label, sizeof(label), "Fixed##MoleFracVapFixed_%zu", i);
+            ImGui::Checkbox(label, &stream.mole_fractions_vapor[i].fixed);
+            sum_vap += stream.mole_fractions_vapor[i].value;
+          }
+          ImGui::Text("Sum: %.6f", sum_vap);
+          if (std::abs(sum_vap - 1.0) > 1e-6 && sum_vap > 0.0) {
+            ImGui::SameLine();
+            if (ImGui::Button("Normalize##Vap")) {
+              for (size_t i = 0; i < stream.mole_fractions_vapor.size(); ++i) {
+                stream.mole_fractions_vapor[i].value /= sum_vap;
+              }
+            }
+          }
+        }
+        
+        ImGui::Spacing();
+        
+        // Quality (vapor fraction)
+        ImGui::Text("Quality (Vapor Fraction):");
+        ImGui::SameLine(200);
+        if (ImGui::InputDouble("##Quality", &stream.quality.value)) {
+          // Clamp to [0, 1]
+          if (stream.quality.value < 0.0) stream.quality.value = 0.0;
+          if (stream.quality.value > 1.0) stream.quality.value = 1.0;
+        }
+        ImGui::SameLine();
+        ImGui::Checkbox("Fixed##QualityFixed", &stream.quality.fixed);
+        
+        ImGui::PopItemWidth();
+      } else {
+        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "No components in fluid package.");
+        ImGui::Text("Add components in the 'Fluid Packages' window.");
+      }
+    }
+  }
 }
 
 void ShowSimpleHeatExchangerProperties(px::SimpleHeatExchanger& hex) {

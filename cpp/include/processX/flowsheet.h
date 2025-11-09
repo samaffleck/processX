@@ -43,10 +43,16 @@ namespace px {
 
   class FluidRegistry {
   public:
-    size_t AddFluidPackage(const ComponentList& components = {}, const std::string& thermo_pkg = "HEOS") {
+    size_t AddFluidPackage(const ComponentList& components = {}, const std::string& thermo_pkg = "HEOS", const std::string& name = "") {
       size_t id = ++next_id;
       pkg_components[id] = components;
       pkg_thermo[id] = thermo_pkg;
+      // Set default name if not provided
+      if (name.empty()) {
+        pkg_names[id] = "Package #" + std::to_string(id);
+      } else {
+        pkg_names[id] = name;
+      }
       pkg[id] = std::shared_ptr<CoolProp::AbstractState>(
         CoolProp::AbstractState::factory(thermo_pkg, components)
       );
@@ -78,10 +84,25 @@ namespace px {
       return ""; // Return empty string if not found
     }
 
+    std::string GetPackageName(size_t id) const {
+      auto it = pkg_names.find(id);
+      if (it != pkg_names.end()) {
+        return it->second;
+      }
+      return "Package #" + std::to_string(id); // Return default name if not found
+    }
+
+    void SetPackageName(size_t id, const std::string& name) {
+      if (!name.empty()) {
+        pkg_names[id] = name;
+      }
+    }
+
     void RemoveFluidPackage(size_t pkg_id) {
       pkg.erase(pkg_id);
       pkg_components.erase(pkg_id);
       pkg_thermo.erase(pkg_id);
+      pkg_names.erase(pkg_id);
     }
 
     // Get the first available fluid package ID, or 0 if none exist
@@ -130,6 +151,7 @@ namespace px {
   private:
     std::unordered_map<size_t, ComponentList> pkg_components;
     std::unordered_map<size_t, std::string> pkg_thermo;
+    std::unordered_map<size_t, std::string> pkg_names;
     std::unordered_map<size_t, FluidPackage> pkg;
     size_t next_id = 0;
 
@@ -139,6 +161,7 @@ namespace px {
 			ar(
 				cereal::make_nvp("FluidPackage_Components", pkg_components),
 				cereal::make_nvp("FluidPackage_Thermo", pkg_thermo),
+				cereal::make_nvp("FluidPackage_Names", pkg_names),
 				cereal::make_nvp("FluidPackage_NextID", next_id)
 			);
 			// Note: FluidPackage objects (pkg) are not serialized directly as they contain

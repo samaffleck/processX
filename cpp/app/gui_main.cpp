@@ -4,6 +4,7 @@
 #include "gui_palette.h"
 #include "gui_flowsheet.h"
 #include "gui_properties.h"
+#include "gui_fluids.h"
 #include "gui_docking.h"
 #include "themes.h"
 #include <imgui.h>
@@ -55,6 +56,10 @@ void ShowGui()
 
   ImGui::Begin("Properties");
   ShowSelectedUnitProperties();
+  ImGui::End();
+
+  ImGui::Begin("Fluid Packages");
+  ShowFluidPackagesWindow();
   ImGui::End();
   
   ShowLogWindow();

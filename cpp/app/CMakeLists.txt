@@ -9,6 +9,7 @@ set(PROCESSX_APP_SOURCES
   gui_palette.cpp
   gui_properties.cpp
   gui_flowsheet.cpp
+  gui_fluids.cpp
   gui_docking.cpp
   gui_main.cpp
 )
