@@ -83,6 +83,7 @@
     "matrixfunctions": "cpp",
     "nonlinearoptimization": "cpp",
     "*.inc": "cpp",
-    "nnls": "cpp"
+    "nnls": "cpp",
+    "hash_map": "cpp"
   }
 }

@@ -24,7 +24,8 @@
                             "Variable_Name": "Temperature",
                             "Variable_Value": 300.0,
                             "Variable_Is_Fixed": true
-                        }
+                        },
+                        "Stream_Fluid_Package_ID": 1
                     },
                     "Slot_Generation": 1,
                     "Slot_Alive": true,
@@ -47,7 +48,8 @@
                             "Variable_Name": "Temperature",
                             "Variable_Value": 300.0,
                             "Variable_Is_Fixed": false
-                        }
+                        },
+                        "Stream_Fluid_Package_ID": 1
                     },
                     "Slot_Generation": 1,
                     "Slot_Alive": true,
@@ -117,6 +119,25 @@
             "cereal_class_version": 0,
             "Registry_Slots": [],
             "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_FluidPackage_Registry": {
+            "cereal_class_version": 0,
+            "FluidPackage_Components": [
+                {
+                    "key": 1,
+                    "value": [
+                        "N2",
+                        "O2"
+                    ]
+                }
+            ],
+            "FluidPackage_Thermo": [
+                {
+                    "key": 1,
+                    "value": "HEOS"
+                }
+            ],
+            "FluidPackage_NextID": 1
         }
     }
 }

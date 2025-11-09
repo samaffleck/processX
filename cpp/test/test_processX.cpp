@@ -68,10 +68,29 @@ namespace px {
       
       return rep.converged;
     }
+
+    // Helper function to initialize N2/O2 fluid package (79% N2, 21% O2)
+    size_t init_air_fluid() {
+      size_t fluid_id = fs.fluids.AddFluidPackage({"N2", "O2"}, "HEOS");
+      auto fluid = fs.fluids.GetFluidPackage(fluid_id);
+      if (fluid) {
+        fluid->set_mole_fractions({0.79, 0.21}); // 79% N2, 21% O2
+        // Build phase envelope after setting mole fractions (required for mixtures)
+        try {
+          fluid->build_phase_envelope("none");
+        } catch (...) {
+          // If phase envelope build fails, continue anyway
+        }
+      }
+      return fluid_id;
+    }
   };
 
 
   TEST_F(ProcessTest, MultiValveZeroFlowTest) {
+    // Initialize fluid package
+    size_t fluid_id = init_air_fluid();
+    
     auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
     auto s_mid = fs.add<Stream>();
@@ -83,6 +102,11 @@ namespace px {
     auto& mid = fs.get<Stream>(s_mid);
     auto& val_1 = fs.get<Valve>(v1);
     auto& val_2 = fs.get<Valve>(v2);
+
+    // Assign fluid package to all streams
+    in.fluid_package_id = fluid_id;
+    out.fluid_package_id = fluid_id;
+    mid.fluid_package_id = fluid_id;
 
     fs.connect_in<Valve>(v1, s_in);
     fs.connect_out<Valve>(v1, s_mid);
@@ -114,6 +138,9 @@ namespace px {
   }
 
   TEST_F(ProcessTest, MultiValveTest) {
+    // Initialize fluid package
+    size_t fluid_id = init_air_fluid();
+    
     auto s_in  = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
     auto s_mid = fs.add<Stream>();
@@ -130,6 +157,11 @@ namespace px {
     auto& out = fs.get<Stream>(s_out);
     auto& val1 = fs.get<Valve>(v1);
     auto& val2 = fs.get<Valve>(v2);
+
+    // Assign fluid package to all streams
+    in.fluid_package_id = fluid_id;
+    mid.fluid_package_id = fluid_id;
+    out.fluid_package_id = fluid_id;
 
     const double Pin  = 1.1e5;
     const double Pout = 1.0e5;
@@ -172,6 +204,9 @@ namespace px {
   }
 
   TEST_F(ProcessTest, MixerTest) {
+    // Initialize fluid package
+    size_t fluid_id = init_air_fluid();
+    
     auto s_in1  = fs.add<Stream>();
     auto s_in2 = fs.add<Stream>();
     auto s_end = fs.add<Stream>();
@@ -186,6 +221,11 @@ namespace px {
     auto& in1 = fs.get<Stream>(s_in1);
     auto& in2 = fs.get<Stream>(s_in2);
     auto& out = fs.get<Stream>(s_end);
+
+    // Assign fluid package to all streams
+    in1.fluid_package_id = fluid_id;
+    in2.fluid_package_id = fluid_id;
+    out.fluid_package_id = fluid_id;
     
     const double P  = 1.0e5;
     const double F1  = 1.5;
@@ -217,6 +257,9 @@ namespace px {
   }
 
   TEST_F(ProcessTest, SplitterTest) {
+    // Initialize fluid package
+    size_t fluid_id = init_air_fluid();
+    
     auto s_in = fs.add<Stream>();
     auto s_out1 = fs.add<Stream>();
     auto s_out2 = fs.add<Stream>();
@@ -231,6 +274,11 @@ namespace px {
     auto& in = fs.get<Stream>(s_in);
     auto& out1 = fs.get<Stream>(s_out1);
     auto& out2 = fs.get<Stream>(s_out2);
+
+    // Assign fluid package to all streams
+    in.fluid_package_id = fluid_id;
+    out1.fluid_package_id = fluid_id;
+    out2.fluid_package_id = fluid_id;
     
     const double P  = 1.0e5;
     const double F  = 2.0;
@@ -256,6 +304,9 @@ namespace px {
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Fout_and_Cv) {
+    // Initialize fluid package
+    size_t fluid_id = init_air_fluid();
+    
     auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
     auto v = fs.add<Valve>();
@@ -266,6 +317,10 @@ namespace px {
     auto& in = fs.get<Stream>(s_in);
     auto& out = fs.get<Stream>(s_out);
     auto& val = fs.get<Valve>(v);
+
+    // Assign fluid package to all streams
+    in.fluid_package_id = fluid_id;
+    out.fluid_package_id = fluid_id;
 
     // Given
     const double Pin  = 5.0e5;
@@ -298,6 +353,9 @@ namespace px {
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Pout_and_Fout) {
+    // Initialize fluid package
+    size_t fluid_id = init_air_fluid();
+    
     auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
     auto v = fs.add<Valve>();
@@ -308,6 +366,10 @@ namespace px {
     auto& in = fs.get<Stream>(s_in);
     auto& out = fs.get<Stream>(s_out);
     auto& val = fs.get<Valve>(v);
+
+    // Assign fluid package to all streams
+    in.fluid_package_id = fluid_id;
+    out.fluid_package_id = fluid_id;
 
     // Given
     const double Pin = 3.0e5;
@@ -340,6 +402,9 @@ namespace px {
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Fin_and_Fout) {
+    // Initialize fluid package
+    size_t fluid_id = init_air_fluid();
+    
     auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
     auto v = fs.add<Valve>();
@@ -350,6 +415,10 @@ namespace px {
     auto& in  = fs.get<Stream>(s_in);
     auto& out = fs.get<Stream>(s_out);
     auto& val = fs.get<Valve>(v);
+
+    // Assign fluid package to all streams
+    in.fluid_package_id = fluid_id;
+    out.fluid_package_id = fluid_id;
 
     const double Pin = 3.0e5;
     const double Pout = 1.0e5;
@@ -377,6 +446,9 @@ namespace px {
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Pin_and_Cv) {
+    // Initialize fluid package
+    size_t fluid_id = init_air_fluid();
+    
     auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
     auto v = fs.add<Valve>();
@@ -387,6 +459,10 @@ namespace px {
     auto& in  = fs.get<Stream>(s_in);
     auto& out = fs.get<Stream>(s_out);
     auto& val = fs.get<Valve>(v);
+
+    // Assign fluid package to all streams
+    in.fluid_package_id = fluid_id;
+    out.fluid_package_id = fluid_id;
 
     // Given (both flows fixed/consistent; P_out fixed)
     const double Pout = 1.2e5;
@@ -413,6 +489,9 @@ namespace px {
   }
 
   TEST_F(ProcessTest, RecycleLoopTest) {
+    // Initialize fluid package
+    size_t fluid_id = init_air_fluid();
+    
     // Create streams: in, middle, out, recycle
     auto s_in = fs.add<Stream>();
     auto s_middle = fs.add<Stream>();
@@ -430,6 +509,12 @@ namespace px {
     auto& middle = fs.get<Stream>(s_middle);
     auto& out = fs.get<Stream>(s_out);
     auto& recycle = fs.get<Stream>(s_recycle);
+
+    // Assign fluid package to all streams
+    in.fluid_package_id = fluid_id;
+    middle.fluid_package_id = fluid_id;
+    out.fluid_package_id = fluid_id;
+    recycle.fluid_package_id = fluid_id;
     
     // Connect mixer: inlets={in, recycle}, outlet=middle
     mixer.add_inlet(s_in);
@@ -523,6 +608,9 @@ namespace px {
   }
 
   TEST_F(ProcessTest, SimpleHeatExchangerTest) {
+    // Initialize fluid package
+    size_t fluid_id = init_air_fluid();
+    
     auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
     auto hx = fs.add<SimpleHeatExchanger>();
@@ -533,6 +621,10 @@ namespace px {
     auto& in = fs.get<Stream>(s_in);
     auto& out = fs.get<Stream>(s_out);
     auto& hex = fs.get<SimpleHeatExchanger>(hx);
+
+    // Assign fluid package to all streams
+    in.fluid_package_id = fluid_id;
+    out.fluid_package_id = fluid_id;
 
     // Given: inlet conditions
     const double Pin = 2.0e5;  // Pa
@@ -570,6 +662,9 @@ namespace px {
   }
 
   TEST_F(ProcessTest, HeatExchangerTest) {
+    // Initialize fluid package (same for both hot and cold sides in this test)
+    size_t fluid_id = init_air_fluid();
+    
     // Create streams for hot and cold sides
     auto s_hot_in = fs.add<Stream>();
     auto s_hot_out = fs.add<Stream>();
@@ -588,6 +683,12 @@ namespace px {
     auto& hot_out = fs.get<Stream>(s_hot_out);
     auto& cold_in = fs.get<Stream>(s_cold_in);
     auto& cold_out = fs.get<Stream>(s_cold_out);
+
+    // Assign fluid package to all streams
+    hot_in.fluid_package_id = fluid_id;
+    hot_out.fluid_package_id = fluid_id;
+    cold_in.fluid_package_id = fluid_id;
+    cold_out.fluid_package_id = fluid_id;
 
     // Given: hot side inlet conditions
     const double P_hot_in = 3.0e5;   // Pa
