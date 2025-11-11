@@ -1,148 +1,121 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-
-// System prompt for the AI assistant
-const SYSTEM_PROMPT = `You are an expert chemical process engineer assistant. 
-You analyze and edit flowsheet data to help optimize processes, adjust configurations, 
-and make improvements based on user requests.
-
-IMPORTANT: When the user requests changes to the flowsheet, you MUST return ONLY the 
-complete edited JSON object in your response. The JSON must be valid and maintain the 
-exact structure of the original flowsheet data.
-
-Your response format:
-- If the user asks to modify the flowsheet, return ONLY the complete edited JSON object
-- If the user asks a question (without requesting changes), provide a text explanation
-
-When editing flowsheet JSON data, you can modify:
-- Stream conditions (pressure, temperature, flowrate, molar_flow, molar_enthalpy)
-- Valve configurations (Cv values)
-- Unit operation settings
-- Stream connections
-
-Always preserve the overall structure and required fields of the JSON.`;
+import { BASE_SYSTEM_PROMPT } from './prompts';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { message, jsonData, conversationHistory } = body;
 
-    if (!message) {
+    if (!message || typeof message !== 'string') {
       return NextResponse.json(
-        { error: 'Message is required' },
+        { error: 'Message is required and must be a string' },
         { status: 400 }
       );
     }
 
-    // Get API key from environment variable
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      console.error('OPENAI_API_KEY is not set in environment variables');
+      console.error('OPENAI_API_KEY is not set');
       return NextResponse.json(
-        { error: 'OpenAI API key not configured. Please set OPENAI_API_KEY in your .env.local file and restart the dev server.' },
+        { error: 'OpenAI API key not configured. Set OPENAI_API_KEY in .env.local' },
         { status: 500 }
       );
     }
 
     const openai = new OpenAI({ apiKey });
 
-    // Build conversation messages
+    // === Build messages ===
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: BASE_SYSTEM_PROMPT },
     ];
 
-    // Add JSON data context if provided (optional - allows chat without JSON)
-    if (jsonData) {
-      const jsonStr = JSON.stringify(jsonData, null, 2);
+    // Attach current flowsheet if provided
+    if (jsonData && typeof jsonData === 'object') {
+      try {
+        const currentJsonStr = JSON.stringify(jsonData, null, 2);
+        messages.push({
+          role: 'system',
+          content: `CURRENT FLOWSHEET (edit this if requested):\n\`\`\`json\n${currentJsonStr}\n\`\`\``,
+        });
+      } catch (e) {
+        console.warn('Failed to stringify jsonData', e);
+      }
+    } else if (!jsonData) {
+      // Hint to generate new
       messages.push({
         role: 'system',
-        content: `Here is the current flowsheet JSON data. When the user requests changes, return the complete edited JSON object:\n\n${jsonStr}`,
+        content: 'No current flowsheet. Generate a new one from scratch using the examples.',
       });
-    } else {
-      // If no JSON data, adjust system prompt to be more general
-      messages[0] = {
-        role: 'system',
-        content: `You are an expert chemical process engineer assistant. You help with process engineering questions, flowsheet analysis, optimization, safety considerations, and operational efficiency.`,
-      };
     }
 
-    // Add conversation history if provided
-    if (conversationHistory && Array.isArray(conversationHistory)) {
-      conversationHistory.forEach((msg: { role: string; content: string }) => {
+    // Add conversation history
+    if (Array.isArray(conversationHistory)) {
+      for (const msg of conversationHistory) {
         if (msg.role === 'user' || msg.role === 'assistant') {
           messages.push({
-            role: msg.role as 'user' | 'assistant',
-            content: msg.content,
+            role: msg.role,
+            content: String(msg.content),
           });
         }
-      });
+      }
     }
 
-    // Add current user message
+    // Add user message
     messages.push({ role: 'user', content: message });
 
-    // Make API call to OpenAI
-    // Note: Using GPT-4o as fallback since GPT-5-high might not be available
+    // === Call OpenAI ===
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o', // Change to 'gpt-5-high' if available and add reasoning_effort: 'high'
-      messages: messages,
-      temperature: 0.7,
-      max_tokens: 4000, // Increased for JSON responses
+      model: 'gpt-4o',
+      messages,
+      temperature: 0.3,
+      max_tokens: 4000,
+      top_p: 1,
     });
 
-    const response = completion.choices[0]?.message?.content || 'No response generated';
+    const response = completion.choices[0]?.message?.content?.trim() || '';
 
-    // Try to parse response as JSON to check if it's an edited flowsheet
+    if (!response) {
+      return NextResponse.json({ error: 'Empty response from AI' }, { status: 500 });
+    }
+
+    // === Detect if response is JSON ===
     let editedJson = null;
     let isJsonResponse = false;
-    
+
     try {
-      // Try to extract JSON from response (might be wrapped in markdown code blocks or plain JSON)
-      let jsonStr = response.trim();
-      
-      // Remove markdown code blocks if present
-      if (jsonStr.startsWith('```json')) {
-        jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-      } else if (jsonStr.startsWith('```')) {
-        jsonStr = jsonStr.replace(/^```\s*/, '').replace(/\s*```$/, '');
-      }
-      
+      let jsonStr = response;
+
+      // Strip markdown code blocks
+      jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/g, '');
+      jsonStr = jsonStr.replace(/^```\s*/, '').replace(/\s*```$/g, '');
+
       editedJson = JSON.parse(jsonStr);
       isJsonResponse = true;
-    } catch (e) {
-      // Response is not JSON, treat as text response
+    } catch (parseError) {
+      // Not JSON → treat as text
       isJsonResponse = false;
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       response: isJsonResponse ? 'Flowsheet updated successfully!' : response,
-      editedJson: editedJson,
-      isJsonResponse: isJsonResponse
+      editedJson: isJsonResponse ? editedJson : null,
+      isJsonResponse,
     });
-  } catch (error) {
-    console.error('Error calling OpenAI API:', error);
-    
-    // More detailed error handling
+  } catch (error: any) {
+    console.error('Chat API Error:', error);
+
     let errorMessage = 'Failed to process request';
-    if (error instanceof Error) {
-      errorMessage = error.message;
-      // Check for common OpenAI API errors
-      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-        errorMessage = 'Invalid API key. Please check your OPENAI_API_KEY.';
-      } else if (error.message.includes('429')) {
-        errorMessage = 'Rate limit exceeded. Please try again later.';
-      } else if (error.message.includes('insufficient_quota')) {
-        errorMessage = 'API quota exceeded. Please check your OpenAI account.';
-      }
-    }
-    
+    if (error.message?.includes('401')) errorMessage = 'Invalid OpenAI API key';
+    if (error.message?.includes('429')) errorMessage = 'Rate limit exceeded';
+    if (error.message?.includes('insufficient_quota')) errorMessage = 'OpenAI quota exceeded';
+
     return NextResponse.json(
-      { 
+      {
         error: errorMessage,
-        details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       },
       { status: 500 }
     );
   }
 }
-
