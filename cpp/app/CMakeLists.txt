@@ -1,17 +1,17 @@
 # app/CMakeLists.txt
 # Manages the processX_app executable and all its GUI components
 
-# App source files (relative to this CMakeLists.txt location)
-set(PROCESSX_APP_SOURCES
-  processX_app.cpp
-  gui_common.cpp
-  gui_log.cpp
-  gui_palette.cpp
-  gui_properties.cpp
-  gui_flowsheet.cpp
-  gui_fluids.cpp
-  gui_docking.cpp
-  gui_main.cpp
+# Gather sources recursively (or list them explicitly if you prefer)
+file(GLOB_RECURSE PROCESSX_APP_SOURCES CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/*.cxx"
+  "${CMAKE_CURRENT_SOURCE_DIR}/*.cc"
+)
+
+# If you keep private/internal headers in app/, they can be added too (not required)
+file(GLOB_RECURSE PROCESSX_APP_PRIVATE_HEADERS CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
 )
 
 # Use hello_imgui_add_app which automatically handles:
@@ -22,6 +22,7 @@ set(PROCESSX_APP_SOURCES
 hello_imgui_add_app(
   processX_app 
   ${PROCESSX_APP_SOURCES}
+  ${PROCESSX_APP_PRIVATE_HEADERS}
   ASSETS_LOCATION "${CMAKE_SOURCE_DIR}/app/assets"
 )
 
