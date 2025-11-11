@@ -1,12 +1,12 @@
 #include "gui_log.h"
 #include "gui_common.h"
+#include "gui_chat.h"
 #include <imgui.h>
 #include <chrono>
 #include <sstream>
 #include <iomanip>
 
 static std::vector<LogEntry> log_messages;
-static constexpr size_t MAX_LOG_ENTRIES = 1000;
 
 void AddLogEntry(LogEntry::Type type, const std::string& message) {
   // Get current time
@@ -19,17 +19,29 @@ void AddLogEntry(LogEntry::Type type, const std::string& message) {
   ss << std::put_time(std::localtime(&time_t), "%H:%M:%S");
   ss << "." << std::setfill('0') << std::setw(3) << ms.count();
   
+  // Create log entry
   LogEntry entry;
   entry.message = message;
-  entry.timestamp = ss.str();
   entry.type = type;
+  entry.timestamp = ss.str();
   
+  // Add to log messages
   log_messages.push_back(entry);
   
-  // Limit log size
-  if (log_messages.size() > MAX_LOG_ENTRIES) {
-    log_messages.erase(log_messages.begin());
+  // Convert LogEntry::Type to ChatMessage::MessageType and add to chat
+  ChatMessage::MessageType chat_type;
+  switch (type) {
+    case LogEntry::Info:
+      chat_type = ChatMessage::LogInfo;
+      break;
+    case LogEntry::Success:
+      chat_type = ChatMessage::LogSuccess;
+      break;
+    case LogEntry::Error:
+      chat_type = ChatMessage::LogError;
+      break;
   }
+  AddLogToChat(message, chat_type);
 }
 
 void ShowLogWindow() {

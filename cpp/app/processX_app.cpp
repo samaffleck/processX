@@ -12,6 +12,7 @@
 #include "gui_flowsheet.h"
 #include "gui_properties.h"
 #include "gui_fluids.h"
+#include "gui_chat.h"
 
 
 #ifdef EMSCRIPTEN
@@ -72,7 +73,9 @@ void ShowGui()  {
   ShowFluidPackagesWindow();
   ImGui::End();
   
-  ShowLogWindow();
+  ImGui::Begin("Chat");
+  ShowChatWindow();
+  ImGui::End();
 }
 
 void InitializeImGuiFonts() {
@@ -95,9 +98,9 @@ void InitializeImGuiFonts() {
     fontParams.insideAssets = true; // Load from assets folder
     fontParams.adjustSizeToDpi = true; // Adjust for High DPI
     
-    ImFont* font = HelloImGui::LoadFont("fonts/DejaVuSans.ttf", 20.0f, fontParams);
+    ImFont* font = HelloImGui::LoadFont("fonts/Roboto-VariableFont_wdth,wght.ttf", 16.0f, fontParams);
     if (!font) {
-      std::cerr << "Warning: Failed to load DejaVuSans.ttf font" << std::endl;
+      std::cerr << "Warning: Failed to load Roboto-VariableFont_wdth,wght.ttf font" << std::endl;
     }
   } catch (const std::exception& e) {
     std::cerr << "Error loading font: " << e.what() << std::endl;

@@ -48,8 +48,8 @@ std::vector<HelloImGui::DockableWindow> CreateDockableWindows()
   // All windows have empty GuiFunction since we render them manually in ShowGui()
   // The DockableWindow entries are just for docking layout - they tell hello_imgui where to dock windows
   
-  // Log - left side (25% width)
-  windows.emplace_back("Log", "LogSpace", []() {}, true, true);
+  // Chat replaces Log - left side (25% width)
+  windows.emplace_back("Chat", "LogSpace", []() {}, true, true);
   windows.back().callBeginEnd = false;
   
   // Flowsheet - top right, shares space with Properties (50% of top right)
