@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Cpu, Bot } from 'lucide-react';
+import { Atom, Bot } from 'lucide-react';
 
 export default function Header() {
   const pathname = usePathname();
@@ -14,7 +14,7 @@ export default function Header() {
       <div className="max-w-7xl mx-auto flex items-center justify-between text-white">
         <Link href="/" className="flex items-center gap-3">
           <div className="w-10 h-10 bg-white text-black rounded-lg flex items-center justify-center">
-            <Cpu className="w-6 h-6" />
+            <Atom className="w-6 h-6" />
           </div>
           <span className="text-2xl font-bold">ProcessX</span>
         </Link>
