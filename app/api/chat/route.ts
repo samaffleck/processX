@@ -79,28 +79,52 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Empty response from AI' }, { status: 500 });
     }
 
-    // === Detect if response is JSON ===
+    // === Extract text response and JSON (if present) ===
+    let textResponse = response;
     let editedJson = null;
-    let isJsonResponse = false;
+    let hasJsonUpdate = false;
 
-    try {
-      let jsonStr = response;
-
-      // Strip markdown code blocks
-      jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/g, '');
-      jsonStr = jsonStr.replace(/^```\s*/, '').replace(/\s*```$/g, '');
-
-      editedJson = JSON.parse(jsonStr);
-      isJsonResponse = true;
-    } catch (parseError) {
-      // Not JSON → treat as text
-      isJsonResponse = false;
+    // Check for JSON section in the format: ---FLOWSHEET_JSON--- ... ---END_FLOWSHEET_JSON---
+    const jsonMatch = response.match(/---FLOWSHEET_JSON---\s*([\s\S]*?)\s*---END_FLOWSHEET_JSON---/);
+    
+    if (jsonMatch && jsonMatch[1]) {
+      try {
+        let jsonStr = jsonMatch[1].trim();
+        
+        // Strip markdown code blocks if present
+        jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/g, '');
+        jsonStr = jsonStr.replace(/^```\s*/, '').replace(/\s*```$/g, '');
+        
+        editedJson = JSON.parse(jsonStr);
+        hasJsonUpdate = true;
+        
+        // Remove the JSON section from text response
+        textResponse = response.replace(/---FLOWSHEET_JSON---\s*[\s\S]*?\s*---END_FLOWSHEET_JSON---/, '').trim();
+      } catch (parseError) {
+        console.warn('Failed to parse JSON from response:', parseError);
+        // If JSON parsing fails, treat entire response as text
+        textResponse = response;
+      }
+    } else {
+      // No JSON section found - check if entire response is JSON (backward compatibility)
+      try {
+        let jsonStr = response;
+        jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/g, '');
+        jsonStr = jsonStr.replace(/^```\s*/, '').replace(/\s*```$/g, '');
+        
+        editedJson = JSON.parse(jsonStr);
+        hasJsonUpdate = true;
+        textResponse = 'Flowsheet updated successfully!';
+      } catch (parseError) {
+        // Not JSON → treat as text only
+        textResponse = response;
+      }
     }
 
     return NextResponse.json({
-      response: isJsonResponse ? 'Flowsheet updated successfully!' : response,
-      editedJson: isJsonResponse ? editedJson : null,
-      isJsonResponse,
+      response: textResponse,
+      editedJson: hasJsonUpdate ? editedJson : null,
+      hasJsonUpdate,
     });
   } catch (error: any) {
     console.error('Chat API Error:', error);

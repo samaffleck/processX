@@ -34,22 +34,22 @@ hello_imgui_add_app(
 target_link_libraries(processX_app PRIVATE ${PROJECT_NAME})
 target_compile_features(processX_app PRIVATE cxx_std_17)
 
-# # Emscripten/WASM specific configuration
-# if(EMSCRIPTEN)
-#   message(STATUS "Configuring processX_app for Emscripten/WASM build")
+# Emscripten/WASM specific configuration
+if(EMSCRIPTEN)
+  message(STATUS "Configuring processX_app for Emscripten/WASM build")
   
-#   # Apply Emscripten flags to the target
-#   target_compile_options(processX_app PRIVATE ${EMSCRIPTEN_FLAGS})
-#   target_link_options(processX_app PRIVATE ${EMSCRIPTEN_FLAGS})
+  # Apply Emscripten flags to the target
+  target_compile_options(processX_app PRIVATE ${EMSCRIPTEN_FLAGS})
+  target_link_options(processX_app PRIVATE ${EMSCRIPTEN_FLAGS})
   
-#   # Emscripten target-specific link options (matching working example)
-#   target_link_options(
-#     processX_app PRIVATE
-#       "SHELL:-sDISABLE_EXCEPTION_CATCHING=0"
-#       "SHELL:-sASSERTIONS=2"
-#       "SHELL:-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','lengthBytesUTF8']"
-#   )
-# endif()
+  # Emscripten target-specific link options (matching working example)
+  target_link_options(
+    processX_app PRIVATE
+      "SHELL:-sDISABLE_EXCEPTION_CATCHING=0"
+      "SHELL:-sASSERTIONS=2"
+      "SHELL:-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','lengthBytesUTF8','stringToNewUTF8']"
+  )
+endif()
 
 # # ---- Sokol-based app (processX_app_sokol) ----
 # # Gather GUI sources (excluding the main entry points and hello_imgui-specific files)

@@ -179,17 +179,19 @@ export default function CopilotPage() {
       
       if (data.error) {
         addMessage('assistant', `Error: ${data.error}${data.details ? '\n\n' + data.details : ''}`);
-      } else if (data.isJsonResponse && data.editedJson) {
-        // LLM returned edited JSON - load it into WASM
-        const loadSuccess = loadFlowsheetJSON(data.editedJson);
-        if (loadSuccess) {
-          addMessage('assistant', data.response || 'Flowsheet updated successfully!');
-        } else {
-          addMessage('assistant', 'Received edited flowsheet but failed to load it. Please try again.');
-        }
       } else {
-        // Regular text response
-        addMessage('assistant', data.response);
+        // Always display the text response
+        let messageContent = data.response || 'No response received';
+        
+        // If there's an updated JSON, load it into WASM
+        if (data.hasJsonUpdate && data.editedJson) {
+          const loadSuccess = loadFlowsheetJSON(data.editedJson);
+          if (!loadSuccess) {
+            messageContent += '\n\n⚠️ Warning: Received updated flowsheet but failed to load it. Please try again.';
+          }
+        }
+        
+        addMessage('assistant', messageContent);
       }
     } catch (error) {
       addMessage('assistant', `Error: ${error instanceof Error ? error.message : 'Failed to get response from AI'}`);
@@ -213,9 +215,9 @@ export default function CopilotPage() {
       </div>
 
       {/* Right Side - Chat */}
-      <div className="w-[400px] h-full flex flex-col" style={{ backgroundColor: '#000000', borderLeft: '1px solid #1f1f1f' }}>
+      {/* <div className="w-[400px] h-full flex flex-col" style={{ backgroundColor: '#212121', borderLeft: '1px solid #4D4D4D' }}> */}
         {/* Chat Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
             <div className="text-center py-8" style={{ color: '#999999' }}>
               <Bot className="w-8 h-8 mx-auto mb-3 opacity-50" />
@@ -276,10 +278,10 @@ export default function CopilotPage() {
             </div>
           )}
           <div ref={messagesEndRef} />
-        </div>
+        </div> */}
 
         {/* Input Area */}
-        <div className="p-3 flex-shrink-0" style={{ borderTop: '1px solid #1f1f1f' }}>
+        {/* <div className="p-3 flex-shrink-0" style={{ borderTop: '1px solid #4D4D4D' }}>
           <div className="flex gap-2 items-end">
             <textarea
               value={input}
@@ -317,8 +319,8 @@ export default function CopilotPage() {
               <Send className="w-4 h-4" />
             </button>
           </div>
-        </div>
-      </div>
+        </div> */}
+      {/* </div> */}
     </div>
   );
 }

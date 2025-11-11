@@ -17,6 +17,7 @@ static bool llm_response_ready = false;
 
 // Callback function to be called from JavaScript
 extern "C" {
+  EMSCRIPTEN_KEEPALIVE
   void on_llm_response_received(const char* message, const char* simulation_json) {
     if (message) {
       pending_llm_message = message;
@@ -73,8 +74,12 @@ EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json)
         const data = await response.json();
 
         if (data.error) {
+          var errorMsg = 'Error: ' + data.error;
+          if (data.details) {
+            errorMsg += '\n\n' + data.details;
+          }
           return {
-            message: 'Error: ' + data.error + (data.details ? '\n\n' + data.details : ''),
+            message: errorMsg,
             simulationJson: '{}'
           };
         }
@@ -184,7 +189,7 @@ void ShowChatWindow() {
   #ifdef EMSCRIPTEN
   if (llm_response_ready) {
     // Remove the "Thinking..." message if it exists
-    if (!chat_messages.empty() && !chat_messages.back().is_user && 
+    if (!chat_messages.empty() && chat_messages.back().type == ChatMessage::LLM && 
         chat_messages.back().content == "Thinking...") {
       chat_messages.pop_back();
     }
