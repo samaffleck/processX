@@ -105,6 +105,12 @@ void InitializeImGuiFonts() {
   }
 }
 
+void PostInit() {
+  ImGuiIO& io = ImGui::GetIO();
+  io.ConfigDpiScaleFonts = true;
+  io.ConfigDpiScaleViewports = true;
+}
+
 void ShowMenus(HelloImGui::RunnerParams& params) {
   // File menu
   if (ImGui::BeginMenu("File")) {
@@ -181,12 +187,15 @@ int main(int, char**) {
   params.callbacks.ShowGui = ShowGui;
   params.appWindowParams.windowTitle = "ProcessX";
   params.callbacks.LoadAdditionalFonts = InitializeImGuiFonts;
+  params.callbacks.PostInit = PostInit;
   params.appWindowParams.windowGeometry.windowSizeState = HelloImGui::WindowSizeState::Maximized;
   params.imGuiWindowParams.defaultImGuiWindowType = HelloImGui::DefaultImGuiWindowType::ProvideFullScreenDockSpace;
   params.imGuiWindowParams.enableViewports = true;
   params.imGuiWindowParams.showMenuBar = true;
   params.imGuiWindowParams.showMenu_App = false;
   params.imGuiWindowParams.showMenu_View = false;
+  
+  params.dpiAwareParams.dpiWindowSizeFactor = 0.0f; // 0 = auto-detect (recommended)
   
   // Set up custom menus
   params.callbacks.ShowMenus = [&params]() { ShowMenus(params); };

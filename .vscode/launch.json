@@ -40,6 +40,26 @@
       "preLaunchTask": "CMake: build",
       "args": [],
       "console": "integratedTerminal"
+    },
+    {
+      "name": "processX_app_sokol (LLDB)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/cpp/build/mac-debug/app/processX_app_sokol",
+      "cwd": "${workspaceFolder}/cpp/app",
+      "preLaunchTask": "CMake: build",
+      "args": [],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "processX_app_sokol (Release)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/cpp/build/mac-release/app/processX_app_sokol",
+      "cwd": "${workspaceFolder}/cpp/app",
+      "preLaunchTask": "CMake: build",
+      "args": [],
+      "console": "integratedTerminal"
     }
   ]
 }

@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
-project(processX VERSION 1.0.0 LANGUAGES CXX)
+# Enable CXX and optionally OBJCXX for macOS Metal support
+if(APPLE)
+  project(processX VERSION 1.0.0 LANGUAGES CXX OBJCXX)
+else()
+  project(processX VERSION 1.0.0 LANGUAGES CXX)
+endif()
 
 # ---- Global settings ----
 set(CMAKE_CXX_STANDARD 17)
