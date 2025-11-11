@@ -28,3 +28,6 @@
 [submodule "cpp/external/ImNodeFlow"]
 	path = cpp/external/ImNodeFlow
 	url = https://github.com/Fattorino/ImNodeFlow
+[submodule "cpp/external/sokol"]
+	path = cpp/external/sokol
+	url = https://github.com/floooh/sokol
