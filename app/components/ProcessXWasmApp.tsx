@@ -35,17 +35,17 @@ export default function ProcessXWasmApp({ className }: ProcessXWasmAppProps) {
   }, []);
 
   return (
-    <div className={`w-full h-full relative ${className || ''}`} style={{ backgroundColor: '#212121' }}>
+    <div className={`w-full h-full relative ${className || ''}`} style={{ backgroundColor: '#000000' }}>
       {isWasmLoading && (
         <div 
           className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4"
-          style={{ backgroundColor: 'rgba(33, 33, 33, 0.9)' }}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.9)' }}
         >
           <div 
             className="animate-spin rounded-full h-8 w-8 border-b-2"
-            style={{ borderColor: '#737373' }}
+            style={{ borderColor: '#ffffff' }}
           />
-          <h2 className="text-sm" style={{ color: '#F2F2F2' }}>{wasmStatus}</h2>
+          <h2 className="text-sm" style={{ color: '#ffffff' }}>{wasmStatus}</h2>
         </div>
       )}
       <iframe

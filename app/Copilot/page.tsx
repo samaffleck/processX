@@ -206,14 +206,14 @@ export default function CopilotPage() {
   };
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden" style={{ backgroundColor: '#212121', color: '#F2F2F2' }}>
+    <div className="h-screen w-screen flex overflow-hidden" style={{ backgroundColor: '#000000', color: '#ffffff' }}>
       {/* Left Side - WASM App */}
-      <div className="flex-1 h-full" style={{ borderRight: '1px solid #4D4D4D' }}>
+      <div className="flex-1 h-full" style={{ borderRight: '1px solid #1f1f1f' }}>
         <ProcessXWasmApp className="h-full" />
       </div>
 
       {/* Right Side - Chat */}
-      <div className="w-[400px] h-full flex flex-col" style={{ backgroundColor: '#212121', borderLeft: '1px solid #4D4D4D' }}>
+      <div className="w-[400px] h-full flex flex-col" style={{ backgroundColor: '#000000', borderLeft: '1px solid #1f1f1f' }}>
         {/* Chat Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
@@ -230,27 +230,28 @@ export default function CopilotPage() {
                 >
                   {message.role === 'assistant' && (
                     <div 
-                      className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 mt-1"
-                      style={{ backgroundColor: '#333333' }}
+                      className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 mt-1 border border-white/20"
+                      style={{ backgroundColor: '#111111' }}
                     >
-                      <Bot className="w-3.5 h-3.5" style={{ color: '#999999' }} />
+                      <Bot className="w-3.5 h-3.5" style={{ color: '#b3b3b3' }} />
                     </div>
                   )}
                   <div
-                    className={`max-w-[85%] rounded-[5px] px-3 py-2 text-sm`}
-                    style={{
-                      backgroundColor: message.role === 'user' ? '#404040' : '#333333',
-                      color: '#F2F2F2'
-                    }}
+                  className={`max-w-[85%] rounded-[5px] px-3 py-2 text-sm`}
+                  style={{
+                    backgroundColor: message.role === 'user' ? '#090909' : '#111111',
+                    color: '#ffffff',
+                    border: '1px solid #1f1f1f'
+                  }}
                   >
                     <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
                   </div>
                   {message.role === 'user' && (
                     <div 
-                      className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 mt-1"
-                      style={{ backgroundColor: '#333333' }}
+                      className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 mt-1 border border-white/20"
+                      style={{ backgroundColor: '#111111' }}
                     >
-                      <User className="w-3.5 h-3.5" style={{ color: '#999999' }} />
+                      <User className="w-3.5 h-3.5" style={{ color: '#b3b3b3' }} />
                     </div>
                   )}
                 </div>
@@ -260,16 +261,16 @@ export default function CopilotPage() {
           {isLoading && (
             <div className="flex gap-2 justify-start">
               <div 
-                className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 mt-1"
-                style={{ backgroundColor: '#333333' }}
+                className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 mt-1 border border-white/20"
+                style={{ backgroundColor: '#111111' }}
               >
-                <Bot className="w-3.5 h-3.5" style={{ color: '#999999' }} />
+                <Bot className="w-3.5 h-3.5" style={{ color: '#b3b3b3' }} />
               </div>
-              <div className="rounded-[5px] px-3 py-2" style={{ backgroundColor: '#333333' }}>
+              <div className="rounded-[5px] px-3 py-2 border" style={{ backgroundColor: '#111111', borderColor: '#1f1f1f' }}>
                 <div className="flex gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: '#999999', animationDelay: '0ms' }}></div>
-                  <div className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: '#999999', animationDelay: '150ms' }}></div>
-                  <div className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: '#999999', animationDelay: '300ms' }}></div>
+                  <div className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: '#b3b3b3', animationDelay: '0ms' }}></div>
+                  <div className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: '#b3b3b3', animationDelay: '150ms' }}></div>
+                  <div className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: '#b3b3b3', animationDelay: '300ms' }}></div>
                 </div>
               </div>
             </div>
@@ -278,7 +279,7 @@ export default function CopilotPage() {
         </div>
 
         {/* Input Area */}
-        <div className="p-3 flex-shrink-0" style={{ borderTop: '1px solid #4D4D4D' }}>
+        <div className="p-3 flex-shrink-0" style={{ borderTop: '1px solid #1f1f1f' }}>
           <div className="flex gap-2 items-end">
             <textarea
               value={input}
@@ -286,10 +287,10 @@ export default function CopilotPage() {
               onKeyPress={handleKeyPress}
               placeholder="Ask a question..."
               className="flex-1 p-2.5 rounded-[5px] text-sm resize-none min-h-[44px] max-h-[120px] focus:outline-none"
-              style={{ 
-                backgroundColor: '#333333',
-                border: '1px solid #4D4D4D',
-                color: '#F2F2F2',
+              style={{
+                backgroundColor: '#111111',
+                border: '1px solid #1f1f1f',
+                color: '#ffffff',
                 padding: '8px 12px'
               }}
               rows={1}
@@ -297,18 +298,19 @@ export default function CopilotPage() {
             <button
               onClick={handleSend}
               disabled={isLoading || !input.trim()}
-              className="px-4 py-2.5 rounded-[5px] transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ 
-                backgroundColor: isLoading || !input.trim() ? '#404040' : '#404040',
-                color: '#F2F2F2'
+              className="px-4 py-2.5 rounded-[5px] transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed border border-white/20"
+              style={{
+                backgroundColor: '#000000',
+                color: '#ffffff',
+                opacity: isLoading || !input.trim() ? 0.5 : 1
               }}
               onMouseEnter={(e) => {
                 if (!isLoading && input.trim()) {
-                  e.currentTarget.style.backgroundColor = '#4D4D4D';
+                  e.currentTarget.style.backgroundColor = '#111111';
                 }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#404040';
+                e.currentTarget.style.backgroundColor = '#000000';
               }}
               title="Send message"
             >
