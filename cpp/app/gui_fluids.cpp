@@ -2,6 +2,7 @@
 #include "gui_common.h"
 #include "gui_log.h"
 #include "processX/flowsheet.h"
+#include "processX/fluids.h"
 #include <imgui.h>
 #include <vector>
 #include <string>
@@ -12,42 +13,7 @@
 #include <map>
 #include <cfloat>
 
-// Common CoolProp backends
-static const char* backend_names[] = {
-  "HEOS",
-  "REFPROP",
-  "BICUBIC",
-  "SRK",
-  "PR",
-  "PCSAFT",
-  "INCOMP",
-  "IF97",
-  "TTSE",
-  "BICUBIC&HEOS",
-  "REFPROP&HEOS"
-};
-
-static const int num_backends = sizeof(backend_names) / sizeof(backend_names[0]);
-
-// Common CoolProp component names
-static const char* component_names[] = {
-  "NITROGEN", "OXYGEN", "ARGON", "CO2", "CO", "H2S", "HELIUM", "HYDROGEN",
-  "WATER", "METHANE", "ETHANE", "PROPANE", "BUTANE", "ISOBUTAN", "PENTANE",
-  "IPENTANE", "HEXANE", "IHEXANE", "HEPTANE", "OCTANE", "NONANE", "DECANE",
-  "ETHYLENE", "PROPYLEN", "ACETONE", "AMMONIA", "BENZENE", "TOLUENE",
-  "METHANOL", "ETHANOL", "N2O", "SO2", "SF6", "NEON", "KRYPTON", "XENON",
-  "R134A", "R22", "R32", "R1234YF", "R410A", "R407C", "R404A", "R507A",
-  "R125", "R143A", "R152A", "R11", "R12", "R13", "R14", "R21", "R23",
-  "R113", "R114", "R123", "R124", "R141B", "R142B", "R218", "R245FA",
-  "R236FA", "R236EA", "R227EA", "R365MFC", "R161", "HFE143M", "R116",
-  "RC318", "R41", "R1234ZE", "CYCLOHEX", "CYCLOPRO", "CYCLOPEN",
-  "1BUTENE", "T2BUTENE", "C2BUTENE", "IBUTENE", "PROPYNE",
-  "ORTHOHYD", "PARAHYD", "NEOPENTN", "COS", "FLUORINE", "DME", "DMC",
-  "C12", "OXYLENE", "MXYLENE", "PXYLENE", "EBENZENE", "D4", "D5", "D6",
-  "MD2M", "MD3M", "MD4M", "MDM", "MM"
-};
-
-static const int num_components = sizeof(component_names) / sizeof(component_names[0]);
+using namespace px;
 
 void ShowFluidPackagesWindow() {  
   std::vector<size_t> package_ids = flowsheet.fluids.GetAllPackageIds();
@@ -118,21 +84,21 @@ void ShowFluidPackagesWindow() {
         
         // Find current backend index
         int current_backend_idx = 0;
-        for (int i = 0; i < num_backends; ++i) {
-          if (thermo_pkg == backend_names[i]) {
+        for (int i = 0; i < px::kNumberOfBackends; ++i) {
+          if (thermo_pkg == px::backend_names[i]) {
             current_backend_idx = i;
             break;
           }
         }
         
         // Backend combo
-        if (ImGui::Combo("##Backend", &current_backend_idx, backend_names, num_backends)) {
+        if (ImGui::Combo("##Backend", &current_backend_idx, px::backend_names, px::kNumberOfBackends)) {
           // Backend changed - need to recreate package
-          std::string new_backend = backend_names[current_backend_idx];
+          std::string new_backend = px::backend_names[current_backend_idx];
           // Remove old and create new with same components
           std::string old_name = flowsheet.fluids.GetPackageName(pkg_id);
           flowsheet.fluids.RemoveFluidPackage(pkg_id);
-          size_t new_id = flowsheet.fluids.AddFluidPackage(components, new_backend, old_name);
+          [[maybe_unused]] size_t new_id = flowsheet.fluids.AddFluidPackage(components, new_backend, old_name);
           AddLogEntry(LogEntry::Info, "Changed backend for package #" + std::to_string(pkg_id) 
                      + " to " + new_backend + " (new ID: " + std::to_string(new_id) + ")");
           // Note: This changes the ID, which might break references
@@ -153,7 +119,7 @@ void ShowFluidPackagesWindow() {
         
         // Update lists based on current components
         components = flowsheet.fluids.GetComponents(pkg_id); // Refresh
-        list_box.UpdateLists(components, component_names, num_components);
+        list_box.UpdateLists(components, px::component_names, px::kNumberOfComponents);
         
         // Show the dual list box
         list_box.Show(pkg_id);
@@ -237,12 +203,12 @@ void FluidSelectorListBox::MoveSelected(int src, int dst, size_t pkg_id) {
     }
   }
   
-  // Add to destination
-  for (int idx : to_move) {
-    dst_list->push_back(idx);
-    
-    // Update the fluid package
-    std::string comp_name(component_names[idx]);
+    // Add to destination
+    for (int idx : to_move) {
+      dst_list->push_back(idx);
+      
+      // Update the fluid package
+      std::string comp_name(px::component_names[idx]);
     auto components = flowsheet.fluids.GetComponents(pkg_id);
     std::string backend = flowsheet.fluids.GetThermoPackage(pkg_id);
     
@@ -281,7 +247,7 @@ void FluidSelectorListBox::SortItems(int side) {
   std::vector<int>* list = (side == 0) ? &AvailableItems : &SelectedItems;
   // Sort by component name (alphabetically)
   std::sort(list->begin(), list->end(), [](int a, int b) {
-    return std::string(component_names[a]) < std::string(component_names[b]);
+    return std::string(px::component_names[a]) < std::string(px::component_names[b]);
   });
 }
 
@@ -326,7 +292,7 @@ void FluidSelectorListBox::Show(size_t pkg_id) {
           bool item_is_selected = selection.count(item_idx) > 0;
           
           ImGui::PushID(static_cast<int>(item_idx));
-          if (ImGui::Selectable(component_names[item_idx], item_is_selected, 
+          if (ImGui::Selectable(px::component_names[item_idx], item_is_selected, 
                                ImGuiSelectableFlags_AllowDoubleClick)) {
             // Toggle selection
             if (ImGui::GetIO().KeyCtrl) {

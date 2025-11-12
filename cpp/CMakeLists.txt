@@ -208,9 +208,8 @@ if(PROCESSX_BUILD_TESTS)
   add_subdirectory(external/gtest EXCLUDE_FROM_ALL)  # GTest::gtest, GTest::gtest_main
   enable_testing()
 
-  add_executable(processX_tests test/test_processX.cpp) 
-  target_link_libraries(processX_tests PRIVATE ${PROJECT_NAME} GTest::gtest GTest::gtest_main)
-  add_test(NAME processX_tests COMMAND processX_tests)
+  # Add test subdirectory - test/CMakeLists.txt handles all test-specific configuration
+  add_subdirectory(test)
 endif()
 
 # ---- Install (basic) ----

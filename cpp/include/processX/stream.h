@@ -24,15 +24,15 @@ namespace px {
     
     // Composition variables (dynamic based on fluid package components)
     std::vector<Var> mole_fractions;           // Overall mole fractions (one per component)
-    std::vector<Var> mole_fractions_liquid;    // Liquid phase mole fractions (one per component)
-    std::vector<Var> mole_fractions_vapor;    // Vapor phase mole fractions (one per component)
-    Var quality{"Quality", 0.0, false};        // Vapor fraction (0 = liquid, 1 = vapor)
+    // std::vector<Var> mole_fractions_liquid;    // Liquid phase mole fractions (one per component)
+    // std::vector<Var> mole_fractions_vapor;    // Vapor phase mole fractions (one per component)
+    // Var quality{"Quality", 0.0, false};        // Vapor fraction (0 = liquid, 1 = vapor)
     
     // Helper method to initialize composition variables based on component count
     void initialize_composition(size_t num_components, const std::vector<std::string>& component_names = {}) {
       mole_fractions.clear();
-      mole_fractions_liquid.clear();
-      mole_fractions_vapor.clear();
+      // mole_fractions_liquid.clear();
+      // mole_fractions_vapor.clear();
       
       if (num_components == 0) return;
       
@@ -43,8 +43,8 @@ namespace px {
                                 ? component_names[i] 
                                 : ("Component_" + std::to_string(i));
         mole_fractions.emplace_back("Mole_Fraction[" + comp_name + "]", default_fraction, false);
-        mole_fractions_liquid.emplace_back("Mole_Fraction_Liquid[" + comp_name + "]", default_fraction, false);
-        mole_fractions_vapor.emplace_back("Mole_Fraction_Vapor[" + comp_name + "]", default_fraction, false);
+        // mole_fractions_liquid.emplace_back("Mole_Fraction_Liquid[" + comp_name + "]", default_fraction, false);
+        // mole_fractions_vapor.emplace_back("Mole_Fraction_Vapor[" + comp_name + "]", default_fraction, false);
       }
     }
     
@@ -58,10 +58,10 @@ namespace px {
         cereal::make_nvp("Stream_Pressure", pressure),
         cereal::make_nvp("Stream_Temperature", temperature),
         cereal::make_nvp("Stream_Fluid_Package_ID", fluid_package_id),
-        cereal::make_nvp("Stream_Mole_Fractions", mole_fractions),
-        cereal::make_nvp("Stream_Mole_Fractions_Liquid", mole_fractions_liquid),
-        cereal::make_nvp("Stream_Mole_Fractions_Vapor", mole_fractions_vapor),
-        cereal::make_nvp("Stream_Quality", quality)
+        cereal::make_nvp("Stream_Mole_Fractions", mole_fractions)
+        // cereal::make_nvp("Stream_Mole_Fractions_Liquid", mole_fractions_liquid),
+        // cereal::make_nvp("Stream_Mole_Fractions_Vapor", mole_fractions_vapor),
+        // cereal::make_nvp("Stream_Quality", quality)
       );
     }
   };

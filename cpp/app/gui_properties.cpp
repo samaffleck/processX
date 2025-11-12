@@ -270,8 +270,8 @@ void ShowStreamProperties(px::Stream& stream) {
         // Selected "(None)" - set to 0
         stream.fluid_package_id = 0;
         stream.mole_fractions.clear();
-        stream.mole_fractions_liquid.clear();
-        stream.mole_fractions_vapor.clear();
+        // stream.mole_fractions_liquid.clear();
+        // stream.mole_fractions_vapor.clear();
       } else {
         // Selected a package
         size_t selected_pkg_id = package_ids[current_selection - 1];
@@ -348,74 +348,74 @@ void ShowStreamProperties(px::Stream& stream) {
         
         ImGui::Spacing();
         
-        // Liquid phase mole fractions
-        if (ImGui::CollapsingHeader("Liquid Phase Mole Fractions")) {
-          double sum_liq = 0.0;
-          for (size_t i = 0; i < components.size() && i < stream.mole_fractions_liquid.size(); ++i) {
-            ImGui::Text("%s:", components[i].c_str());
-            ImGui::SameLine(150);
-            char label[64];
-            snprintf(label, sizeof(label), "##MoleFracLiq_%zu", i);
-            if (ImGui::InputDouble(label, &stream.mole_fractions_liquid[i].value)) {
-              // Value updated
-            }
-            ImGui::SameLine();
-            snprintf(label, sizeof(label), "Fixed##MoleFracLiqFixed_%zu", i);
-            ImGui::Checkbox(label, &stream.mole_fractions_liquid[i].fixed);
-            sum_liq += stream.mole_fractions_liquid[i].value;
-          }
-          ImGui::Text("Sum: %.6f", sum_liq);
-          if (std::abs(sum_liq - 1.0) > 1e-6 && sum_liq > 0.0) {
-            ImGui::SameLine();
-            if (ImGui::Button("Normalize##Liq")) {
-              for (size_t i = 0; i < stream.mole_fractions_liquid.size(); ++i) {
-                stream.mole_fractions_liquid[i].value /= sum_liq;
-              }
-            }
-          }
-        }
+        // // Liquid phase mole fractions
+        // if (ImGui::CollapsingHeader("Liquid Phase Mole Fractions")) {
+        //   double sum_liq = 0.0;
+        //   for (size_t i = 0; i < components.size() && i < stream.mole_fractions_liquid.size(); ++i) {
+        //     ImGui::Text("%s:", components[i].c_str());
+        //     ImGui::SameLine(150);
+        //     char label[64];
+        //     snprintf(label, sizeof(label), "##MoleFracLiq_%zu", i);
+        //     if (ImGui::InputDouble(label, &stream.mole_fractions_liquid[i].value)) {
+        //       // Value updated
+        //     }
+        //     ImGui::SameLine();
+        //     snprintf(label, sizeof(label), "Fixed##MoleFracLiqFixed_%zu", i);
+        //     ImGui::Checkbox(label, &stream.mole_fractions_liquid[i].fixed);
+        //     sum_liq += stream.mole_fractions_liquid[i].value;
+        //   }
+        //   ImGui::Text("Sum: %.6f", sum_liq);
+        //   if (std::abs(sum_liq - 1.0) > 1e-6 && sum_liq > 0.0) {
+        //     ImGui::SameLine();
+        //     if (ImGui::Button("Normalize##Liq")) {
+        //       for (size_t i = 0; i < stream.mole_fractions_liquid.size(); ++i) {
+        //         stream.mole_fractions_liquid[i].value /= sum_liq;
+        //       }
+        //     }
+        //   }
+        // }
         
-        ImGui::Spacing();
+        // ImGui::Spacing();
         
-        // Vapor phase mole fractions
-        if (ImGui::CollapsingHeader("Vapor Phase Mole Fractions")) {
-          double sum_vap = 0.0;
-          for (size_t i = 0; i < components.size() && i < stream.mole_fractions_vapor.size(); ++i) {
-            ImGui::Text("%s:", components[i].c_str());
-            ImGui::SameLine(150);
-            char label[64];
-            snprintf(label, sizeof(label), "##MoleFracVap_%zu", i);
-            if (ImGui::InputDouble(label, &stream.mole_fractions_vapor[i].value)) {
-              // Value updated
-            }
-            ImGui::SameLine();
-            snprintf(label, sizeof(label), "Fixed##MoleFracVapFixed_%zu", i);
-            ImGui::Checkbox(label, &stream.mole_fractions_vapor[i].fixed);
-            sum_vap += stream.mole_fractions_vapor[i].value;
-          }
-          ImGui::Text("Sum: %.6f", sum_vap);
-          if (std::abs(sum_vap - 1.0) > 1e-6 && sum_vap > 0.0) {
-            ImGui::SameLine();
-            if (ImGui::Button("Normalize##Vap")) {
-              for (size_t i = 0; i < stream.mole_fractions_vapor.size(); ++i) {
-                stream.mole_fractions_vapor[i].value /= sum_vap;
-              }
-            }
-          }
-        }
+        // // Vapor phase mole fractions
+        // if (ImGui::CollapsingHeader("Vapor Phase Mole Fractions")) {
+        //   double sum_vap = 0.0;
+        //   for (size_t i = 0; i < components.size() && i < stream.mole_fractions_vapor.size(); ++i) {
+        //     ImGui::Text("%s:", components[i].c_str());
+        //     ImGui::SameLine(150);
+        //     char label[64];
+        //     snprintf(label, sizeof(label), "##MoleFracVap_%zu", i);
+        //     if (ImGui::InputDouble(label, &stream.mole_fractions_vapor[i].value)) {
+        //       // Value updated
+        //     }
+        //     ImGui::SameLine();
+        //     snprintf(label, sizeof(label), "Fixed##MoleFracVapFixed_%zu", i);
+        //     ImGui::Checkbox(label, &stream.mole_fractions_vapor[i].fixed);
+        //     sum_vap += stream.mole_fractions_vapor[i].value;
+        //   }
+        //   ImGui::Text("Sum: %.6f", sum_vap);
+        //   if (std::abs(sum_vap - 1.0) > 1e-6 && sum_vap > 0.0) {
+        //     ImGui::SameLine();
+        //     if (ImGui::Button("Normalize##Vap")) {
+        //       for (size_t i = 0; i < stream.mole_fractions_vapor.size(); ++i) {
+        //         stream.mole_fractions_vapor[i].value /= sum_vap;
+        //       }
+        //     }
+        //   }
+        // }
         
-        ImGui::Spacing();
+        // ImGui::Spacing();
         
-        // Quality (vapor fraction)
-        ImGui::Text("Quality (Vapor Fraction):");
-        ImGui::SameLine(200);
-        if (ImGui::InputDouble("##Quality", &stream.quality.value)) {
-          // Clamp to [0, 1]
-          if (stream.quality.value < 0.0) stream.quality.value = 0.0;
-          if (stream.quality.value > 1.0) stream.quality.value = 1.0;
-        }
-        ImGui::SameLine();
-        ImGui::Checkbox("Fixed##QualityFixed", &stream.quality.fixed);
+        // // Quality (vapor fraction)
+        // ImGui::Text("Quality (Vapor Fraction):");
+        // ImGui::SameLine(200);
+        // if (ImGui::InputDouble("##Quality", &stream.quality.value)) {
+        //   // Clamp to [0, 1]
+        //   if (stream.quality.value < 0.0) stream.quality.value = 0.0;
+        //   if (stream.quality.value > 1.0) stream.quality.value = 1.0;
+        // }
+        // ImGui::SameLine();
+        // ImGui::Checkbox("Fixed##QualityFixed", &stream.quality.fixed);
         
         ImGui::PopItemWidth();
       } else {

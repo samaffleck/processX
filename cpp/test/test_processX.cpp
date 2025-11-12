@@ -84,6 +84,29 @@ namespace px {
       }
       return fluid_id;
     }
+    
+    // Helper function to initialize stream mole fractions to match fluid package composition
+    // If fix_composition is true, the mole fractions will be fixed (not solved for)
+    void init_stream_composition(Stream& stream, size_t fluid_id, bool fix_composition = false) {
+      auto components = fs.fluids.GetComponents(fluid_id);
+      if (components.size() == 2) {
+        // For N2/O2 mixture, set to 79% N2, 21% O2
+        stream.initialize_composition(components.size(), components);
+        if (stream.mole_fractions.size() == 2) {
+          stream.mole_fractions[0].set_val(0.79, fix_composition); // N2
+          stream.mole_fractions[1].set_val(0.21, fix_composition); // O2
+        }
+      } else {
+        // For other mixtures, use equal fractions
+        stream.initialize_composition(components.size(), components);
+        if (fix_composition) {
+          // Fix all mole fractions if requested
+          for (auto& x : stream.mole_fractions) {
+            x.fixed = true;
+          }
+        }
+      }
+    }
   };
 
 
@@ -107,6 +130,11 @@ namespace px {
     in.fluid_package_id = fluid_id;
     out.fluid_package_id = fluid_id;
     mid.fluid_package_id = fluid_id;
+    
+    // Initialize mole fractions: fix inlet composition, others will be solved
+    init_stream_composition(in, fluid_id, true);  // Fix inlet composition
+    init_stream_composition(mid, fluid_id, false);
+    init_stream_composition(out, fluid_id, false);
 
     fs.connect_in<Valve>(v1, s_in);
     fs.connect_out<Valve>(v1, s_mid);
@@ -133,6 +161,16 @@ namespace px {
     EXPECT_NEAR(mid.molar_flow.value, 0.0, 1e-12);
     EXPECT_NEAR(out.molar_flow.value, 0.0, 1e-12);
     EXPECT_NEAR(mid.pressure.value,   2.0e5, 1e-8);
+    
+    // Verify mole fractions are preserved (composition unchanged through valves)
+    if (in.mole_fractions.size() == 2 && mid.mole_fractions.size() == 2 && out.mole_fractions.size() == 2) {
+      EXPECT_NEAR(in.mole_fractions[0].value, mid.mole_fractions[0].value, 1e-10);
+      EXPECT_NEAR(mid.mole_fractions[0].value, out.mole_fractions[0].value, 1e-10);
+      // Verify sum constraint
+      expect_prob_vector({in.mole_fractions[0].value, in.mole_fractions[1].value}, 1e-6);
+      expect_prob_vector({mid.mole_fractions[0].value, mid.mole_fractions[1].value}, 1e-6);
+      expect_prob_vector({out.mole_fractions[0].value, out.mole_fractions[1].value}, 1e-6);
+    }
 
     SaveTest("multi_valve_zero_flow_test", fs);
   }
@@ -162,6 +200,11 @@ namespace px {
     in.fluid_package_id = fluid_id;
     mid.fluid_package_id = fluid_id;
     out.fluid_package_id = fluid_id;
+    
+    // Initialize mole fractions: fix inlet composition, others will be solved
+    init_stream_composition(in, fluid_id, true);  // Fix inlet composition
+    init_stream_composition(mid, fluid_id, false);
+    init_stream_composition(out, fluid_id, false);
 
     const double Pin  = 1.1e5;
     const double Pout = 1.0e5;
@@ -199,6 +242,16 @@ namespace px {
     // Check each valve equation too
     EXPECT_NEAR(mid.molar_flow.value, val1.Cv.value * (in.pressure.value  - mid.pressure.value),  1e-10);
     EXPECT_NEAR(out.molar_flow.value, val2.Cv.value * (mid.pressure.value - out.pressure.value),  1e-10);
+    
+    // Verify mole fractions are preserved (composition unchanged through valves)
+    if (in.mole_fractions.size() == 2 && mid.mole_fractions.size() == 2 && out.mole_fractions.size() == 2) {
+      EXPECT_NEAR(in.mole_fractions[0].value, mid.mole_fractions[0].value, 1e-10);
+      EXPECT_NEAR(mid.mole_fractions[0].value, out.mole_fractions[0].value, 1e-10);
+      // Verify sum constraint
+      expect_prob_vector({in.mole_fractions[0].value, in.mole_fractions[1].value}, 1e-6);
+      expect_prob_vector({mid.mole_fractions[0].value, mid.mole_fractions[1].value}, 1e-6);
+      expect_prob_vector({out.mole_fractions[0].value, out.mole_fractions[1].value}, 1e-6);
+    }
 
     SaveTest("multi_valve_test", fs);
   }
@@ -227,6 +280,11 @@ namespace px {
     in2.fluid_package_id = fluid_id;
     out.fluid_package_id = fluid_id;
     
+    // Initialize mole fractions: fix inlet compositions, outlet will be solved
+    init_stream_composition(in1, fluid_id, true);  // Fix inlet 1 composition
+    init_stream_composition(in2, fluid_id, true);  // Fix inlet 2 composition
+    init_stream_composition(out, fluid_id, false);
+    
     const double P  = 1.0e5;
     const double F1  = 1.5;
     const double F2  = 0.2;
@@ -252,6 +310,24 @@ namespace px {
     // Verify pressure equality equations
     EXPECT_NEAR(in1.pressure.value, out.pressure.value, 1e-10);
     EXPECT_NEAR(in2.pressure.value, out.pressure.value, 1e-10);
+    
+    // Verify component mass balances: Σ(n_in * x_in,i) = n_out * x_out,i
+    if (in1.mole_fractions.size() == 2 && in2.mole_fractions.size() == 2 && out.mole_fractions.size() == 2) {
+      // Component 0 (N2)
+      double comp0_in = in1.molar_flow.value * in1.mole_fractions[0].value + 
+                        in2.molar_flow.value * in2.mole_fractions[0].value;
+      double comp0_out = out.molar_flow.value * out.mole_fractions[0].value;
+      EXPECT_NEAR(comp0_in, comp0_out, 1e-10);
+      
+      // Component 1 (O2)
+      double comp1_in = in1.molar_flow.value * in1.mole_fractions[1].value + 
+                        in2.molar_flow.value * in2.mole_fractions[1].value;
+      double comp1_out = out.molar_flow.value * out.mole_fractions[1].value;
+      EXPECT_NEAR(comp1_in, comp1_out, 1e-10);
+      
+      // Verify sum constraint
+      expect_prob_vector({out.mole_fractions[0].value, out.mole_fractions[1].value}, 1e-6);
+    }
 
     SaveTest("mixer_test", fs);
   }
@@ -280,6 +356,11 @@ namespace px {
     out1.fluid_package_id = fluid_id;
     out2.fluid_package_id = fluid_id;
     
+    // Initialize mole fractions: fix inlet composition, outlets will be solved
+    init_stream_composition(in, fluid_id, true);  // Fix inlet composition
+    init_stream_composition(out1, fluid_id, false);
+    init_stream_composition(out2, fluid_id, false);
+    
     const double P  = 1.0e5;
     const double F  = 2.0;
     const double F1 = 1.2;
@@ -299,6 +380,21 @@ namespace px {
     EXPECT_NEAR(in.molar_flow.value, out1.molar_flow.value + out2.molar_flow.value, 1e-10);
     EXPECT_NEAR(in.pressure.value, out1.pressure.value, 1e-10);
     EXPECT_NEAR(in.pressure.value, out2.pressure.value, 1e-10);
+    
+    // Verify mole fractions are preserved (composition unchanged through splitter)
+    if (in.mole_fractions.size() == 2 && out1.mole_fractions.size() == 2 && out2.mole_fractions.size() == 2) {
+      EXPECT_NEAR(in.mole_fractions[0].value, out1.mole_fractions[0].value, 1e-10);
+      EXPECT_NEAR(in.mole_fractions[0].value, out2.mole_fractions[0].value, 1e-10);
+      // Verify component mass balances: n_in * x_in,i = Σ(n_out * x_out,i)
+      double comp0_in = in.molar_flow.value * in.mole_fractions[0].value;
+      double comp0_out = out1.molar_flow.value * out1.mole_fractions[0].value + 
+                         out2.molar_flow.value * out2.mole_fractions[0].value;
+      EXPECT_NEAR(comp0_in, comp0_out, 1e-10);
+      // Verify sum constraint
+      expect_prob_vector({in.mole_fractions[0].value, in.mole_fractions[1].value}, 1e-6);
+      expect_prob_vector({out1.mole_fractions[0].value, out1.mole_fractions[1].value}, 1e-6);
+      expect_prob_vector({out2.mole_fractions[0].value, out2.mole_fractions[1].value}, 1e-6);
+    }
 
     SaveTest("splitter_test", fs);
   }

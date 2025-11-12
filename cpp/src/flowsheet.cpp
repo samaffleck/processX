@@ -531,6 +531,22 @@ namespace px {
       }
     });
 
+    // Add mole fraction sum constraints: Σx_i = 1.0 for each stream with multiple components
+    // This ensures mole fractions are properly normalized
+    // Note: If all mole fractions are fixed and sum to 1.0, this constraint is redundant
+    // but structural analysis will detect and handle it appropriately
+    streams_.for_each([&](Stream& s) {
+      if (s.mole_fractions.size() > 1) {
+        sys.add("mole_frac_sum[" + s.name + "]", [&s]() {
+          double sum = 0.0;
+          for (const auto& x : s.mole_fractions) {
+            sum += x.value;
+          }
+          return sum - 1.0; // Residual: sum should equal 1.0
+        });
+      }
+    });
+
     // DOF check: allow equations >= unknowns (redundancy will be caught by rank analysis)
     if (reg.size() > sys.size()) {
       if (err) *err = "DOF mismatch: unknowns=" + std::to_string(reg.size())

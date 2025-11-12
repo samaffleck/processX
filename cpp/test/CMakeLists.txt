@@ -1,7 +1,8 @@
 ﻿# test/CMakeLists.txt
 
-set(TEST_SOURCES
-  test_processX.cpp
+# Gather all test source files
+file(GLOB TEST_SOURCES CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
 )
 
 add_executable(processX_tests ${TEST_SOURCES})
