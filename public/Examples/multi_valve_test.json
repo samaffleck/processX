@@ -25,7 +25,19 @@
                             "Variable_Value": 300.0,
                             "Variable_Is_Fixed": true
                         },
-                        "Stream_Fluid_Package_ID": 1
+                        "Stream_Fluid_Package_ID": 1,
+                        "Stream_Mole_Fractions": [
+                            {
+                                "Variable_Name": "Mole_Fraction[N2]",
+                                "Variable_Value": 0.79,
+                                "Variable_Is_Fixed": true
+                            },
+                            {
+                                "Variable_Name": "Mole_Fraction[O2]",
+                                "Variable_Value": 0.21,
+                                "Variable_Is_Fixed": true
+                            }
+                        ]
                     },
                     "Slot_Generation": 1,
                     "Slot_Alive": true,
@@ -49,7 +61,19 @@
                             "Variable_Value": 299.93896484375,
                             "Variable_Is_Fixed": false
                         },
-                        "Stream_Fluid_Package_ID": 1
+                        "Stream_Fluid_Package_ID": 1,
+                        "Stream_Mole_Fractions": [
+                            {
+                                "Variable_Name": "Mole_Fraction[N2]",
+                                "Variable_Value": 0.79,
+                                "Variable_Is_Fixed": false
+                            },
+                            {
+                                "Variable_Name": "Mole_Fraction[O2]",
+                                "Variable_Value": 0.21,
+                                "Variable_Is_Fixed": false
+                            }
+                        ]
                     },
                     "Slot_Generation": 1,
                     "Slot_Alive": true,
@@ -73,7 +97,19 @@
                             "Variable_Value": 299.93896484375,
                             "Variable_Is_Fixed": false
                         },
-                        "Stream_Fluid_Package_ID": 1
+                        "Stream_Fluid_Package_ID": 1,
+                        "Stream_Mole_Fractions": [
+                            {
+                                "Variable_Name": "Mole_Fraction[N2]",
+                                "Variable_Value": 0.79,
+                                "Variable_Is_Fixed": false
+                            },
+                            {
+                                "Variable_Name": "Mole_Fraction[O2]",
+                                "Variable_Value": 0.21,
+                                "Variable_Is_Fixed": false
+                            }
+                        ]
                     },
                     "Slot_Generation": 1,
                     "Slot_Alive": true,
@@ -190,6 +226,12 @@
                 {
                     "key": 1,
                     "value": "HEOS"
+                }
+            ],
+            "FluidPackage_Names": [
+                {
+                    "key": 1,
+                    "value": "Package #1"
                 }
             ],
             "FluidPackage_NextID": 1
