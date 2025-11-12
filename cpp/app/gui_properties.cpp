@@ -234,19 +234,8 @@ void ShowStreamProperties(px::Stream& stream) {
       auto components = flowsheet.fluids.GetComponents(pkg_id);
       std::string backend = flowsheet.fluids.GetThermoPackage(pkg_id);
       
-      // Build label: "PackageName: Component1, Component2, ... (Backend)"
       std::string pkg_name = flowsheet.fluids.GetPackageName(pkg_id);
-      std::string label = pkg_name + ": ";
-      if (components.empty()) {
-        label += "(empty)";
-      } else {
-        for (size_t j = 0; j < components.size(); ++j) {
-          if (j > 0) label += ", ";
-          label += components[j];
-        }
-      }
-      label += " (" + backend + ")";
-      package_labels.push_back(label);
+      package_labels.push_back(pkg_name);
       
       // Check if this is the current package
       if (stream.fluid_package_id == pkg_id) {

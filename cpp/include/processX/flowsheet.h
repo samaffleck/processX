@@ -98,6 +98,26 @@ namespace px {
       }
     }
 
+    void UpdateComponents(size_t id, const ComponentList& components) {
+      auto it = pkg_components.find(id);
+      if (it != pkg_components.end()) {
+        // Allow empty component lists - set package to nullptr in this case
+        if (components.empty()) {
+          pkg_components[id] = components;
+          pkg[id] = nullptr;  // Empty package - no AbstractState
+        } else {
+          std::string thermo_pkg = GetThermoPackage(id);
+          // Try to create the fluid package first - if this fails, we don't update anything
+          auto new_pkg = std::shared_ptr<CoolProp::AbstractState>(
+            CoolProp::AbstractState::factory(thermo_pkg, components)
+          );
+          // Only update if creation succeeded
+          pkg_components[id] = components;
+          pkg[id] = new_pkg;
+        }
+      }
+    }
+
     void RemoveFluidPackage(size_t pkg_id) {
       pkg.erase(pkg_id);
       pkg_components.erase(pkg_id);
