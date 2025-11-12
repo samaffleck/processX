@@ -22,7 +22,7 @@ export default function Header() {
           {!isCopilotPage && (
             <Link 
               href="/Copilot"
-              className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white hover:text-black flex items-center gap-2"
+              className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40 flex items-center gap-2"
             >
               <Bot className="w-4 h-4" />
               Launch Copilot
@@ -30,7 +30,7 @@ export default function Header() {
           )}
           <Link 
             href="/waitlist"
-            className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white hover:text-black"
+            className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40"
           >
             Join Waitlist
           </Link>

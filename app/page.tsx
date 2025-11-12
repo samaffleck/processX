@@ -20,33 +20,33 @@ export default function ProcessXLanding() {
       <Header />
 
       {/* Hero Section */}
-      <section className="relative z-10 px-6 pt-24 pb-24 flex-1">
-        <div className="max-w-5xl mx-auto text-center">
+      <section className="relative z-10 px-6 py-16 md:py-24 lg:py-32 flex-1 flex items-center">
+        <div className="max-w-5xl mx-auto text-center w-full">
           <h1 
-            className="text-6xl md:text-7xl lg:text-8xl font-bold mb-8 leading-tight"
+            className="text-6xl md:text-7xl lg:text-8xl font-bold mb-6 md:mb-8 leading-tight"
             style={{ transform: `translateY(${scrollY * 0.05}px)` }}
           >
             ProcessX
           </h1>
           
           <p 
-            className="text-xl md:text-2xl text-white/60 mb-12 max-w-3xl mx-auto leading-relaxed"
+            className="text-xl md:text-2xl text-white/60 mb-10 md:mb-12 max-w-3xl mx-auto leading-relaxed px-4"
             style={{ transform: `translateY(${scrollY * 0.03}px)` }}
           >
             AI powered simulation software for chemical engineers.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center px-4">
             <Link 
               href="/Copilot"
-              className="px-8 py-4 border border-white/20 rounded-lg font-semibold text-lg text-white transition-all duration-200 hover:bg-white hover:text-black flex items-center gap-2"
+              className="px-8 py-4 border border-white/20 rounded-lg font-semibold text-lg text-white transition-all duration-200 hover:bg-white/10 hover:border-white/40 flex items-center gap-2 w-full sm:w-auto"
             >
               <Bot className="w-5 h-5" />
               Launch Copilot
             </Link>
             <Link 
               href="/waitlist"
-              className="px-8 py-4 border border-white/20 rounded-lg font-semibold text-lg text-white transition-all duration-200 hover:bg-white hover:text-black"
+              className="px-8 py-4 border border-white/20 rounded-lg font-semibold text-lg text-white transition-all duration-200 hover:bg-white/10 hover:border-white/40 w-full sm:w-auto"
             >
               Join Waitlist
             </Link>
