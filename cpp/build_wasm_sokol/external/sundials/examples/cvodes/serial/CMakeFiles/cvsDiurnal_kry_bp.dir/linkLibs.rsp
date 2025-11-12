@@ -1,0 +1,1 @@
+ ../../../src/cvodes/libsundials_cvodes.a ../../../src/nvector/serial/libsundials_nvecserial.a -lm ../../../src/sundials/libsundials_core.a -lm 

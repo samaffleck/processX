@@ -1,0 +1,2 @@
+/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emar qc libprocessX.a CMakeFiles/processX.dir/core.cpp.o CMakeFiles/processX.dir/flowsheet.cpp.o CMakeFiles/processX.dir/fluids.cpp.o CMakeFiles/processX.dir/stream.cpp.o CMakeFiles/processX.dir/unitop.cpp.o
+/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emranlib libprocessX.a

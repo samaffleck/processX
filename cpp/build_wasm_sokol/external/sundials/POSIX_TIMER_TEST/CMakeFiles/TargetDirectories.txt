@@ -1,0 +1,3 @@
+/Users/anton/processX/cpp/build_wasm_sokol/external/sundials/POSIX_TIMER_TEST/CMakeFiles/ltest.dir
+/Users/anton/processX/cpp/build_wasm_sokol/external/sundials/POSIX_TIMER_TEST/CMakeFiles/edit_cache.dir
+/Users/anton/processX/cpp/build_wasm_sokol/external/sundials/POSIX_TIMER_TEST/CMakeFiles/rebuild_cache.dir

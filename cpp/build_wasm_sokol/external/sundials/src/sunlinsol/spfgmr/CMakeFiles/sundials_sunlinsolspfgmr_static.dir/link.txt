@@ -1,0 +1,2 @@
+/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emar qc libsundials_sunlinsolspfgmr.a CMakeFiles/sundials_sunlinsolspfgmr_obj_static.dir/sunlinsol_spfgmr.c.o
+/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emranlib libsundials_sunlinsolspfgmr.a

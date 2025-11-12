@@ -79,10 +79,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Empty response from AI' }, { status: 500 });
     }
 
-    // === Extract text response and JSON (if present) ===
+    // === Extract text response, JSON, and solve flag ===
     let textResponse = response;
     let editedJson = null;
     let hasJsonUpdate = false;
+    let shouldSolve = false;
+
+    // Check for SOLVE marker
+    if (response.includes('---SOLVE---')) {
+      shouldSolve = true;
+      textResponse = textResponse.replace(/---SOLVE---/g, '').trim();
+    }
 
     // Check for JSON section in the format: ---FLOWSHEET_JSON--- ... ---END_FLOWSHEET_JSON---
     const jsonMatch = response.match(/---FLOWSHEET_JSON---\s*([\s\S]*?)\s*---END_FLOWSHEET_JSON---/);
@@ -100,6 +107,9 @@ export async function POST(request: NextRequest) {
         
         // Remove the JSON section from text response
         textResponse = response.replace(/---FLOWSHEET_JSON---\s*[\s\S]*?\s*---END_FLOWSHEET_JSON---/, '').trim();
+        
+        // Remove SOLVE marker if present
+        textResponse = textResponse.replace(/---SOLVE---/g, '').trim();
       } catch (parseError) {
         console.warn('Failed to parse JSON from response:', parseError);
         // If JSON parsing fails, treat entire response as text
@@ -125,6 +135,7 @@ export async function POST(request: NextRequest) {
       response: textResponse,
       editedJson: hasJsonUpdate ? editedJson : null,
       hasJsonUpdate,
+      shouldSolve,
     });
   } catch (error: any) {
     console.error('Chat API Error:', error);

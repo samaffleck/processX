@@ -1,0 +1,2 @@
+/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emar qc libsundials_sunmatrixsparse.a CMakeFiles/sundials_sunmatrixsparse_obj_static.dir/sunmatrix_sparse.c.o
+/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emranlib libsundials_sunmatrixsparse.a

@@ -43,6 +43,7 @@
 # Build
 cpp/build
 cpp/build_wasm
+cpp/build_wasm_sokol
 cpp/out
 
 

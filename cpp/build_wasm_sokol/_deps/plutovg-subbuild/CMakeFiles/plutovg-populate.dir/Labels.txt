@@ -1,0 +1,14 @@
+# Target labels
+ plutovg-populate
+# Source files and their labels
+/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/CMakeFiles/plutovg-populate
+/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/CMakeFiles/plutovg-populate.rule
+/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/CMakeFiles/plutovg-populate-complete.rule
+/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-build.rule
+/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-configure.rule
+/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-download.rule
+/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-install.rule
+/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-mkdir.rule
+/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-patch.rule
+/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-test.rule
+/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-update.rule

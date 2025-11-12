@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/CMakeFiles/plutovg-populate"
+		},
+		{
+			"file" : "/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/CMakeFiles/plutovg-populate.rule"
+		},
+		{
+			"file" : "/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/CMakeFiles/plutovg-populate-complete.rule"
+		},
+		{
+			"file" : "/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-build.rule"
+		},
+		{
+			"file" : "/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-configure.rule"
+		},
+		{
+			"file" : "/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-download.rule"
+		},
+		{
+			"file" : "/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-install.rule"
+		},
+		{
+			"file" : "/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-mkdir.rule"
+		},
+		{
+			"file" : "/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-patch.rule"
+		},
+		{
+			"file" : "/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-test.rule"
+		},
+		{
+			"file" : "/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/plutovg-populate-prefix/src/plutovg-populate-stamp/plutovg-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"plutovg-populate"
+		],
+		"name" : "plutovg-populate"
+	}
+}

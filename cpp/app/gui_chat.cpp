@@ -12,15 +12,16 @@
 #ifdef EMSCRIPTEN
 #include <emscripten.h>
 
-// Global storage for LLM response (simplified approach)
+// Global storage for LLM response
 static std::string pending_llm_message;
 static std::string pending_llm_json;
 static bool llm_response_ready = false;
+static bool llm_should_solve = false; // Flag to trigger solve
 
-// Callback function to be called from JavaScript
+// Update the callback function
 extern "C" {
   EMSCRIPTEN_KEEPALIVE
-  void on_llm_response_received(const char* message, const char* simulation_json) {
+  void on_llm_response_received(const char* message, const char* simulation_json, int should_solve) {
     if (message) {
       pending_llm_message = message;
       if (simulation_json) {
@@ -28,13 +29,13 @@ extern "C" {
       } else {
         pending_llm_json = "{}";
       }
+      llm_should_solve = (should_solve != 0);
       llm_response_ready = true;
     }
   }
 }
 
-// EM_JS wrapper for LLM API call
-// Expects window.callLLMAPI(message, flowsheetJson) to return Promise<{message: string, simulationJson: string}>
+// Update the EM_JS wrapper
 EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json), {
   const message = UTF8ToString(user_message);
   const json = UTF8ToString(flowsheet_json);
@@ -82,13 +83,15 @@ EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json)
           }
           return {
             message: errorMsg,
-            simulationJson: '{}'
+            simulationJson: '{}',
+            shouldSolve: false
           };
         }
 
-        // Extract text response and JSON
+        // Extract text response, JSON, and solve flag
         let responseMessage = data.response || 'No response received';
         let simulationJson = '{}';
+        let shouldSolve = data.shouldSolve || false;
 
         // If there's updated JSON, include it
         if (data.hasJsonUpdate && data.editedJson) {
@@ -97,13 +100,15 @@ EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json)
 
         return {
           message: responseMessage,
-          simulationJson: simulationJson
+          simulationJson: simulationJson,
+          shouldSolve: shouldSolve
         };
       } catch (error) {
         console.error('[callLLMAPI] Error:', error);
         return {
           message: 'Error: ' + (error.message || 'Failed to get response from AI'),
-          simulationJson: '{}'
+          simulationJson: '{}',
+          shouldSolve: false
         };
       }
     };
@@ -114,18 +119,21 @@ EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json)
     .then(result => {
       const responseMessage = result.message || "No response";
       const simulationJson = result.simulationJson || "{}";
+      const shouldSolve = result.shouldSolve ? 1 : 0;
       
-      // Call the C++ callback function
+      // Call the C++ callback function with solve flag
       Module._on_llm_response_received(
         Module.stringToNewUTF8(responseMessage),
-        Module.stringToNewUTF8(simulationJson)
+        Module.stringToNewUTF8(simulationJson),
+        shouldSolve
       );
     })
     .catch(error => {
       const errorMsg = "Error: " + error.toString();
       Module._on_llm_response_received(
         Module.stringToNewUTF8(errorMsg),
-        Module.stringToNewUTF8("{}")
+        Module.stringToNewUTF8("{}"),
+        0
       );
     });
 });
@@ -212,8 +220,58 @@ void ShowChatWindow() {
       }
     }
     
-    // Reset flag
+    // Trigger solve if requested by LLM
+    if (llm_should_solve) {
+      AddLogToChat("Starting solve (triggered by LLM)...", ChatMessage::LogInfo);
+      
+      // Set up logging callback
+      flowsheet.set_log_callback([](const std::string& message, bool is_error) {
+        AddLogToChat(message, is_error ? ChatMessage::LogError : ChatMessage::LogInfo);
+      });
+      
+      // Assemble the system
+      std::string assemble_error;
+      if (!flowsheet.assemble(&assemble_error)) {
+        AddLogToChat("Assembly failed: " + assemble_error, ChatMessage::LogError);
+      } else {
+        AddLogToChat("System assembled successfully", ChatMessage::LogInfo);
+        
+        // Configure solver options
+        px::NewtonOptions options;
+        options.max_iters = 50;
+        options.tol_res = 1e-10;
+        options.tol_step = 1e-12;
+        options.fd_rel = 1e-6;
+        options.fd_abs = 1e-8;
+        options.verbose = false;
+        
+        // Run solver
+        px::NewtonReport report = flowsheet.solve(options);
+        
+        if (report.converged) {
+          std::string success_msg = "Solve converged! Iterations: " + std::to_string(report.iters) 
+                                    + ", Final residual: " + std::to_string(report.final_res);
+          AddLogToChat(success_msg, ChatMessage::LogSuccess);
+          if (!report.msg.empty()) {
+            AddLogToChat("Message: " + report.msg, ChatMessage::LogInfo);
+          }
+        } else {
+          std::string error_msg = "Solve failed: " + report.msg;
+          if (report.iters > 0) {
+            error_msg += " (Iterations: " + std::to_string(report.iters) 
+                        + ", Final residual: " + std::to_string(report.final_res) + ")";
+          }
+          AddLogToChat(error_msg, ChatMessage::LogError);
+        }
+      }
+      
+      // Clear the logging callback
+      flowsheet.clear_log_callback();
+    }
+    
+    // Reset flags
     llm_response_ready = false;
+    llm_should_solve = false;
     pending_llm_message.clear();
     pending_llm_json.clear();
   }

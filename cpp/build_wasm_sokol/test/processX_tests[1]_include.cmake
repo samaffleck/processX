@@ -1,0 +1,5 @@
+if(EXISTS "/Users/anton/processX/cpp/build_wasm_sokol/test/processX_tests[1]_tests.cmake")
+  include("/Users/anton/processX/cpp/build_wasm_sokol/test/processX_tests[1]_tests.cmake")
+else()
+  add_test(processX_tests_NOT_BUILT processX_tests_NOT_BUILT)
+endif()

@@ -1,0 +1,2 @@
+/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emar qc libstb_hello_imgui.a CMakeFiles/stb_hello_imgui.dir/__/__/external/stb_hello_imgui/stb_impl_hello_imgui.cpp.o
+/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emranlib libstb_hello_imgui.a

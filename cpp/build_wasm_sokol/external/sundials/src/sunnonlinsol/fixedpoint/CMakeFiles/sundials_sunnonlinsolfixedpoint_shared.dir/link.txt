@@ -1,0 +1,2 @@
+/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emar qc libsundials_sunnonlinsolfixedpoint.a CMakeFiles/sundials_sunnonlinsolfixedpoint_obj_shared.dir/sunnonlinsol_fixedpoint.c.o
+/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emranlib libsundials_sunnonlinsolfixedpoint.a

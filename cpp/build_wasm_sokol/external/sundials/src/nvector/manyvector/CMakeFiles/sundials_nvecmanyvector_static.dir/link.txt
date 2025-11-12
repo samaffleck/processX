@@ -1,0 +1,2 @@
+/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emar qc libsundials_nvecmanyvector.a CMakeFiles/sundials_nvecmanyvector_obj_static.dir/nvector_manyvector.c.o
+/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emranlib libsundials_nvecmanyvector.a

@@ -1,4 +1,4 @@
-// app/api/chat/prompt.ts
+// app/api/chat/prompts.ts
 import { EXAMPLE_FLOWSHEETS } from './examples';
 
 const FEW_SHOT_EXAMPLES = EXAMPLE_FLOWSHEETS
@@ -20,6 +20,28 @@ You can **create a new flowsheet from scratch** or edit an existing one.
 
 - If you did NOT modify the flowsheet (e.g., just answering a question), omit the JSON section
 - The JSON must follow the exact structure shown in the examples below
+
+**SOLVE TRIGGER:**
+- If the user asks you to "solve", "run", "simulate", "calculate", or similar actions, include this marker in your response:
+  ---SOLVE---
+- This will automatically trigger the solver after updating the flowsheet
+- You can include this marker along with the flowsheet JSON if you're updating the flowsheet AND solving it
+- Examples of requests that should trigger solve:
+  * "solve this"
+  * "run the simulation"
+  * "calculate the results"
+  * "what are the outlet conditions?" (implies solving)
+  * "set the temperature to 300K and solve"
+  * "add a heater and run the simulation"
+
+**Example response with solve:**
+I've set the inlet temperature to 300K and updated the flowsheet.
+
+---FLOWSHEET_JSON---
+{your updated flowsheet JSON}
+---END_FLOWSHEET_JSON---
+
+---SOLVE---s
 
 --- EXAMPLES (use these as templates) ---
 ${FEW_SHOT_EXAMPLES}

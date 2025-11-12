@@ -1,0 +1,1 @@
+/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emcc -O3 -DNDEBUG  -fexceptions -sNO_DISABLE_EXCEPTION_CATCHING=1 -sALLOW_MEMORY_GROWTH=1 -sWASM=1 -sASSERTIONS=1 -sFORCE_FILESYSTEM=1 @CMakeFiles/ark_analytic_nonlin.dir/objects1.rsp -o ark_analytic_nonlin.js @CMakeFiles/ark_analytic_nonlin.dir/linkLibs.rsp
