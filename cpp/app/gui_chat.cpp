@@ -6,6 +6,8 @@
 #include <sstream>
 #include <iomanip>
 #include <cstring>
+#include <algorithm>
+#include <cmath>
 
 #ifdef EMSCRIPTEN
 #include <emscripten.h>
@@ -185,6 +187,9 @@ void AddLogToChat(const std::string& message, ChatMessage::MessageType log_type)
 }
 
 void ShowChatWindow() {
+  // Track previous message count for auto-scroll detection
+  static size_t previous_message_count = 0;
+  
   // Check for LLM response (Emscripten only)
   #ifdef EMSCRIPTEN
   if (llm_response_ready) {
@@ -267,6 +272,8 @@ void ShowChatWindow() {
   ImGui::SameLine();
   if (ImGui::Button("Clear")) {
     chat_messages.clear();
+    // Reset message count tracking when clearing
+    previous_message_count = 0;
   }
   
   ImGui::Separator();
@@ -318,33 +325,89 @@ void ShowChatWindow() {
     ImGui::Spacing();
   }
   
-  // Force auto-scroll to bottom (always enabled)
-  if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f) {
+  // Auto-scroll to bottom only when new messages are added and user is at bottom
+  size_t current_message_count = chat_messages.size();
+  bool new_messages_added = current_message_count > previous_message_count;
+  previous_message_count = current_message_count;
+  
+  // Check if user is at bottom (within 1 pixel tolerance)
+  bool is_at_bottom = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f;
+  
+  // Only auto-scroll if new messages were added AND user is already at bottom
+  if (new_messages_added && is_at_bottom) {
     ImGui::SetScrollHereY(1.0f);
-  } else {
-    ImGui::SetScrollY(ImGui::GetScrollMaxY());
   }
   
   ImGui::EndChild();
   
   ImGui::Separator();
   
-  // Input area at bottom - original style: single line input, button below
+  // Input area at bottom - multiline input that wraps and expands
   ImGui::PushItemWidth(-1);
   
-  // Use InputTextWithHint for placeholder text
-  bool input_activated = ImGui::InputTextWithHint("##ChatInput", "Ask something", input_buffer, sizeof(input_buffer),
-                                                   ImGuiInputTextFlags_EnterReturnsTrue);
-  ImGui::PopItemWidth();
+  // Calculate height based on content (explicit newlines + estimated word wrapping)
+  float line_height = ImGui::GetTextLineHeight();
+  float available_width = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().FramePadding.x * 2.0f;
   
-  // Check if Enter was pressed to submit (InputTextWithHint already handles Enter key)
+  int explicit_lines = 1; // Count explicit newlines
+  for (size_t i = 0; i < strlen(input_buffer); ++i) {
+    if (input_buffer[i] == '\n') {
+      explicit_lines++;
+    }
+  }
+  
+  // Estimate wrapped lines based on text length and available width
+  // Rough estimate: average character width * character count / available width
+  if (strlen(input_buffer) > 0 && available_width > 0) {
+    ImVec2 text_size = ImGui::CalcTextSize("M"); // Average character width
+    float avg_char_width = text_size.x;
+    float estimated_chars_per_line = available_width / avg_char_width;
+    
+    if (estimated_chars_per_line > 0) {
+      // Count characters that would wrap (excluding newlines)
+      size_t char_count = strlen(input_buffer);
+      int estimated_wrapped_lines = static_cast<int>(std::ceil(char_count / estimated_chars_per_line));
+      
+      // Use the maximum of explicit lines and estimated wrapped lines
+      explicit_lines = std::max(explicit_lines, estimated_wrapped_lines);
+    }
+  }
+  
+  // Calculate height: base height + additional lines
+  float input_box_height = line_height + ImGui::GetStyle().FramePadding.y * 2.0f; // Base height
+  input_box_height += (explicit_lines - 1) * line_height; // Additional lines
+  
+  // Clamp height between min and max
+  float min_height = line_height + ImGui::GetStyle().FramePadding.y * 2.0f;
+  float max_height = line_height * 6.0f + ImGui::GetStyle().FramePadding.y * 2.0f; // Max 6 lines
+  input_box_height = std::clamp(input_box_height, min_height, max_height);
+  
+  // Use InputTextMultiline for wrapping text
+  // Note: InputTextMultiline doesn't support hint, so we'll draw it manually
+  bool input_activated = ImGui::InputTextMultiline(
+    "##ChatInput",
+    input_buffer,
+    sizeof(input_buffer),
+    ImVec2(-1, input_box_height),
+    ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CtrlEnterForNewLine | ImGuiInputTextFlags_WordWrap
+  );
+  
+  // Draw placeholder text when buffer is empty
+  if (strlen(input_buffer) == 0 && !ImGui::IsItemActive()) {
+    ImVec2 pos = ImGui::GetItemRectMin();
+    pos.x += ImGui::GetStyle().FramePadding.x;
+    pos.y += ImGui::GetStyle().FramePadding.y;
+    ImGui::GetWindowDrawList()->AddText(pos, ImGui::GetColorU32(ImGuiCol_TextDisabled), "Ask something");
+  }
+  
+  ImGui::PopItemWidth();
   
   // Send button below the input box
   ImGui::BeginDisabled(strlen(input_buffer) == 0);
   bool submit_clicked = ImGui::Button("Send", ImVec2(-1, 0));
   ImGui::EndDisabled();
   
-  // Handle submit (Enter key or button click)
+  // Handle submit (Enter key or button click, but not Ctrl+Enter)
   if ((input_activated || submit_clicked) && strlen(input_buffer) > 0) {
     std::string user_message = input_buffer;
     

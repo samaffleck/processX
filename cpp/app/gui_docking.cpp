@@ -27,7 +27,7 @@ std::vector<HelloImGui::DockingSplit> CreateDefaultDockingSplits()
   splitBottom.initialDock = "MainDockSpace";
   splitBottom.newDock = "BottomRightSpace";
   splitBottom.direction = ImGuiDir_Down;
-  splitBottom.ratio = 0.25f;
+  splitBottom.ratio = 0.15f;
   
   // Step 3: Split MainDockSpace (top right) right to create Properties area (50% width of top right)
   // This leaves MainDockSpace as Flowsheet (50% width of top right)
