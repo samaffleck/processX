@@ -1,2 +1,0 @@
-/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emar qc libsundials_sunmatrixband.a CMakeFiles/sundials_sunmatrixband_obj_shared.dir/sunmatrix_band.c.o
-/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emranlib libsundials_sunmatrixband.a

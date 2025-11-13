@@ -1,3 +1,0 @@
-/Users/anton/processX/cpp/build_wasm_sokol/external/hello_imgui/src/hello_imgui/plutosvg-subbuild/CMakeFiles/plutosvg-populate.dir
-/Users/anton/processX/cpp/build_wasm_sokol/external/hello_imgui/src/hello_imgui/plutosvg-subbuild/CMakeFiles/edit_cache.dir
-/Users/anton/processX/cpp/build_wasm_sokol/external/hello_imgui/src/hello_imgui/plutosvg-subbuild/CMakeFiles/rebuild_cache.dir

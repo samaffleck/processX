@@ -1,1 +1,0 @@
- ../src/libprocessX.a ../lib/libgtest_main.a ../external/CoolProp/libCoolProp.a ../external/sundials/src/cvode/libsundials_cvode.a ../external/sundials/src/nvector/serial/libsundials_nvecserial.a ../external/sundials/src/sundials/libsundials_core.a -lm ../lib/libgtest.a 

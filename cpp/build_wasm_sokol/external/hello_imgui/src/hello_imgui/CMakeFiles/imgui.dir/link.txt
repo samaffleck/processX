@@ -1,2 +1,0 @@
-/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emar qc libimgui.a CMakeFiles/imgui.dir/__/__/external/imgui/imgui.cpp.o CMakeFiles/imgui.dir/__/__/external/imgui/imgui_demo.cpp.o CMakeFiles/imgui.dir/__/__/external/imgui/imgui_draw.cpp.o CMakeFiles/imgui.dir/__/__/external/imgui/imgui_tables.cpp.o CMakeFiles/imgui.dir/__/__/external/imgui/imgui_widgets.cpp.o CMakeFiles/imgui.dir/__/__/external/imgui/misc/cpp/imgui_stdlib.cpp.o CMakeFiles/imgui.dir/__/__/external/imgui/misc/freetype/imgui_freetype.cpp.o
-/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emranlib libimgui.a

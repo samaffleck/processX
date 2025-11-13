@@ -1,2 +1,0 @@
-/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emar qc libplutosvg.a CMakeFiles/plutosvg.dir/__/__/__/__/plutosvg_source/source/plutosvg.c.o
-/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emranlib libplutosvg.a

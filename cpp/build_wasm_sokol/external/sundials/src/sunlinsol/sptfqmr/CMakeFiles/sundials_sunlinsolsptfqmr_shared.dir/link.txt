@@ -1,2 +1,0 @@
-/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emar qc libsundials_sunlinsolsptfqmr.a CMakeFiles/sundials_sunlinsolsptfqmr_obj_shared.dir/sunlinsol_sptfqmr.c.o
-/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emranlib libsundials_sunlinsolsptfqmr.a

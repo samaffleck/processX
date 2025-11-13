@@ -1,2 +1,0 @@
-/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emar qc libsundials_sunlinsolspbcgs.a CMakeFiles/sundials_sunlinsolspbcgs_obj_shared.dir/sunlinsol_spbcgs.c.o
-/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emranlib libsundials_sunlinsolspbcgs.a

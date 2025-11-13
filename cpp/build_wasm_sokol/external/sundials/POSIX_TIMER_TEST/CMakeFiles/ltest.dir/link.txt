@@ -1,1 +1,0 @@
-/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emcc -O3 -DNDEBUG @CMakeFiles/ltest.dir/objects1.rsp -o ltest.js

@@ -1,2 +1,0 @@
-/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emar qc libsundials_sunmatrixdense.a CMakeFiles/sundials_sunmatrixdense_obj_static.dir/sunmatrix_dense.c.o
-/opt/homebrew/Cellar/emscripten/4.0.19/libexec/emranlib libsundials_sunmatrixdense.a

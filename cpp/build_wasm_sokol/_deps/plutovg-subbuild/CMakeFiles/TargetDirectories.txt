@@ -1,3 +1,0 @@
-/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/CMakeFiles/plutovg-populate.dir
-/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/CMakeFiles/edit_cache.dir
-/Users/anton/processX/cpp/build_wasm_sokol/_deps/plutovg-subbuild/CMakeFiles/rebuild_cache.dir

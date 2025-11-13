@@ -1,1 +1,0 @@
- ../../../src/arkode/libsundials_arkode.a ../../../src/nvector/serial/libsundials_nvecserial.a ../../../src/sundomeigest/power/libsundials_sundomeigestpower.a -lm ../../../src/sundials/libsundials_core.a -lm 

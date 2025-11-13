@@ -1,1 +1,0 @@
- ../../../src/arkode/libsundials_arkode.a ../../../src/nvector/manyvector/libsundials_nvecmanyvector.a ../../../src/nvector/serial/libsundials_nvecserial.a -lm ../../../src/sundials/libsundials_core.a -lm 
