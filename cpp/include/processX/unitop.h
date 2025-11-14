@@ -20,7 +20,7 @@
 
 namespace px {
 
-  enum class UnitType { Valve, Mixer, Inlet, Outlet, Splitter, HeatExchanger, SimpleHeatExchanger };
+  enum class UnitType { Valve, Mixer, Inlet, Outlet, Splitter, HeatExchanger, SimpleHeatExchanger, Pump };
 
   class Flowsheet;
 
@@ -253,6 +253,38 @@ namespace px {
 				cereal::make_nvp("SimpleHeatExchanger_Outlet", out),
 				cereal::make_nvp("SimpleHeatExchanger_Pressure_Drop", dP),
 				cereal::make_nvp("SimpleHeatExchanger_Heat_Duty", Q)
+			);
+		}
+  };
+
+  class Pump : public IUnitOp {
+  public:
+    Handle<Stream> in{};
+    Handle<Stream> out{};
+    Var dP{"dP", 0.0, false};  // Pressure drop (Pa)
+    Var W{"W", 0.0, false};  // Work (W)
+    Var eta{"eta", 0.0, false};  // Efficiency
+
+    UnitType get_type() const override { return UnitType::Pump; }
+    const char* type_name() const override { return "Pump"; }
+
+    bool validate(const Flowsheet& fs, std::string* why) const override;
+    void register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) override;
+    void add_equations(Flowsheet& fs, ResidualSystem& sys) override;
+    int num_inputs() override { return 1; };
+    int num_outputs() override { return 1; };
+
+  private:
+		friend class cereal::access;
+		template <class Archive>
+		void serialize(Archive& ar, std::uint32_t const version) {
+			ar(
+				cereal::virtual_base_class<IUnitOp>(this),
+				cereal::make_nvp("Pump_Inlet", in),
+				cereal::make_nvp("Pump_Outlet", out),
+				cereal::make_nvp("Pump_Pressure_Rise", dP),
+				cereal::make_nvp("Pump_Work", W),
+				cereal::make_nvp("Pump_Efficiency", eta)
 			);
 		}
   };

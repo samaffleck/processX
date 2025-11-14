@@ -11,6 +11,209 @@
 
 namespace px {
 
+  // Implementation of FluidRegistry helper methods for temperature calculations
+  double FluidRegistry::CalculateTemperatureFromEnthalpyAndPressure(
+    size_t pkg_id,
+    double H_target,
+    double P,
+    double T_guess,
+    const std::vector<double>& mole_fractions
+  ) const {
+    auto fluid = GetFluidPackage(pkg_id);
+    if (!fluid) {
+      return T_guess; // Return guess if fluid package not available
+    }
+
+    try {
+      // Set mole fractions if provided (for mixtures)
+      auto components = GetComponents(pkg_id);
+      if (components.size() > 1 && !mole_fractions.empty() && mole_fractions.size() == components.size()) {
+        std::vector<double> z = mole_fractions;
+        // Normalize to sum to 1.0
+        double sum = 0.0;
+        for (double val : z) {
+          if (val < 0.0) val = 0.0;
+          sum += val;
+        }
+        if (sum > 1e-10) {
+          for (auto& val : z) val /= sum;
+        } else {
+          double equal_frac = 1.0 / z.size();
+          for (auto& val : z) val = equal_frac;
+        }
+        fluid->set_mole_fractions(z);
+      }
+
+      // Validate initial guess
+      if (T_guess <= 0 || T_guess < 50.0) T_guess = 300.0;
+
+      double T_low = 50.0;
+      double T_high = 2000.0;
+
+      // Try to bracket the solution (validate that bracketing is possible)
+      try {
+        fluid->update(CoolProp::PT_INPUTS, P, T_low);
+        (void)fluid->hmolar(); // Validate low bound
+        fluid->update(CoolProp::PT_INPUTS, P, T_high);
+        (void)fluid->hmolar(); // Validate high bound
+      } catch (...) {
+        // If bracketing fails, use simple linear interpolation
+        try {
+          fluid->update(CoolProp::PT_INPUTS, P, T_guess);
+          double H_guess = fluid->hmolar();
+          // Simple linear extrapolation: dH/dT ≈ Cp, assume Cp ~ 30 J/mol/K for gases
+          double dT = (H_target - H_guess) / 30.0;
+          T_guess += dT;
+          if (T_guess < 100.0) T_guess = 100.0;
+          if (T_guess > 1000.0) T_guess = 1000.0;
+          return T_guess;
+        } catch (...) {
+          return T_guess;
+        }
+      }
+
+      // For pure fluids, try direct calculation first
+      if (components.size() == 1) {
+        try {
+          fluid->update(CoolProp::HmolarP_INPUTS, H_target, P);
+          return fluid->T();
+        } catch (...) {
+          // Fall through to iterative method
+        }
+      }
+
+      // Bisection method to find T
+      const int max_iter = 20;
+      const double tol = 1e-3; // 1 mK tolerance
+      for (int iter = 0; iter < max_iter; ++iter) {
+        T_guess = 0.5 * (T_low + T_high);
+        try {
+          fluid->update(CoolProp::PT_INPUTS, P, T_guess);
+          double H_guess = fluid->hmolar();
+          double error = H_guess - H_target;
+
+          if (std::abs(error) < tol * std::abs(H_target) + 1e-6) {
+            break; // Converged
+          }
+
+          if (error < 0) {
+            T_low = T_guess;
+          } else {
+            T_high = T_guess;
+          }
+
+          if (T_high - T_low < 1e-6) break;
+        } catch (...) {
+          if (T_guess < 200.0) T_low = T_guess + 10.0;
+          else T_high = T_guess - 10.0;
+          if (T_high <= T_low) {
+            return T_guess;
+          }
+        }
+      }
+
+      return T_guess;
+    } catch (...) {
+      return T_guess;
+    }
+  }
+
+  double FluidRegistry::CalculateTemperatureFromEntropyAndPressure(
+    size_t pkg_id,
+    double S_target,
+    double P,
+    double T_guess,
+    const std::vector<double>& mole_fractions
+  ) const {
+    auto fluid = GetFluidPackage(pkg_id);
+    if (!fluid) {
+      return T_guess; // Return guess if fluid package not available
+    }
+
+    try {
+      // Set mole fractions if provided (for mixtures)
+      auto components = GetComponents(pkg_id);
+      if (components.size() > 1 && !mole_fractions.empty() && mole_fractions.size() == components.size()) {
+        std::vector<double> z = mole_fractions;
+        // Normalize to sum to 1.0
+        double sum = 0.0;
+        for (double val : z) {
+          if (val < 0.0) val = 0.0;
+          sum += val;
+        }
+        if (sum > 1e-10) {
+          for (auto& val : z) val /= sum;
+        } else {
+          double equal_frac = 1.0 / z.size();
+          for (auto& val : z) val = equal_frac;
+        }
+        fluid->set_mole_fractions(z);
+      }
+
+      // Validate initial guess
+      if (T_guess <= 0 || T_guess < 50.0) T_guess = 300.0;
+
+      double T_low = 50.0;
+      double T_high = 2000.0;
+
+      // Try to bracket the solution (validate that bracketing is possible)
+      try {
+        fluid->update(CoolProp::PT_INPUTS, P, T_low);
+        (void)fluid->smolar(); // Validate low bound
+        fluid->update(CoolProp::PT_INPUTS, P, T_high);
+        (void)fluid->smolar(); // Validate high bound
+      } catch (...) {
+        // If bracketing fails, use simple linear interpolation
+        try {
+          fluid->update(CoolProp::PT_INPUTS, P, T_guess);
+          double S_guess = fluid->smolar();
+          // Simple linear extrapolation: dS/dT ≈ Cp/T, assume Cp ~ 30 J/mol/K
+          double dT = (S_target - S_guess) * T_guess / 30.0;
+          T_guess += dT;
+          if (T_guess < 100.0) T_guess = 100.0;
+          if (T_guess > 1000.0) T_guess = 1000.0;
+          return T_guess;
+        } catch (...) {
+          return T_guess;
+        }
+      }
+
+      // Bisection method to find T
+      const int max_iter = 20;
+      const double tol = 1e-3; // 1 mK tolerance
+      for (int iter = 0; iter < max_iter; ++iter) {
+        T_guess = 0.5 * (T_low + T_high);
+        try {
+          fluid->update(CoolProp::PT_INPUTS, P, T_guess);
+          double S_guess = fluid->smolar();
+          double error = S_guess - S_target;
+
+          if (std::abs(error) < tol * std::abs(S_target) + 1e-6) {
+            break; // Converged
+          }
+
+          if (error < 0) {
+            T_low = T_guess;
+          } else {
+            T_high = T_guess;
+          }
+
+          if (T_high - T_low < 1e-6) break;
+        } catch (...) {
+          if (T_guess < 200.0) T_low = T_guess + 10.0;
+          else T_high = T_guess - 10.0;
+          if (T_high <= T_low) {
+            return T_guess;
+          }
+        }
+      }
+
+      return T_guess;
+    } catch (...) {
+      return T_guess;
+    }
+  }
+
   // Helper function to enforce state equation: T = f(H, P) or H = f(T, P)
   // Returns residual: 0 when state equation is satisfied
   // Requires: P must be fixed, and at least one of (T, H) must be fixed
@@ -104,85 +307,26 @@ namespace px {
     }
     // H and P are fixed -> calculate T and compare
     try {
-      double calculated_t;
-      
-      // components was already retrieved above for setting mole fractions
-      if (components.size() > 1) {
-        // For mixtures, HmolarP_INPUTS is not supported, use iterative approach
-        // Use PT_INPUTS to find T that gives the desired H
-        double T_guess = stream.temperature.value; // Use current temperature as initial guess
-        if (T_guess <= 0 || T_guess < 50.0) T_guess = 300.0; // Default guess if invalid
-        
-        double T_low = 50.0;   // Lower bound (K)
-        double T_high = 2000.0; // Upper bound (K)
-        double H_target = stream.molar_enthalpy.value;
-        double H_low = 0.0, H_high = 0.0;
-        
-        // Try to bracket the solution
-        try {
-          fluid->update(CoolProp::PT_INPUTS, stream.pressure.value, T_low);
-          H_low = fluid->hmolar();
-          fluid->update(CoolProp::PT_INPUTS, stream.pressure.value, T_high);
-          H_high = fluid->hmolar();
-        } catch (...) {
-          // If bracketing fails, use simple linear interpolation
-          T_guess = 300.0;
-          try {
-            fluid->update(CoolProp::PT_INPUTS, stream.pressure.value, T_guess);
-            double H_guess = fluid->hmolar();
-            // Simple linear extrapolation: dH/dT ≈ Cp, assume Cp ~ 30 J/mol/K for gases
-            double dT = (H_target - H_guess) / 30.0;
-            T_guess += dT;
-            // Clamp to reasonable range
-            if (T_guess < 100.0) T_guess = 100.0;
-            if (T_guess > 1000.0) T_guess = 1000.0;
-          } catch (...) {
-            // If all else fails, return residual based on current guess
-            return stream.temperature.value - T_guess;
-          }
+      // Prepare mole fractions for the calculation
+      std::vector<double> mole_fracs;
+      if (components.size() > 1 && stream.mole_fractions.size() == components.size()) {
+        mole_fracs.reserve(stream.mole_fractions.size());
+        for (const auto& mf : stream.mole_fractions) {
+          mole_fracs.push_back(mf.value);
         }
-        
-        // Bisection method to find T
-        const int max_iter = 20;
-        const double tol = 1e-3; // 1 mK tolerance
-        for (int iter = 0; iter < max_iter; ++iter) {
-          T_guess = 0.5 * (T_low + T_high);
-          try {
-            fluid->update(CoolProp::PT_INPUTS, stream.pressure.value, T_guess);
-            double H_guess = fluid->hmolar();
-            double error = H_guess - H_target;
-            
-            if (std::abs(error) < tol * std::abs(H_target) + 1e-6) {
-              break; // Converged
-            }
-            
-            if (error < 0) {
-              T_low = T_guess;
-              H_low = H_guess;
-            } else {
-              T_high = T_guess;
-              H_high = H_guess;
-            }
-            
-            // Check if bounds are too close
-            if (T_high - T_low < 1e-6) break;
-          } catch (...) {
-            // If update fails, try to adjust bounds
-            if (T_guess < 200.0) T_low = T_guess + 10.0;
-            else T_high = T_guess - 10.0;
-            if (T_high <= T_low) {
-              T_guess = stream.temperature.value; // Fallback to current value
-              break;
-            }
-          }
-        }
-        
-        calculated_t = T_guess;
-      } else {
-        // For pure fluids, HmolarP_INPUTS is supported
-        fluid->update(CoolProp::HmolarP_INPUTS, stream.molar_enthalpy.value, stream.pressure.value);
-        calculated_t = fluid->T();
       }
+      
+      // Use FluidRegistry helper method to calculate temperature
+      double T_guess = stream.temperature.value;
+      if (T_guess <= 0 || T_guess < 50.0) T_guess = 300.0;
+      
+      double calculated_t = flowsheet->fluids.CalculateTemperatureFromEnthalpyAndPressure(
+        stream.fluid_package_id,
+        stream.molar_enthalpy.value,
+        stream.pressure.value,
+        T_guess,
+        mole_fracs
+      );
       
       return stream.temperature.value - calculated_t;
     } catch (const std::exception& e) {
@@ -251,6 +395,11 @@ namespace px {
     fs.simple_heat_exchangers_.for_each([&](SimpleHeatExchanger& shx) {
       if (shx.in.index == stream_handle.index && shx.out.valid()) connected.push_back(shx.out);
       if (shx.out.index == stream_handle.index && shx.in.valid()) connected.push_back(shx.in);
+    });
+    
+    fs.pumps_.for_each([&](Pump& p) {
+      if (p.in.index == stream_handle.index && p.out.valid()) connected.push_back(p.out);
+      if (p.out.index == stream_handle.index && p.in.valid()) connected.push_back(p.in);
     });
     
     return connected;
@@ -373,6 +522,16 @@ namespace px {
         shx.out = Handle<Stream>{};
       }
     });
+    
+    // Clean up pumps
+    fs.pumps_.for_each([&](Pump& p) {
+      if (p.in.valid() && !fs.streams_.contains(p.in)) {
+        p.in = Handle<Stream>{};
+      }
+      if (p.out.valid() && !fs.streams_.contains(p.out)) {
+        p.out = Handle<Stream>{};
+      }
+    });
   }
 
   // Helper function to validate that connected streams have the same fluid package
@@ -427,6 +586,9 @@ namespace px {
     } else if (auto* shx = dynamic_cast<SimpleHeatExchanger*>(u)) {
       if (shx->in.valid() && fs.streams_.contains(shx->in)) connected_streams.push_back(shx->in);
       if (shx->out.valid() && fs.streams_.contains(shx->out)) connected_streams.push_back(shx->out);
+    } else if (auto* p = dynamic_cast<Pump*>(u)) {
+      if (p->in.valid() && fs.streams_.contains(p->in)) connected_streams.push_back(p->in);
+      if (p->out.valid() && fs.streams_.contains(p->out)) connected_streams.push_back(p->out);
     }
     
     // For all other unit operations, check that all connected streams have the same fluid package

@@ -845,4 +845,65 @@ namespace px {
     SaveTest("heat_exchanger_test", fs);
   }
 
+  TEST_F(ProcessTest, PumpTest) {
+    // Initialize fluid package
+    size_t fluid_id = init_air_fluid();
+    
+    // Create streams
+    auto s_in = fs.add<Stream>();
+    auto s_out = fs.add<Stream>();
+    auto p = fs.add<Pump>();
+
+    // Connect streams to pump
+    fs.connect_in<Pump>(p, s_in);
+    fs.connect_out<Pump>(p, s_out);
+
+    auto& in = fs.get<Stream>(s_in);
+    auto& out = fs.get<Stream>(s_out);
+    auto& pump = fs.get<Pump>(p);
+
+    // Assign fluid package to all streams
+    in.fluid_package_id = fluid_id;
+    out.fluid_package_id = fluid_id;
+    
+    // Initialize mole fractions: fix inlet composition, outlet will be solved
+    init_stream_composition(in, fluid_id, true);  // Fix inlet composition
+    init_stream_composition(out, fluid_id, false);
+
+    // Given: inlet conditions
+    const double Pin = 1.0e5;   // Pa
+    const double Tin = 300.0;   // K
+    const double Fin = 10.0;    // mol/s
+    const double dP = 1.0e5;    // Pa (pressure rise)
+    const double eta = 0.8;     // Efficiency
+
+    // Set fixed values
+    in.pressure.set_val(Pin, true);
+    in.temperature.set_val(Tin, true);
+    in.molar_flow.set_val(Fin, true);
+    pump.dP.set_val(dP, true);
+    pump.eta.set_val(eta, true);
+
+    // Unknowns
+    out.pressure.set_val(1.9e5, false);  // Should be Pin + dP = 2.0e5
+    out.molar_flow.set_val(9.9, false);  // Should equal Fin
+    out.temperature.set_val(300.0, false);  // Will be calculated from state equation
+    pump.W.set_val(1000.0, false);  // Work will be calculated from isentropic work equation (based on dP)
+
+    run();
+
+    // Verify mass balance
+    EXPECT_NEAR(in.molar_flow.value, out.molar_flow.value, 1e-10);
+    
+    // Verify pressure rise: P_out = P_in + dP
+    EXPECT_NEAR(out.pressure.value, Pin + dP, 1e-6);
+    
+    // Verify energy balance: W * eta = m * (h_out - h_in)
+    double delta_h = out.molar_enthalpy.value - in.molar_enthalpy.value;
+    // Use inlet flow for consistency with equation (mass balance ensures they're equal)
+    EXPECT_NEAR(pump.W.value * pump.eta.value, in.molar_flow.value * delta_h, 1e-6);
+
+    SaveTest("pump_test", fs);
+  }
+
 } // end processX namespace

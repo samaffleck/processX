@@ -390,6 +390,138 @@ namespace px {
     // Note: State equations are added once per stream in Flowsheet::assemble() to avoid duplicates
   }
 
+  bool Pump::validate(const Flowsheet& fs, std::string* why) const {
+    if (!in.valid())  { if (why) *why = "inlet not connected";  return false; }
+    if (!out.valid()) { if (why) *why = "outlet not connected"; return false; }
+    return true;
+  }
+
+  void Pump::register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) {
+    auto& si = fs.get<Stream>(in);
+    auto& so = fs.get<Stream>(out);
+    reg.register_var(si.molar_flow);
+    reg.register_var(so.molar_flow);
+    reg.register_var(si.pressure);
+    reg.register_var(so.pressure);
+    reg.register_var(si.molar_enthalpy);
+    reg.register_var(so.molar_enthalpy);
+    reg.register_var(si.temperature);  // Needed for state equation: T = f(H, P)
+    reg.register_var(so.temperature);  // Needed for state equation: T = f(H, P)
+    reg.register_var(dP);
+    reg.register_var(W);
+    reg.register_var(eta);
+    
+    // Register mole fractions for inlet and outlet (composition unchanged)
+    for (auto& x : si.mole_fractions) {
+      reg.register_var(x);
+    }
+    for (auto& x : so.mole_fractions) {
+      reg.register_var(x);
+    }
+  }
+
+  void Pump::add_equations(Flowsheet& fs, ResidualSystem& sys) {
+    auto* self = this;
+    auto& si = fs.get<Stream>(in);
+    auto& so = fs.get<Stream>(out);
+    sys.add(name + ": balance", [&](){ return si.molar_flow.value - so.molar_flow.value; });
+    
+    // Pressure rise: P_out = P_in + dP (dP is positive for pumps)
+    sys.add(name + ": pressure_rise", [&, self](){ 
+      return so.pressure.value - (si.pressure.value + self->dP.value); 
+    });
+    
+    // Isentropic constraint: s_out = s_in (isentropic process)
+    // This determines T_out from P_out and s_in, then H_out from (T_out, P_out)
+    // Then W is determined from energy balance
+    sys.add(name + ": isentropic", [&, self]() {
+      try {
+        // Calculate inlet entropy from inlet state (T_in, P_in)
+        auto fluid_in = fs.fluids.GetFluidPackage(si.fluid_package_id);
+        if (!fluid_in) {
+          return 1e10;
+        }
+        
+        // Set inlet composition if mixture
+        auto components_in = fs.fluids.GetComponents(si.fluid_package_id);
+        std::vector<double> z_in;
+        if (components_in.size() > 1 && si.mole_fractions.size() == components_in.size()) {
+          z_in.reserve(si.mole_fractions.size());
+          for (const auto& mf : si.mole_fractions) {
+            z_in.push_back(mf.value);
+          }
+        }
+        
+        // Calculate inlet entropy
+        if (!z_in.empty()) {
+          fluid_in->set_mole_fractions(z_in);
+        }
+        fluid_in->update(CoolProp::PT_INPUTS, si.pressure.value, si.temperature.value);
+        double s_in = fluid_in->smolar(); // Molar entropy at inlet
+        
+        // Prepare outlet mole fractions for temperature calculation
+        auto components_out = fs.fluids.GetComponents(so.fluid_package_id);
+        std::vector<double> z_out;
+        if (components_out.size() > 1 && so.mole_fractions.size() == components_out.size()) {
+          z_out.reserve(so.mole_fractions.size());
+          for (const auto& mf : so.mole_fractions) {
+            z_out.push_back(mf.value);
+          }
+        }
+        
+        // Use FluidRegistry helper method to calculate isentropic outlet temperature
+        double T_guess = so.temperature.value;
+        if (T_guess <= 0 || T_guess < 50.0) T_guess = si.temperature.value;
+        
+        double T_out_isentropic = fs.fluids.CalculateTemperatureFromEntropyAndPressure(
+          so.fluid_package_id,
+          s_in,
+          so.pressure.value,
+          T_guess,
+          z_out
+        );
+        
+        // Calculate H_out from the determined T_out and P_out
+        auto fluid_out = fs.fluids.GetFluidPackage(so.fluid_package_id);
+        if (!fluid_out) {
+          return 1e10;
+        }
+        
+        if (!z_out.empty()) {
+          fluid_out->set_mole_fractions(z_out);
+        }
+        fluid_out->update(CoolProp::PT_INPUTS, so.pressure.value, T_out_isentropic);
+        double h_out_calculated = fluid_out->hmolar();
+        
+        // Return residual: H_out should equal the calculated value
+        // This ensures H_out is consistent with the isentropic T_out
+        // The state equation will then verify T_out is consistent with H_out and P_out
+        return so.molar_enthalpy.value - h_out_calculated;
+      } catch (const std::exception& e) {
+        return 1e10;
+      } catch (...) {
+        return 1e10;
+      }
+    });
+    
+    // Energy balance: W * eta = m * (h_out - h_in)
+    // This ensures the actual enthalpy change matches the work input
+    sys.add(name + ": energy", [&, self](){ 
+      double delta_h = so.molar_enthalpy.value - si.molar_enthalpy.value;
+      // Use inlet flow for consistency (mass balance ensures they're equal)
+      return self->W.value * self->eta.value - si.molar_flow.value * delta_h; 
+    });
+    
+    // Component mass balances: composition unchanged (x_in = x_out for each component)
+    size_t num_components = si.mole_fractions.size();
+    for (size_t i = 0; i < num_components; ++i) {
+      sys.add(name + ": comp_balance[" + std::to_string(i) + "]", [&, i]() {
+        return si.mole_fractions[i].value - so.mole_fractions[i].value;
+      });
+    }
+    // Note: State equations are added once per stream in Flowsheet::assemble() to avoid duplicates
+  }
+
 } // namespace px
 
 CEREAL_REGISTER_TYPE(px::Valve)
@@ -411,3 +543,7 @@ CEREAL_CLASS_VERSION(px::HeatExchanger, 0)
 CEREAL_REGISTER_TYPE(px::SimpleHeatExchanger)
 CEREAL_REGISTER_POLYMORPHIC_RELATION(px::IUnitOp, px::SimpleHeatExchanger)
 CEREAL_CLASS_VERSION(px::SimpleHeatExchanger, 0)
+
+CEREAL_REGISTER_TYPE(px::Pump)
+CEREAL_REGISTER_POLYMORPHIC_RELATION(px::IUnitOp, px::Pump)
+CEREAL_CLASS_VERSION(px::Pump, 0)
