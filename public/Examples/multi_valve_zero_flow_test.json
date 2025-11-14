@@ -12,7 +12,7 @@
                         "Stream_Molar_Flowrate": {
                             "cereal_class_version": 0,
                             "Variable_Name": "Molar Flowrate",
-                            "Variable_Value": 0.0,
+                            "Variable_Value": -4.2599801546480928e-23,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Pressure": {
@@ -48,7 +48,7 @@
                         "Stream_Name": "stream-2",
                         "Stream_Molar_Flowrate": {
                             "Variable_Name": "Molar Flowrate",
-                            "Variable_Value": -5.169878828456423e-25,
+                            "Variable_Value": -2.1341259803868116e-22,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Pressure": {
@@ -58,7 +58,7 @@
                         },
                         "Stream_Temperature": {
                             "Variable_Name": "Temperature",
-                            "Variable_Value": 299.93896484375,
+                            "Variable_Value": 300.0,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Fluid_Package_ID": 1,
@@ -84,7 +84,7 @@
                         "Stream_Name": "stream-3",
                         "Stream_Molar_Flowrate": {
                             "Variable_Name": "Molar Flowrate",
-                            "Variable_Value": 0.0,
+                            "Variable_Value": -4.2599801546480928e-23,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Pressure": {
@@ -94,7 +94,7 @@
                         },
                         "Stream_Temperature": {
                             "Variable_Name": "Temperature",
-                            "Variable_Value": 299.93896484375,
+                            "Variable_Value": 300.00000000000099,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Fluid_Package_ID": 1,
@@ -207,6 +207,11 @@
             "Registry_Free_Head": 4294967295
         },
         "Flowsheet_SimpleHeatExchanger_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_Pump_Registry": {
             "cereal_class_version": 0,
             "Registry_Slots": [],
             "Registry_Free_Head": 4294967295

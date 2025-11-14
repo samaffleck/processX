@@ -47,7 +47,7 @@
                         },
                         "Stream_Temperature": {
                             "Variable_Name": "Temperature",
-                            "Variable_Value": 948.828125,
+                            "Variable_Value": 948.9333639147441,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Fluid_Package_ID": 1,
@@ -125,6 +125,11 @@
                     "Slot_Next_Free": 4294967295
                 }
             ],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_Pump_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
             "Registry_Free_Head": 4294967295
         },
         "Flowsheet_FluidPackage_Registry": {
