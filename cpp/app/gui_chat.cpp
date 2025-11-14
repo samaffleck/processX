@@ -336,9 +336,68 @@ void ShowChatWindow() {
   
   ImGui::Separator();
   
-  // Calculate available height for messages (leave space for input area)
-  float input_height = ImGui::GetFrameHeightWithSpacing() * 2.5f; // Input + button + spacing
-  float messages_height = ImGui::GetContentRegionAvail().y - input_height;
+  // Account for status bar at the bottom of the viewport
+  // Status bar height is approximately 1.0 * frame height + padding
+  float status_bar_height = ImGui::GetFrameHeight() * 1.0f + ImGui::GetStyle().FramePadding.y * 2.0f;
+  ImGuiViewport* viewport = ImGui::GetMainViewport();
+  
+  // Get window position and size
+  ImVec2 window_pos = ImGui::GetWindowPos();
+  ImVec2 window_size = ImGui::GetWindowSize();
+  float window_bottom = window_pos.y + window_size.y;
+  float viewport_bottom = viewport->Pos.y + viewport->Size.y;
+  
+  // Calculate how much of the window extends into the status bar area
+  float reserved_bottom_space = 0.0f;
+  if (window_bottom > viewport_bottom - status_bar_height) {
+    // Window extends into status bar area
+    float overlap = window_bottom - (viewport_bottom - status_bar_height);
+    if (overlap > 0.0f) {
+      reserved_bottom_space = overlap;
+    }
+  }
+  
+  // Calculate input box height first (before creating messages area)
+  float line_height = ImGui::GetTextLineHeight();
+  float available_width = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().FramePadding.x * 2.0f;
+  
+  int explicit_lines = 1; // Count explicit newlines
+  for (size_t i = 0; i < strlen(input_buffer); ++i) {
+    if (input_buffer[i] == '\n') {
+      explicit_lines++;
+    }
+  }
+  
+  // Estimate wrapped lines based on text length and available width
+  if (strlen(input_buffer) > 0 && available_width > 0) {
+    ImVec2 text_size = ImGui::CalcTextSize("M"); // Average character width
+    float avg_char_width = text_size.x;
+    float estimated_chars_per_line = available_width / avg_char_width;
+    
+    if (estimated_chars_per_line > 0) {
+      size_t char_count = strlen(input_buffer);
+      int estimated_wrapped_lines = static_cast<int>(std::ceil(char_count / estimated_chars_per_line));
+      explicit_lines = std::max(explicit_lines, estimated_wrapped_lines);
+    }
+  }
+  
+  // Calculate actual input box height
+  float input_box_height = line_height + ImGui::GetStyle().FramePadding.y * 2.0f; // Base height
+  input_box_height += (explicit_lines - 1) * line_height; // Additional lines
+  
+  // Clamp height between min and max
+  float min_height = line_height + ImGui::GetStyle().FramePadding.y * 2.0f;
+  float max_height = line_height * 6.0f + ImGui::GetStyle().FramePadding.y * 2.0f; // Max 6 lines
+  input_box_height = std::clamp(input_box_height, min_height, max_height);
+  
+  // Calculate space needed for input area (input box + send button + spacing)
+  float send_button_height = ImGui::GetFrameHeight();
+  float input_area_height = input_box_height + send_button_height + ImGui::GetStyle().ItemSpacing.y;
+  
+  // Calculate available height for messages (using actual input area height)
+  // Also account for status bar if window is at the bottom
+  float messages_height = ImGui::GetContentRegionAvail().y - input_area_height - reserved_bottom_space;
+  messages_height = std::max(messages_height, 50.0f); // Minimum height for messages area
   
   // Messages area - remove horizontal scrollbar, text will wrap
   // Use same background as window (no different background color)
@@ -401,44 +460,8 @@ void ShowChatWindow() {
   ImGui::Separator();
   
   // Input area at bottom - multiline input that wraps and expands
+  // Note: input_box_height was already calculated above for the messages area sizing
   ImGui::PushItemWidth(-1);
-  
-  // Calculate height based on content (explicit newlines + estimated word wrapping)
-  float line_height = ImGui::GetTextLineHeight();
-  float available_width = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().FramePadding.x * 2.0f;
-  
-  int explicit_lines = 1; // Count explicit newlines
-  for (size_t i = 0; i < strlen(input_buffer); ++i) {
-    if (input_buffer[i] == '\n') {
-      explicit_lines++;
-    }
-  }
-  
-  // Estimate wrapped lines based on text length and available width
-  // Rough estimate: average character width * character count / available width
-  if (strlen(input_buffer) > 0 && available_width > 0) {
-    ImVec2 text_size = ImGui::CalcTextSize("M"); // Average character width
-    float avg_char_width = text_size.x;
-    float estimated_chars_per_line = available_width / avg_char_width;
-    
-    if (estimated_chars_per_line > 0) {
-      // Count characters that would wrap (excluding newlines)
-      size_t char_count = strlen(input_buffer);
-      int estimated_wrapped_lines = static_cast<int>(std::ceil(char_count / estimated_chars_per_line));
-      
-      // Use the maximum of explicit lines and estimated wrapped lines
-      explicit_lines = std::max(explicit_lines, estimated_wrapped_lines);
-    }
-  }
-  
-  // Calculate height: base height + additional lines
-  float input_box_height = line_height + ImGui::GetStyle().FramePadding.y * 2.0f; // Base height
-  input_box_height += (explicit_lines - 1) * line_height; // Additional lines
-  
-  // Clamp height between min and max
-  float min_height = line_height + ImGui::GetStyle().FramePadding.y * 2.0f;
-  float max_height = line_height * 6.0f + ImGui::GetStyle().FramePadding.y * 2.0f; // Max 6 lines
-  input_box_height = std::clamp(input_box_height, min_height, max_height);
   
   // Use InputTextMultiline for wrapping text
   // Note: InputTextMultiline doesn't support hint, so we'll draw it manually
