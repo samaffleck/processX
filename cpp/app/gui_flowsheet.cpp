@@ -159,12 +159,38 @@ void ShowUnitOperations() {
     }
   }
 
+  // Pumps
+  if (flowsheet.pumps_.size_alive() > 0) {
+    if (ImGui::CollapsingHeader(("Pumps (" + std::to_string(flowsheet.pumps_.size_alive()) + ")").c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+      uint32_t idx = 0;
+      flowsheet.pumps_.for_each_with_handle([&](px::Pump& pump, px::Handle<px::Pump> handle) {
+        bool is_selected = selected_unit.type == SelectionType::Pump && selected_unit.index == idx;
+        std::string name = pump.get_name().empty() ? "(Unnamed Pump)" : pump.get_name();
+        
+        // Calculate available width
+        float available_width = ImGui::GetContentRegionAvail().x;
+        float button_width = 60.0f;
+        float selectable_width = available_width - button_width - ImGui::GetStyle().ItemSpacing.x;
+        
+        // Selectable takes most of the width
+        ImGui::PushItemWidth(selectable_width);
+        if (ImGui::Selectable(name.c_str(), is_selected)) {
+          selected_unit.type = SelectionType::Pump;
+          selected_unit.index = idx;
+        }
+        ImGui::PopItemWidth();
+        idx++;
+      });
+    }
+  }
+
   if (flowsheet.valves_.size_alive() == 0 && 
       flowsheet.mixers_.size_alive() == 0 && 
       flowsheet.splitters_.size_alive() == 0 &&
       flowsheet.streams_.size_alive() == 0 &&
       flowsheet.simple_heat_exchangers_.size_alive() == 0 &&
-      flowsheet.heat_exchangers_.size_alive() == 0) {
+      flowsheet.heat_exchangers_.size_alive() == 0 &&
+      flowsheet.pumps_.size_alive() == 0) {
     ImGui::Text("No units in flowsheet");
     ImGui::Text("Add units using the Unit Operations palette.");
   }

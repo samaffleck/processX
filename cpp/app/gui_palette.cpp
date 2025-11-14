@@ -4,9 +4,6 @@
 #include <imgui.h>
 
 void ShowUnitOperationsPalette() {
-  ImGui::Text("Unit Operations");
-  ImGui::Separator();
-
   // Fixed square button size
   ImVec2 button_dim(60.0f, 60.0f);
 
@@ -44,6 +41,12 @@ void ShowUnitOperationsPalette() {
     flowsheet.add<px::HeatExchanger>();
     selected_unit.clear();
     AddLogEntry(LogEntry::Info, "Added new HeatExchanger");
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("Pump", button_dim)) {
+    flowsheet.add<px::Pump>();
+    selected_unit.clear();
+    AddLogEntry(LogEntry::Info, "Added new Pump");
   }
 }
 

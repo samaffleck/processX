@@ -1,6 +1,8 @@
 #include "gui_properties.h"
 #include "gui_common.h"
 #include "gui_log.h"
+#include "gui_util.h"
+#include "units.h"
 #include <imgui.h>
 #include <cstring>
 #include <cstdio>
@@ -10,40 +12,24 @@ void ShowValveProperties(px::Valve& valve) {
   ImGui::Text("Valve Properties");
   ImGui::Separator();
 
-  // Name editing
-  char name_buffer[256];
-  strncpy(name_buffer, valve.get_name().c_str(), sizeof(name_buffer));
-  name_buffer[sizeof(name_buffer) - 1] = '\0';
-  if (ImGui::InputText("##Name", name_buffer, sizeof(name_buffer))) {
-    valve.name = name_buffer;
-  }
+  ShowTextInput(valve.name, "Name");
 
   ImGui::Spacing();
 
-  // Cv editing
-  ImGui::Text("Flow Coefficient (Cv):");
-  ImGui::PushItemWidth(200);
-  if (ImGui::InputDouble("##Cv", &valve.Cv.value)) {
-    // Value updated
-  }
-  ImGui::SameLine();
-  ImGui::Checkbox("Fixed##CvFixed", &valve.Cv.fixed);
-  ImGui::PopItemWidth();
+  // Cv editing - Flow coefficient (mol/(s·Pa))
+  static QuantityEditState cv_state;
+  ShowDoubleInput(valve.Cv, cv_state, "Flow Coefficient (Cv)", MakeUnitSet(kMolarPerPressureUnits));
 
   ImGui::Spacing();
 
-  // Connections with dropdowns
+  // Connections
   ImGui::Text("Connections:");
-  
-  // Build stream list
   std::vector<StreamItem> stream_list = GetStreamList();
   
-  // Inlet dropdown
   ImGui::Text("Inlet:");
   ImGui::SameLine(100);
   StreamCombo("##ValveInlet", valve.in, stream_list);
   
-  // Outlet dropdown
   ImGui::Text("Outlet:");
   ImGui::SameLine(100);
   StreamCombo("##ValveOutlet", valve.out, stream_list);
@@ -53,20 +39,12 @@ void ShowMixerProperties(px::Mixer& mixer) {
   ImGui::Text("Mixer Properties");
   ImGui::Separator();
 
-  // Name editing
-  char name_buffer[256];
-  strncpy(name_buffer, mixer.get_name().c_str(), sizeof(name_buffer));
-  name_buffer[sizeof(name_buffer) - 1] = '\0';
-  if (ImGui::InputText("##Name", name_buffer, sizeof(name_buffer))) {
-    mixer.name = name_buffer;
-  }
+  ShowTextInput(mixer.name, "Name");
 
   ImGui::Spacing();
 
-  // Connections with dropdowns
+  // Connections
   ImGui::Text("Connections:");
-  
-  // Build stream list
   std::vector<StreamItem> stream_list = GetStreamList();
   
   // Inlets - list with dropdowns
@@ -109,19 +87,12 @@ void ShowSplitterProperties(px::Splitter& splitter) {
   ImGui::Separator();
 
   // Name editing
-  char name_buffer[256];
-  strncpy(name_buffer, splitter.get_name().c_str(), sizeof(name_buffer));
-  name_buffer[sizeof(name_buffer) - 1] = '\0';
-  if (ImGui::InputText("##Name", name_buffer, sizeof(name_buffer))) {
-    splitter.name = name_buffer;
-  }
+  ShowTextInput(splitter.name, "Name");
 
   ImGui::Spacing();
 
-  // Connections with dropdowns
+  // Connections
   ImGui::Text("Connections:");
-  
-  // Build stream list
   std::vector<StreamItem> stream_list = GetStreamList();
   
   // Inlet dropdown
@@ -163,57 +134,26 @@ void ShowStreamProperties(px::Stream& stream) {
   ImGui::Text("Stream Properties");
   ImGui::Separator();
 
-  // Name editing
-  char name_buffer[256];
-  strncpy(name_buffer, stream.name.c_str(), sizeof(name_buffer));
-  name_buffer[sizeof(name_buffer) - 1] = '\0';
-  if (ImGui::InputText("##Name", name_buffer, sizeof(name_buffer))) {
-    stream.name = name_buffer;
-  }
+  ShowTextInput(stream.name, "Name");
 
   ImGui::Spacing();
 
   // Properties editing
   ImGui::Text("Properties:");
   
-  ImGui::PushItemWidth(200);
+  static QuantityEditState molar_flow_state;
+  static QuantityEditState pressure_state;
+  static QuantityEditState temperature_state;
+  static QuantityEditState enthalpy_state;
   
-  ImGui::Text("Molar Flowrate (mol/s):");
-  if (ImGui::InputDouble("##MolarFlow", &stream.molar_flow.value)) {
-    // Value updated
-  }
-  ImGui::SameLine();
-  ImGui::Checkbox("Fixed##MolarFlowFixed", &stream.molar_flow.fixed);
-
-  ImGui::Text("Pressure (Pa):");
-  if (ImGui::InputDouble("##Pressure", &stream.pressure.value)) {
-    // Value updated
-  }
-  ImGui::SameLine();
-  ImGui::Checkbox("Fixed##PressureFixed", &stream.pressure.fixed);
-
-  ImGui::Text("Temperature (K):");
-  if (ImGui::InputDouble("##Temperature", &stream.temperature.value)) {
-    // Value updated
-  }
-  ImGui::SameLine();
-  ImGui::Checkbox("Fixed##TemperatureFixed", &stream.temperature.fixed);
-
-  ImGui::Text("Molar Enthalpy (J/mol):");
-  if (ImGui::InputDouble("##MolarEnthalpy", &stream.molar_enthalpy.value)) {
-    // Value updated
-  }
-  ImGui::SameLine();
-  ImGui::Checkbox("Fixed##MolarEnthalpyFixed", &stream.molar_enthalpy.fixed);
-
-  ImGui::PopItemWidth();
+  ShowDoubleInput(stream.molar_flow, molar_flow_state, "Molar Flowrate", MakeUnitSet(kMolarFlowUnits));
+  ShowDoubleInput(stream.pressure, pressure_state, "Pressure", MakeUnitSet(kPressureUnits));
+  ShowDoubleInput(stream.temperature, temperature_state, "Temperature", MakeUnitSet(kTemperatureUnits));
+  ShowDoubleInput(stream.molar_enthalpy, enthalpy_state, "Molar Enthalpy", MakeUnitSet(kSpecificMolarEnergyUnits));
 
   ImGui::Spacing();
   ImGui::Separator();
   ImGui::Spacing();
-
-  // Fluid Package selection
-  ImGui::Text("Fluid Package:");
   
   // Get all available fluid package IDs
   std::vector<size_t> package_ids = flowsheet.fluids.GetAllPackageIds();
@@ -243,34 +183,29 @@ void ShowStreamProperties(px::Stream& stream) {
       }
     }
     
-    // Create C-style string array for ImGui::Combo
+    // Create C-style string array for combo box
     std::vector<const char*> combo_items;
     combo_items.reserve(package_labels.size());
     for (const auto& label : package_labels) {
       combo_items.push_back(label.c_str());
     }
     
-    // Combo box
-    ImGui::PushItemWidth(400);
-    if (ImGui::Combo("##FluidPackage", &current_selection, combo_items.data(), 
-                     static_cast<int>(combo_items.size()))) {
-      // Selection changed
-      if (current_selection == 0) {
+    // Use ShowLabeledComboBox for fluid package selection
+    ShowLabeledComboBox<int>("Fluid Package", current_selection, combo_items.data(), 
+                             static_cast<int>(combo_items.size()), [&](int sel) {
+      if (sel == 0) {
         // Selected "(None)" - set to 0
         stream.fluid_package_id = 0;
         stream.mole_fractions.clear();
-        // stream.mole_fractions_liquid.clear();
-        // stream.mole_fractions_vapor.clear();
       } else {
         // Selected a package
-        size_t selected_pkg_id = package_ids[current_selection - 1];
+        size_t selected_pkg_id = package_ids[sel - 1];
         stream.fluid_package_id = selected_pkg_id;
         // Initialize composition variables based on fluid package components
         auto components = flowsheet.fluids.GetComponents(selected_pkg_id);
         stream.initialize_composition(components.size(), components);
       }
-    }
-    ImGui::PopItemWidth();
+    });
     
     // Show current package info if selected
     if (stream.fluid_package_id != 0) {
@@ -310,18 +245,10 @@ void ShowStreamProperties(px::Stream& stream) {
         
         // Overall mole fractions
         if (ImGui::CollapsingHeader("Overall Mole Fractions", ImGuiTreeNodeFlags_DefaultOpen)) {
+          static QuantityEditState mole_frac_state;
           double sum = 0.0;
           for (size_t i = 0; i < components.size() && i < stream.mole_fractions.size(); ++i) {
-            ImGui::Text("%s:", components[i].c_str());
-            ImGui::SameLine(150);
-            char label[64];
-            snprintf(label, sizeof(label), "##MoleFrac_%zu", i);
-            if (ImGui::InputDouble(label, &stream.mole_fractions[i].value)) {
-              // Value updated
-            }
-            ImGui::SameLine();
-            snprintf(label, sizeof(label), "Fixed##MoleFracFixed_%zu", i);
-            ImGui::Checkbox(label, &stream.mole_fractions[i].fixed);
+            ShowDoubleInput(stream.mole_fractions[i], mole_frac_state, components[i].c_str(), MakeUnitSet(kMoleFractionUnits));
             sum += stream.mole_fractions[i].value;
           }
           ImGui::Text("Sum: %.6f", sum);
@@ -420,34 +347,18 @@ void ShowSimpleHeatExchangerProperties(px::SimpleHeatExchanger& hex) {
   ImGui::Separator();
 
   // Name editing
-  char name_buffer[256];
-  strncpy(name_buffer, hex.get_name().c_str(), sizeof(name_buffer));
-  name_buffer[sizeof(name_buffer) - 1] = '\0';
-  if (ImGui::InputText("##Name", name_buffer, sizeof(name_buffer))) {
-    hex.name = name_buffer;
-  }
+  ShowTextInput(hex.name, "Name");
 
   ImGui::Spacing();
 
   // Parameters editing
   ImGui::Text("Parameters:");
-  ImGui::PushItemWidth(200);
   
-  ImGui::Text("Pressure Drop (Pa):");
-  if (ImGui::InputDouble("##dP", &hex.dP.value)) {
-    // Value updated
-  }
-  ImGui::SameLine();
-  ImGui::Checkbox("Fixed##dPFixed", &hex.dP.fixed);
-
-  ImGui::Text("Heat Duty (W):");
-  if (ImGui::InputDouble("##Q", &hex.Q.value)) {
-    // Value updated
-  }
-  ImGui::SameLine();
-  ImGui::Checkbox("Fixed##QFixed", &hex.Q.fixed);
-
-  ImGui::PopItemWidth();
+  static QuantityEditState dP_state;
+  static QuantityEditState Q_state;
+  
+  ShowDoubleInput(hex.dP, dP_state, "Pressure Drop", MakeUnitSet(kPressureUnits));
+  ShowDoubleInput(hex.Q, Q_state, "Heat Duty", MakeUnitSet(kPowerUnits));
 
   ImGui::Spacing();
 
@@ -473,41 +384,20 @@ void ShowHeatExchangerProperties(px::HeatExchanger& hex) {
   ImGui::Separator();
 
   // Name editing
-  char name_buffer[256];
-  strncpy(name_buffer, hex.get_name().c_str(), sizeof(name_buffer));
-  name_buffer[sizeof(name_buffer) - 1] = '\0';
-  if (ImGui::InputText("##Name", name_buffer, sizeof(name_buffer))) {
-    hex.name = name_buffer;
-  }
+  ShowTextInput(hex.name, "Name");
 
   ImGui::Spacing();
 
   // Parameters editing
   ImGui::Text("Parameters:");
-  ImGui::PushItemWidth(200);
   
-  ImGui::Text("Pressure Drop Hot (Pa):");
-  if (ImGui::InputDouble("##dP_hot", &hex.dP_hot.value)) {
-    // Value updated
-  }
-  ImGui::SameLine();
-  ImGui::Checkbox("Fixed##dP_hotFixed", &hex.dP_hot.fixed);
-
-  ImGui::Text("Pressure Drop Cold (Pa):");
-  if (ImGui::InputDouble("##dP_cold", &hex.dP_cold.value)) {
-    // Value updated
-  }
-  ImGui::SameLine();
-  ImGui::Checkbox("Fixed##dP_coldFixed", &hex.dP_cold.fixed);
-
-  ImGui::Text("Heat Duty (W):");
-  if (ImGui::InputDouble("##Q", &hex.Q.value)) {
-    // Value updated
-  }
-  ImGui::SameLine();
-  ImGui::Checkbox("Fixed##QFixed", &hex.Q.fixed);
-
-  ImGui::PopItemWidth();
+  static QuantityEditState dP_hot_state;
+  static QuantityEditState dP_cold_state;
+  static QuantityEditState Q_state;
+  
+  ShowDoubleInput(hex.dP_hot, dP_hot_state, "Pressure Drop Hot", MakeUnitSet(kPressureUnits));
+  ShowDoubleInput(hex.dP_cold, dP_cold_state, "Pressure Drop Cold", MakeUnitSet(kPressureUnits));
+  ShowDoubleInput(hex.Q, Q_state, "Heat Duty", MakeUnitSet(kPowerUnits));
 
   ImGui::Spacing();
 
@@ -538,6 +428,44 @@ void ShowHeatExchangerProperties(px::HeatExchanger& hex) {
   ImGui::Text("  Outlet:");
   ImGui::SameLine(100);
   StreamCombo("##HXColdOutlet", hex.out_cold, stream_list);
+}
+
+void ShowPumpProperties(px::Pump& pump) {
+  ImGui::Text("Pump Properties");
+  ImGui::Separator();
+
+  ShowTextInput(pump.name, "Name");
+
+  ImGui::Spacing();
+
+  // Parameters editing
+  ImGui::Text("Parameters:");
+  
+  static QuantityEditState dP_state;
+  static QuantityEditState W_state;
+  static QuantityEditState eta_state;
+  
+  ShowDoubleInput(pump.dP, dP_state, "Pressure Rise", MakeUnitSet(kPressureUnits));
+  ShowDoubleInput(pump.W, W_state, "Work", MakeUnitSet(kPowerUnits));
+  ShowDoubleInput(pump.eta, eta_state, "Efficiency", MakeUnitSet(kDimensionlessUnits));
+
+  ImGui::Spacing();
+
+  // Connections with dropdowns
+  ImGui::Text("Connections:");
+  
+  // Build stream list
+  std::vector<StreamItem> stream_list = GetStreamList();
+  
+  // Inlet dropdown
+  ImGui::Text("Inlet:");
+  ImGui::SameLine(100);
+  StreamCombo("##PumpInlet", pump.in, stream_list);
+  
+  // Outlet dropdown
+  ImGui::Text("Outlet:");
+  ImGui::SameLine(100);
+  StreamCombo("##PumpOutlet", pump.out, stream_list);
 }
 
 void ShowSelectedUnitProperties() {
@@ -666,6 +594,27 @@ void ShowSelectedUnitProperties() {
         
         // Delete button
         if (ImGui::Button("Delete HeatExchanger", ImVec2(-1, 0))) {
+          flowsheet.erase(handle);
+          selected_unit.clear();
+          found = true;
+          return;
+        }
+        found = true;
+      }
+      idx++;
+    });
+  } else if (selected_unit.type == SelectionType::Pump) {
+    uint32_t idx = 0;
+    flowsheet.pumps_.for_each_with_handle([&](px::Pump& pump, px::Handle<px::Pump> handle) {
+      if (!found && idx == selected_unit.index) {
+        ShowPumpProperties(pump);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Delete button
+        if (ImGui::Button("Delete Pump", ImVec2(-1, 0))) {
           flowsheet.erase(handle);
           selected_unit.clear();
           found = true;

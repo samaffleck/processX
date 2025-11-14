@@ -1,6 +1,9 @@
 // apps/processx_app.cpp
 #include <hello_imgui/hello_imgui.h>
+#include <hello_imgui/app_window_params.h>
+
 #include <imgui.h>
+
 #include <iostream>
 #include <cstdio>
 
@@ -13,6 +16,90 @@
 #include "gui_properties.h"
 #include "gui_fluids.h"
 #include "gui_chat.h"
+
+
+void ShowStatusBar() {
+  // Remove rounded borders, but keep border size for top border
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);  // Remove all automatic borders
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 2.0f));  // Reduced vertical padding
+  
+  float statusWindowHeight = ImGui::GetFrameHeight() * 1.0f;
+  ImGuiViewport* viewport = ImGui::GetMainViewport();
+  
+  ImVec2 statusBarSize, statusBarPos;
+  {
+    // Position status bar at the bottom of the viewport
+    statusBarSize = ImVec2(viewport->Size.x, statusWindowHeight);
+    statusBarPos = ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - statusBarSize.y);
+  }
+  
+  ImGui::SetNextWindowPos(statusBarPos);
+  ImGui::SetNextWindowSize(statusBarSize);
+  ImGui::SetNextWindowViewport(viewport->ID);
+  
+  // Remove NoBackground flag so it has a background
+  ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking | 
+                                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+                                 ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings |
+                                 ImGuiWindowFlags_NoNav;
+  
+  // Calculate DOF first to determine background color
+  std::string err;
+  bool assembled = flowsheet.assemble(&err);
+  size_t num_unknowns = flowsheet.reg.size();
+  size_t num_equations = flowsheet.sys.size();
+  int dof = static_cast<int>(num_unknowns) - static_cast<int>(num_equations);
+  
+  // Set blue background if DOF == 0, otherwise use default
+  if (dof == 0 && assembled) {
+    // Use vibrant royal blue (#2160D0) to indicate system is well-posed
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.1f, 0.8f, 0.3f, 0.3f));
+  }
+  
+  if (ImGui::Begin("##StatusBar", nullptr, windowFlags)) {
+    // Draw top border line manually
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    ImVec2 window_pos = ImGui::GetWindowPos();
+    ImVec2 window_size = ImGui::GetWindowSize();
+    ImU32 border_color = ImGui::GetColorU32(ImGuiCol_Border);
+    float border_thickness = 1.0f;
+    
+    // Draw top border line
+    draw_list->AddLine(
+      ImVec2(window_pos.x, window_pos.y),
+      ImVec2(window_pos.x + window_size.x, window_pos.y),
+      border_color,
+      border_thickness
+    );
+    
+    // Display status information
+    ImGui::Text("DOF: %d", dof);
+    ImGui::SameLine();
+    ImGui::Text("Unknowns: %zu", num_unknowns);
+    ImGui::SameLine();
+    ImGui::Text("Equations: %zu", num_equations);
+    
+    // Show error status if assembly failed
+    if (!assembled && !err.empty()) {
+      ImGui::SameLine();
+      // Truncate error message if too long to fit in status bar
+      std::string short_err = err;
+      if (short_err.length() > 100) {
+        short_err = short_err.substr(0, 97) + "...";
+      }
+      ImGui::TextColored(ImVec4(0.9f, 0.7f, 0.3f, 1.0f), "Error: %s", short_err.c_str());
+    }
+  }
+  ImGui::End();
+  
+  // Pop the green background color if we pushed it
+  if (dof == 0 && assembled) {
+    ImGui::PopStyleColor();
+  }
+  
+  ImGui::PopStyleVar(3);
+}
 
 
 #ifdef EMSCRIPTEN
@@ -76,6 +163,9 @@ void ShowGui()  {
   ImGui::Begin("Chat");
   ShowChatWindow();
   ImGui::End();
+  
+  // Show custom status bar at the bottom
+  ShowStatusBar();
 }
 
 void InitializeImGuiFonts() {
@@ -197,6 +287,12 @@ int main(int, char**) {
   params.imGuiWindowParams.showMenuBar = true;
   params.imGuiWindowParams.showMenu_App = false;
   params.imGuiWindowParams.showMenu_View = false;
+  params.imGuiWindowParams.showStatusBar = false;  // Use our custom status bar instead
+  
+  // Reserve space at the bottom for the status bar
+  // The margin is in em units (multiples of font size)
+  // Status bar height is approximately 1.4 * frame height, which is roughly 1.4 em
+  params.imGuiWindowParams.fullScreenWindow_MarginBottomRight = ImVec2(0.0f, 1.5f);
   
   params.dpiAwareParams.dpiWindowSizeFactor = 0.0f; // 0 = auto-detect (recommended)
   
