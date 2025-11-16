@@ -3,6 +3,7 @@
 #include "processX/flowsheet.h"
 #include <vector>
 #include <string>
+#include <functional>
 
 #include <imgui.h>
 
@@ -32,6 +33,9 @@ std::vector<StreamItem> GetStreamList();
 
 // Helper to show stream dropdown and update handle
 bool StreamCombo(const char* label, px::Handle<px::Stream>& current_handle, const std::vector<StreamItem>& streams);
+
+// Helper to show stream dropdown with optional delete button
+bool StreamComboWithDelete(const char* label, px::Handle<px::Stream>& current_handle, const std::vector<StreamItem>& streams, const std::function<void()>& on_delete = nullptr);
 
 // Function to serialize flowsheet to JSON string
 std::string GetFlowsheetJSONString();

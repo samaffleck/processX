@@ -7,6 +7,7 @@
 #include <cstring>
 #include <cstdio>
 #include <cmath>
+#include <string>
 
 void ShowValveProperties(px::Valve& valve) {
   ImGui::Text("Valve Properties");
@@ -26,13 +27,9 @@ void ShowValveProperties(px::Valve& valve) {
   ImGui::Text("Connections:");
   std::vector<StreamItem> stream_list = GetStreamList();
   
-  ImGui::Text("Inlet:");
-  ImGui::SameLine(100);
-  StreamCombo("##ValveInlet", valve.in, stream_list);
+  StreamCombo("Inlet:", valve.in, stream_list);
   
-  ImGui::Text("Outlet:");
-  ImGui::SameLine(100);
-  StreamCombo("##ValveOutlet", valve.out, stream_list);
+  StreamCombo("Outlet:", valve.out, stream_list);
 }
 
 void ShowMixerProperties(px::Mixer& mixer) {
@@ -47,39 +44,24 @@ void ShowMixerProperties(px::Mixer& mixer) {
   ImGui::Text("Connections:");
   std::vector<StreamItem> stream_list = GetStreamList();
   
-  // Inlets - list with dropdowns
-  ImGui::Text("Inlets:");
-  for (size_t i = 0; i < mixer.in.size(); ++i) {
-    ImGui::PushID(static_cast<int>(i));
-    ImGui::Text("  [%zu]", i);
-    ImGui::SameLine(50);
-    char label[32];
-    snprintf(label, sizeof(label), "##MixerInlet%zu", i);
-    
-    px::Handle<px::Stream>& inlet_handle = mixer.in[i];
-    if (StreamCombo(label, inlet_handle, stream_list)) {
-      // Connection updated
-    }
-    
-    ImGui::SameLine();
-    if (ImGui::Button("Remove##RemoveInlet")) {
-      mixer.in.erase(mixer.in.begin() + i);
-      ImGui::PopID();
-      break; // Exit loop since vector changed
-    }
-    ImGui::PopID();
-  }
-  
   if (ImGui::Button("Add Inlet")) {
     mixer.in.push_back(px::Handle<px::Stream>{});
   }
   
+  // Inlets - list with dropdowns
+  for (size_t i = 0; i < mixer.in.size(); ++i) {
+    ImGui::PushID(static_cast<int>(i));
+    std::string label = "Inlet " + std::to_string(i) + ":";
+    bool should_break = StreamComboWithDelete(label.c_str(), mixer.in[i], stream_list, [&mixer, i]() {
+      mixer.in.erase(mixer.in.begin() + i);
+    });
+    ImGui::PopID();
+    if (should_break) break; // Exit loop if item was deleted or connection changed
+  }
+  
   ImGui::Spacing();
   
-  // Outlet dropdown
-  ImGui::Text("Outlet:");
-  ImGui::SameLine(100);
-  StreamCombo("##MixerOutlet", mixer.out, stream_list);
+  StreamCombo("Outlet:", mixer.out, stream_list);
 }
 
 void ShowSplitterProperties(px::Splitter& splitter) {
@@ -96,38 +78,27 @@ void ShowSplitterProperties(px::Splitter& splitter) {
   std::vector<StreamItem> stream_list = GetStreamList();
   
   // Inlet dropdown
-  ImGui::Text("Inlet:");
-  ImGui::SameLine(100);
-  StreamCombo("##SplitterInlet", splitter.in, stream_list);
+  StreamCombo("Inlet:", splitter.in, stream_list);
   
   ImGui::Spacing();
+  
+  if (ImGui::Button("Add Outlet")) {
+    splitter.out.push_back(px::Handle<px::Stream>{});
+  }
   
   // Outlets - list with dropdowns
   ImGui::Text("Outlets:");
   for (size_t i = 0; i < splitter.out.size(); ++i) {
     ImGui::PushID(static_cast<int>(i));
-    ImGui::Text("  [%zu]", i);
-    ImGui::SameLine(50);
-    char label[32];
-    snprintf(label, sizeof(label), "##SplitterOutlet%zu", i);
-    
+    std::string label = "Outlet " + std::to_string(i) + ":";
     px::Handle<px::Stream>& outlet_handle = splitter.out[i];
-    if (StreamCombo(label, outlet_handle, stream_list)) {
-      // Connection updated
-    }
-    
-    ImGui::SameLine();
-    if (ImGui::Button("Remove##RemoveOutlet")) {
+    bool should_break = StreamComboWithDelete(label.c_str(), outlet_handle, stream_list, [&splitter, i]() {
       splitter.out.erase(splitter.out.begin() + i);
-      ImGui::PopID();
-      break; // Exit loop since vector changed
-    }
+    });
     ImGui::PopID();
+    if (should_break) break; // Exit loop if item was deleted or connection changed
   }
   
-  if (ImGui::Button("Add Outlet")) {
-    splitter.out.push_back(px::Handle<px::Stream>{});
-  }
 }
 
 void ShowStreamProperties(px::Stream& stream) {
@@ -369,14 +340,10 @@ void ShowSimpleHeatExchangerProperties(px::SimpleHeatExchanger& hex) {
   std::vector<StreamItem> stream_list = GetStreamList();
   
   // Inlet dropdown
-  ImGui::Text("Inlet:");
-  ImGui::SameLine(100);
-  StreamCombo("##SimpleHXInlet", hex.in, stream_list);
+  StreamCombo("Inlet:", hex.in, stream_list);
   
   // Outlet dropdown
-  ImGui::Text("Outlet:");
-  ImGui::SameLine(100);
-  StreamCombo("##SimpleHXOutlet", hex.out, stream_list);
+  StreamCombo("Outlet:", hex.out, stream_list);
 }
 
 void ShowHeatExchangerProperties(px::HeatExchanger& hex) {
@@ -409,25 +376,15 @@ void ShowHeatExchangerProperties(px::HeatExchanger& hex) {
   
   // Hot side
   ImGui::Text("Hot Side:");
-  ImGui::Text("  Inlet:");
-  ImGui::SameLine(100);
-  StreamCombo("##HXHotInlet", hex.in_hot, stream_list);
-  
-  ImGui::Text("  Outlet:");
-  ImGui::SameLine(100);
-  StreamCombo("##HXHotOutlet", hex.out_hot, stream_list);
+  StreamCombo("  Inlet:", hex.in_hot, stream_list);
+  StreamCombo("  Outlet:", hex.out_hot, stream_list);
   
   ImGui::Spacing();
   
   // Cold side
   ImGui::Text("Cold Side:");
-  ImGui::Text("  Inlet:");
-  ImGui::SameLine(100);
-  StreamCombo("##HXColdInlet", hex.in_cold, stream_list);
-  
-  ImGui::Text("  Outlet:");
-  ImGui::SameLine(100);
-  StreamCombo("##HXColdOutlet", hex.out_cold, stream_list);
+  StreamCombo("  Inlet:", hex.in_cold, stream_list);
+  StreamCombo("  Outlet:", hex.out_cold, stream_list);
 }
 
 void ShowPumpProperties(px::Pump& pump) {
@@ -458,14 +415,10 @@ void ShowPumpProperties(px::Pump& pump) {
   std::vector<StreamItem> stream_list = GetStreamList();
   
   // Inlet dropdown
-  ImGui::Text("Inlet:");
-  ImGui::SameLine(100);
-  StreamCombo("##PumpInlet", pump.in, stream_list);
+  StreamCombo("Inlet:", pump.in, stream_list);
   
   // Outlet dropdown
-  ImGui::Text("Outlet:");
-  ImGui::SameLine(100);
-  StreamCombo("##PumpOutlet", pump.out, stream_list);
+  StreamCombo("Outlet:", pump.out, stream_list);
 }
 
 void ShowSelectedUnitProperties() {

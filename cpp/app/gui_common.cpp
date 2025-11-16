@@ -1,5 +1,6 @@
 #include "gui_common.h"
 #include "gui_log.h"
+#include "gui_util.h"
 #include <cereal/archives/json.hpp>
 #include <sstream>
 #include <imgui.h>
@@ -280,6 +281,8 @@ std::vector<StreamItem> GetStreamList() {
 
 // Helper to show stream dropdown and update handle
 bool StreamCombo(const char* label, px::Handle<px::Stream>& current_handle, const std::vector<StreamItem>& streams) {
+  ImGui::PushID(&current_handle); // unique + stable per field
+  
   // Find current selection index
   int current_selection = 0;
   if (current_handle.valid()) {
@@ -295,26 +298,131 @@ bool StreamCombo(const char* label, px::Handle<px::Stream>& current_handle, cons
   // Build combo preview string
   std::string combo_preview = current_selection == 0 ? "(None)" : streams[current_selection].display_name;
   
-  if (ImGui::BeginCombo(label, combo_preview.c_str())) {
-    for (size_t i = 0; i < streams.size(); ++i) {
-      bool is_selected = (current_selection == static_cast<int>(i));
-      if (ImGui::Selectable(streams[i].display_name.c_str(), is_selected)) {
-        if (i == 0) {
-          // Selected "(None)" - disconnect
-          current_handle = px::Handle<px::Stream>{};
-        } else {
-          // Selected a stream - connect it
-          current_handle = streams[i].handle;
+  bool changed = false;
+  
+  ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoBordersInBody;
+  
+  if (ImGui::BeginTable("##stream_combo_table", 2, flags, ImVec2(-FLT_MIN, 0.0f))) {
+    ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch, col1_width);
+    ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch, 1 - col1_width);
+    
+    ImGui::TableNextColumn();
+    ImGui::TextUnformatted(label);
+    
+    ImGui::TableNextColumn();
+    ImGui::SetNextItemWidth(-FLT_MIN); // Fill entire column
+    
+    if (ImGui::BeginCombo("##stream_combo", combo_preview.c_str())) {
+      for (size_t i = 0; i < streams.size(); ++i) {
+        bool is_selected = (current_selection == static_cast<int>(i));
+        if (ImGui::Selectable(streams[i].display_name.c_str(), is_selected)) {
+          if (i == 0) {
+            // Selected "(None)" - disconnect
+            current_handle = px::Handle<px::Stream>{};
+          } else {
+            // Selected a stream - connect it
+            current_handle = streams[i].handle;
+          }
+          changed = true;
+          ImGui::EndCombo();
+          ImGui::EndTable();
+          ImGui::PopID();
+          return true;
         }
-        ImGui::EndCombo();
-        return true;
+        if (is_selected) {
+          ImGui::SetItemDefaultFocus();
+        }
       }
-      if (is_selected) {
-        ImGui::SetItemDefaultFocus();
+      ImGui::EndCombo();
+    }
+    
+    ImGui::EndTable();
+  }
+  
+  ImGui::PopID();
+  return changed;
+}
+
+// Helper to show stream dropdown with optional delete button
+bool StreamComboWithDelete(const char* label, px::Handle<px::Stream>& current_handle, const std::vector<StreamItem>& streams, const std::function<void()>& on_delete) {
+  ImGui::PushID(&current_handle); // unique + stable per field
+  
+  // Find current selection index
+  int current_selection = 0;
+  if (current_handle.valid()) {
+    for (size_t i = 1; i < streams.size(); ++i) {
+      if (streams[i].handle.index == current_handle.index && 
+          streams[i].handle.generation == current_handle.generation) {
+        current_selection = static_cast<int>(i);
+        break;
       }
     }
-    ImGui::EndCombo();
   }
-  return false;
+  
+  // Build combo preview string
+  std::string combo_preview = current_selection == 0 ? "(None)" : streams[current_selection].display_name;
+  
+  bool changed = false;
+  
+  // Determine number of columns based on whether delete button is provided
+  int num_columns = on_delete ? 3 : 2;
+  ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoBordersInBody;
+  
+  if (ImGui::BeginTable("##stream_combo_delete_table", num_columns, flags, ImVec2(-FLT_MIN, 0.0f))) {
+    ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch, col1_width);
+    if (on_delete) {
+      ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch, 1.0f - col1_width - 0.05f);
+      ImGui::TableSetupColumn("Button", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight());
+    } else {
+      ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch, 1 - col1_width);
+    }
+    
+    ImGui::TableNextColumn();
+    ImGui::TextUnformatted(label);
+    
+    ImGui::TableNextColumn();
+    ImGui::SetNextItemWidth(-FLT_MIN); // Fill entire column
+    
+    if (ImGui::BeginCombo("##stream_combo", combo_preview.c_str())) {
+      for (size_t i = 0; i < streams.size(); ++i) {
+        bool is_selected = (current_selection == static_cast<int>(i));
+        if (ImGui::Selectable(streams[i].display_name.c_str(), is_selected)) {
+          if (i == 0) {
+            // Selected "(None)" - disconnect
+            current_handle = px::Handle<px::Stream>{};
+          } else {
+            // Selected a stream - connect it
+            current_handle = streams[i].handle;
+          }
+          changed = true;
+          ImGui::EndCombo();
+          ImGui::EndTable();
+          ImGui::PopID();
+          return true;
+        }
+        if (is_selected) {
+          ImGui::SetItemDefaultFocus();
+        }
+      }
+      ImGui::EndCombo();
+    }
+    
+    // Add delete button if callback provided
+    if (on_delete) {
+      ImGui::TableNextColumn();
+      float button_size = ImGui::GetFrameHeight();
+      if (ImGui::Button("X##Delete", ImVec2(button_size, button_size))) {
+        on_delete();
+        ImGui::EndTable();
+        ImGui::PopID();
+        return true; // Indicate that something changed (item was deleted)
+      }
+    }
+    
+    ImGui::EndTable();
+  }
+  
+  ImGui::PopID();
+  return changed;
 }
 
