@@ -402,6 +402,15 @@ namespace px {
       if (p.out.index == stream_handle.index && p.in.valid()) connected.push_back(p.in);
     });
     
+    fs.component_splitters_.for_each([&](ComponentSplitter& cs) {
+      if (cs.in.index == stream_handle.index) {
+        if (cs.overhead.valid()) connected.push_back(cs.overhead);
+        if (cs.bottom.valid()) connected.push_back(cs.bottom);
+      }
+      if (cs.overhead.index == stream_handle.index && cs.in.valid()) connected.push_back(cs.in);
+      if (cs.bottom.index == stream_handle.index && cs.in.valid()) connected.push_back(cs.in);
+    });
+    
     return connected;
   }
 
@@ -532,6 +541,19 @@ namespace px {
         p.out = Handle<Stream>{};
       }
     });
+    
+    // Clean up component splitters
+    fs.component_splitters_.for_each([&](ComponentSplitter& cs) {
+      if (cs.in.valid() && !fs.streams_.contains(cs.in)) {
+        cs.in = Handle<Stream>{};
+      }
+      if (cs.overhead.valid() && !fs.streams_.contains(cs.overhead)) {
+        cs.overhead = Handle<Stream>{};
+      }
+      if (cs.bottom.valid() && !fs.streams_.contains(cs.bottom)) {
+        cs.bottom = Handle<Stream>{};
+      }
+    });
   }
 
   // Helper function to validate that connected streams have the same fluid package
@@ -589,6 +611,10 @@ namespace px {
     } else if (auto* p = dynamic_cast<Pump*>(u)) {
       if (p->in.valid() && fs.streams_.contains(p->in)) connected_streams.push_back(p->in);
       if (p->out.valid() && fs.streams_.contains(p->out)) connected_streams.push_back(p->out);
+    } else if (auto* cs = dynamic_cast<ComponentSplitter*>(u)) {
+      if (cs->in.valid() && fs.streams_.contains(cs->in)) connected_streams.push_back(cs->in);
+      if (cs->overhead.valid() && fs.streams_.contains(cs->overhead)) connected_streams.push_back(cs->overhead);
+      if (cs->bottom.valid() && fs.streams_.contains(cs->bottom)) connected_streams.push_back(cs->bottom);
     }
     
     // For all other unit operations, check that all connected streams have the same fluid package

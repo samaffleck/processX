@@ -906,4 +906,136 @@ namespace px {
     SaveTest("pump_test", fs);
   }
 
+  TEST_F(ProcessTest, ComponentSplitterTest) {
+    // Initialize fluid package
+    size_t fluid_id = init_air_fluid();
+    
+    // Create streams
+    auto s_in = fs.add<Stream>();
+    auto s_overhead = fs.add<Stream>();
+    auto s_bottom = fs.add<Stream>();
+    auto cs = fs.add<ComponentSplitter>();
+
+    // Connect streams to component splitter
+    auto& splitter = fs.get<ComponentSplitter>(cs);
+    splitter.in = s_in;
+    splitter.overhead = s_overhead;
+    splitter.bottom = s_bottom;
+
+    auto& in = fs.get<Stream>(s_in);
+    auto& overhead = fs.get<Stream>(s_overhead);
+    auto& bottom = fs.get<Stream>(s_bottom);
+
+    // Assign fluid package to all streams
+    in.fluid_package_id = fluid_id;
+    overhead.fluid_package_id = fluid_id;
+    bottom.fluid_package_id = fluid_id;
+    
+    // Initialize mole fractions: fix inlet composition, outlets will be solved
+    init_stream_composition(in, fluid_id, true);  // Fix inlet composition
+    init_stream_composition(overhead, fluid_id, false);
+    init_stream_composition(bottom, fluid_id, false);
+
+    // Set up split ratios (one per component)
+    // For N2/O2 mixture: 2 components
+    auto components = fs.fluids.GetComponents(fluid_id);
+    splitter.overhead_split_ratios.resize(components.size());
+    
+    // Component 0 (N2): 70% goes to overhead, 30% to bottom
+    splitter.overhead_split_ratios[0] = Var("split_ratio_N2", 0.7, true);
+    // Component 1 (O2): 30% goes to overhead, 70% to bottom
+    splitter.overhead_split_ratios[1] = Var("split_ratio_O2", 0.3, true);
+
+    // Given: inlet conditions
+    const double Pin = 1.0e5;   // Pa
+    const double Tin = 300.0;   // K
+    const double Fin = 10.0;    // mol/s
+    const double Q = 0.0;       // W (heat duty - zero for adiabatic)
+
+    // Set fixed values
+    in.pressure.set_val(Pin, true);
+    in.temperature.set_val(Tin, true);
+    in.molar_flow.set_val(Fin, true);
+    splitter.Q.set_val(Q, true);
+
+    // Unknowns
+    overhead.pressure.set_val(0.95e5, false);  // Should equal bottom pressure
+    bottom.pressure.set_val(0.95e5, false);    // Should equal Pin
+    overhead.temperature.set_val(300.0, false);
+    bottom.temperature.set_val(300.0, false);
+    
+    // Fix one outlet flow and one mole fraction to remove redundancy
+    // The mole fraction sum constraints are redundant when we have component balance equations
+    // for all components. By fixing one outlet flow and one mole fraction, we break the redundancy.
+    // Expected overhead flow from split ratios: n_overhead ≈ n_in * (x_in,0 * r0 + x_in,1 * r1)
+    double expected_overhead_flow = Fin * (in.mole_fractions[0].value * splitter.overhead_split_ratios[0].value + 
+                                           in.mole_fractions[1].value * splitter.overhead_split_ratios[1].value);
+    overhead.molar_flow.set_val(expected_overhead_flow, true);  // Fix overhead flow
+    bottom.molar_flow.set_val(Fin - expected_overhead_flow, false);  // Will be determined by mass balance
+    
+    // Fix one overhead mole fraction to remove the remaining redundancy
+    // Overhead will be richer in N2 since r0 (0.7) > r1 (0.3)
+    if (overhead.mole_fractions.size() > 0) {
+      overhead.mole_fractions[0].set_val(0.85, true);  // Fix overhead mole fraction for N2
+    }
+
+    run();
+
+    // Verify mass balance: m_in = m_overhead + m_bottom
+    EXPECT_NEAR(in.molar_flow.value, overhead.molar_flow.value + bottom.molar_flow.value, 1e-10);
+    
+    // Verify pressure relationships
+    EXPECT_NEAR(bottom.pressure.value, Pin, 1e-6);  // P_bottom = P_in
+    EXPECT_NEAR(overhead.pressure.value, bottom.pressure.value, 1e-6);  // P_overhead = P_bottom
+    
+    // Verify component balances for each component
+    if (in.mole_fractions.size() == 2 && overhead.mole_fractions.size() == 2 && bottom.mole_fractions.size() == 2) {
+      // Component 0 (N2): n_in * x_in,0 * split_ratio_0 = n_overhead * x_overhead,0
+      double comp0_in_overhead = in.molar_flow.value * in.mole_fractions[0].value * splitter.overhead_split_ratios[0].value;
+      double comp0_overhead = overhead.molar_flow.value * overhead.mole_fractions[0].value;
+      EXPECT_NEAR(comp0_in_overhead, comp0_overhead, 1e-10);
+      
+      // Component 0 (N2): n_in * x_in,0 * (1 - split_ratio_0) = n_bottom * x_bottom,0
+      double comp0_in_bottom = in.molar_flow.value * in.mole_fractions[0].value * (1.0 - splitter.overhead_split_ratios[0].value);
+      double comp0_bottom = bottom.molar_flow.value * bottom.mole_fractions[0].value;
+      EXPECT_NEAR(comp0_in_bottom, comp0_bottom, 1e-10);
+      
+      // Component 1 (O2): n_in * x_in,1 * split_ratio_1 = n_overhead * x_overhead,1
+      double comp1_in_overhead = in.molar_flow.value * in.mole_fractions[1].value * splitter.overhead_split_ratios[1].value;
+      double comp1_overhead = overhead.molar_flow.value * overhead.mole_fractions[1].value;
+      EXPECT_NEAR(comp1_in_overhead, comp1_overhead, 1e-10);
+      
+      // Component 1 (O2): n_in * x_in,1 * (1 - split_ratio_1) = n_bottom * x_bottom,1
+      double comp1_in_bottom = in.molar_flow.value * in.mole_fractions[1].value * (1.0 - splitter.overhead_split_ratios[1].value);
+      double comp1_bottom = bottom.molar_flow.value * bottom.mole_fractions[1].value;
+      EXPECT_NEAR(comp1_in_bottom, comp1_bottom, 1e-10);
+      
+      // Verify general component balance: n_in * x_in,i = n_overhead * x_overhead,i + n_bottom * x_bottom,i
+      for (size_t i = 0; i < 2; ++i) {
+        double comp_in = in.molar_flow.value * in.mole_fractions[i].value;
+        double comp_out = overhead.molar_flow.value * overhead.mole_fractions[i].value + 
+                         bottom.molar_flow.value * bottom.mole_fractions[i].value;
+        EXPECT_NEAR(comp_in, comp_out, 1e-10);
+      }
+      
+      // Verify sum constraints
+      expect_prob_vector({in.mole_fractions[0].value, in.mole_fractions[1].value}, 1e-6);
+      expect_prob_vector({overhead.mole_fractions[0].value, overhead.mole_fractions[1].value}, 1e-6);
+      expect_prob_vector({bottom.mole_fractions[0].value, bottom.mole_fractions[1].value}, 1e-6);
+      
+      // Verify that compositions are different (splitter changes composition)
+      // Overhead should have more N2 (higher split ratio), bottom should have more O2
+      EXPECT_GT(overhead.mole_fractions[0].value, in.mole_fractions[0].value);  // More N2 in overhead
+      EXPECT_LT(bottom.mole_fractions[0].value, in.mole_fractions[0].value);   // Less N2 in bottom
+    }
+    
+    // Verify energy balance: Q = m_overhead * h_overhead + m_bottom * h_bottom - m_in * h_in
+    double energy_out = overhead.molar_flow.value * overhead.molar_enthalpy.value + 
+                       bottom.molar_flow.value * bottom.molar_enthalpy.value;
+    double energy_in = in.molar_flow.value * in.molar_enthalpy.value;
+    EXPECT_NEAR(splitter.Q.value, energy_out - energy_in, 1e-6);
+
+    SaveTest("component_splitter_test", fs);
+  }
+
 } // end processX namespace

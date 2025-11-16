@@ -522,6 +522,120 @@ namespace px {
     // Note: State equations are added once per stream in Flowsheet::assemble() to avoid duplicates
   }
 
+  bool ComponentSplitter::validate(const Flowsheet& fs, std::string* why) const {
+    if (!in.valid())  { if (why) *why = "inlet not connected";  return false; }
+    if (!overhead.valid()) { if (why) *why = "overhead outlet not connected"; return false; }
+    if (!bottom.valid()) { if (why) *why = "bottom outlet not connected"; return false; }
+    return true;
+  }
+
+  void ComponentSplitter::register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) {
+    auto& si = fs.get<Stream>(in);
+    auto& so_overhead = fs.get<Stream>(overhead);
+    auto& so_bottom = fs.get<Stream>(bottom);
+
+    reg.register_var(si.molar_flow);
+    reg.register_var(so_overhead.molar_flow);
+    reg.register_var(so_bottom.molar_flow);
+
+    reg.register_var(si.pressure);
+    reg.register_var(so_overhead.pressure);
+    reg.register_var(so_bottom.pressure);
+
+    reg.register_var(si.molar_enthalpy);
+    reg.register_var(so_overhead.molar_enthalpy);
+    reg.register_var(so_bottom.molar_enthalpy);
+
+    reg.register_var(si.temperature);
+    reg.register_var(so_overhead.temperature);
+    reg.register_var(so_bottom.temperature);
+
+    reg.register_var(Q);
+
+    // Register split ratios (one per component)
+    for (auto& ratio : overhead_split_ratios) {
+      reg.register_var(ratio);
+    }
+
+    // Register mole fractions for inlet and outlets
+    for (auto& x : si.mole_fractions) {
+      reg.register_var(x);
+    }
+    for (auto& x : so_overhead.mole_fractions) {
+      reg.register_var(x);
+    }
+    for (auto& x : so_bottom.mole_fractions) {
+      reg.register_var(x);
+    }
+  }
+
+  void ComponentSplitter::add_equations(Flowsheet& fs, ResidualSystem& sys) {
+    auto* self = this;
+    auto& si = fs.get<Stream>(in);
+    auto& so_overhead = fs.get<Stream>(overhead);
+    auto& so_bottom = fs.get<Stream>(bottom);
+    
+    // Mass balance: m_in = m_overhead + m_bottom
+    sys.add(name + ": balance", [&](){ 
+      return si.molar_flow.value - so_overhead.molar_flow.value - so_bottom.molar_flow.value; 
+    });
+    
+    // Energy balance: Q = m_overhead * h_overhead + m_bottom * h_bottom - m_in * h_in
+    sys.add(name + ": energy", [&, self](){ 
+      return self->Q.value 
+        + so_overhead.molar_flow.value * so_overhead.molar_enthalpy.value
+        + so_bottom.molar_flow.value * so_bottom.molar_enthalpy.value
+        - si.molar_flow.value * si.molar_enthalpy.value; 
+    });
+    
+    // Pressure drop: P_overhead = P_bottom
+    sys.add(name + ": overhead_pressure_drop", [&](){ 
+      return so_overhead.pressure.value - so_bottom.pressure.value; 
+    });
+
+    // Pressure drop: P_bottom = P_in
+    sys.add(name + ": bottom_pressure_drop", [&](){ 
+      return so_bottom.pressure.value - si.pressure.value; 
+    });
+
+    // Component mass balances: split ratios determine how each component is distributed
+    // For each component i:
+    //   - Overhead: n_in * x_in,i * split_ratio_i = n_overhead * x_overhead,i
+    //   - Bottom: n_in * x_in,i * (1 - split_ratio_i) = n_bottom * x_bottom,i
+    // The general balance (n_in * x_in,i = n_overhead * x_overhead,i + n_bottom * x_bottom,i) 
+    // is automatically satisfied by these two equations
+    size_t num_components = si.mole_fractions.size();
+    for (size_t i = 0; i < num_components; ++i) {
+      // Check bounds for split ratios
+      if (i >= overhead_split_ratios.size()) {
+        // If split ratio not provided, assume equal split (0.5)
+        sys.add(name + ": overhead_comp_balance[" + std::to_string(i) + "]", [&, i]() {
+          double split_ratio = 0.5;
+          return si.mole_fractions[i].value * si.molar_flow.value * split_ratio 
+            - so_overhead.mole_fractions[i].value * so_overhead.molar_flow.value;
+        });
+        sys.add(name + ": bottom_comp_balance[" + std::to_string(i) + "]", [&, i]() {
+          double split_ratio = 0.5;
+          return si.mole_fractions[i].value * si.molar_flow.value * (1.0 - split_ratio) 
+            - so_bottom.mole_fractions[i].value * so_bottom.molar_flow.value;
+        });
+      } else {
+        // Overhead component balance: n_in * x_in,i * split_ratio_i = n_overhead * x_overhead,i
+        sys.add(name + ": overhead_comp_balance[" + std::to_string(i) + "]", [&, i, self]() {
+          return si.mole_fractions[i].value * si.molar_flow.value * self->overhead_split_ratios[i].value 
+            - so_overhead.mole_fractions[i].value * so_overhead.molar_flow.value;
+        });
+
+        // Bottom component balance: n_in * x_in,i * (1 - split_ratio_i) = n_bottom * x_bottom,i
+        sys.add(name + ": bottom_comp_balance[" + std::to_string(i) + "]", [&, i, self]() {
+          return si.mole_fractions[i].value * si.molar_flow.value * (1.0 - self->overhead_split_ratios[i].value) 
+            - so_bottom.mole_fractions[i].value * so_bottom.molar_flow.value;
+        });
+      }
+    }
+    // Note: State equations are added once per stream in Flowsheet::assemble() to avoid duplicates
+  }
+
 } // namespace px
 
 CEREAL_REGISTER_TYPE(px::Valve)
@@ -547,3 +661,7 @@ CEREAL_CLASS_VERSION(px::SimpleHeatExchanger, 0)
 CEREAL_REGISTER_TYPE(px::Pump)
 CEREAL_REGISTER_POLYMORPHIC_RELATION(px::IUnitOp, px::Pump)
 CEREAL_CLASS_VERSION(px::Pump, 0)
+
+CEREAL_REGISTER_TYPE(px::ComponentSplitter)
+CEREAL_REGISTER_POLYMORPHIC_RELATION(px::IUnitOp, px::ComponentSplitter)
+CEREAL_CLASS_VERSION(px::ComponentSplitter, 0)

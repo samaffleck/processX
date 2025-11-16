@@ -224,6 +224,7 @@ namespace px {
     Registry<HeatExchanger> heat_exchangers_;
     Registry<SimpleHeatExchanger> simple_heat_exchangers_;
     Registry<Pump> pumps_;
+    Registry<ComponentSplitter> component_splitters_;
 
     std::vector<IUnitOp*> units_;
 
@@ -247,6 +248,8 @@ namespace px {
         return simple_heat_exchangers_;
       } else if constexpr (std::is_same_v<T, Pump>) {
         return pumps_;
+      } else if constexpr (std::is_same_v<T, ComponentSplitter>) {
+        return component_splitters_;
       } else {
         static_assert(dependent_false<T>::value, "Unsupported type in registry_for<T>()");
       }
@@ -268,6 +271,8 @@ namespace px {
         return simple_heat_exchangers_;
       } else if constexpr (std::is_same_v<T, Pump>) {
         return pumps_;
+      } else if constexpr (std::is_same_v<T, ComponentSplitter>) {
+        return component_splitters_;
       } else {
         static_assert(dependent_false<T>::value, "Unsupported type in registry_for<T>()");
       }
@@ -321,6 +326,12 @@ namespace px {
         auto& u = r.get(h);
         if (u.name.empty()) u.name = next_auto_name(u.type_name());
         return h;
+      } else if constexpr (std::is_same_v<T, ComponentSplitter>) {
+        auto& r = registry_for<T>();
+        auto h = r.add(T{std::forward<Args>(args)...});
+        auto& u = r.get(h);
+        if (u.name.empty()) u.name = next_auto_name(u.type_name());
+        return h;
       } else {
         static_assert(dependent_false<T>::value, "Unsupported type in Flowsheet::add<T>()");
         return Handle<T>{}; // Never reached, but satisfies compiler
@@ -336,6 +347,7 @@ namespace px {
       else if constexpr (std::is_same_v<T, HeatExchanger>) return heat_exchangers_.get(h);
       else if constexpr (std::is_same_v<T, SimpleHeatExchanger>) return simple_heat_exchangers_.get(h);
       else if constexpr (std::is_same_v<T, Pump>) return pumps_.get(h);
+      else if constexpr (std::is_same_v<T, ComponentSplitter>) return component_splitters_.get(h);
       else { 
         static_assert(dependent_false<T>::value, "Unsupported type in Flowsheet::get<T>()");
         return streams_.get(Handle<Stream>{}); // Never reached, but satisfies compiler
@@ -351,6 +363,7 @@ namespace px {
       else if constexpr (std::is_same_v<T, HeatExchanger>) return heat_exchangers_.get(h);
       else if constexpr (std::is_same_v<T, SimpleHeatExchanger>) return simple_heat_exchangers_.get(h);
       else if constexpr (std::is_same_v<T, Pump>) return pumps_.get(h);
+      else if constexpr (std::is_same_v<T, ComponentSplitter>) return component_splitters_.get(h);
       else { 
         static_assert(dependent_false<T>::value, "Unsupported type in Flowsheet::get<T>()");
         return streams_.get(Handle<Stream>{}); // Never reached, but satisfies compiler
@@ -366,6 +379,7 @@ namespace px {
       else if constexpr (std::is_same_v<T, HeatExchanger>) return heat_exchangers_.erase(h);
       else if constexpr (std::is_same_v<T, SimpleHeatExchanger>) return simple_heat_exchangers_.erase(h);
       else if constexpr (std::is_same_v<T, Pump>) return pumps_.erase(h);
+      else if constexpr (std::is_same_v<T, ComponentSplitter>) return component_splitters_.erase(h);
       else { 
         static_assert(dependent_false<T>::value, "Unsupported type in Flowsheet::erase<T>()");
         return false; // Never reached, but satisfies compiler
@@ -381,6 +395,7 @@ namespace px {
       else if constexpr (std::is_same_v<T, HeatExchanger>) heat_exchangers_.for_each(std::forward<Fn>(fn));
       else if constexpr (std::is_same_v<T, SimpleHeatExchanger>) simple_heat_exchangers_.for_each(std::forward<Fn>(fn));
       else if constexpr (std::is_same_v<T, Pump>) pumps_.for_each(std::forward<Fn>(fn));
+      else if constexpr (std::is_same_v<T, ComponentSplitter>) component_splitters_.for_each(std::forward<Fn>(fn));
       else { 
         static_assert(dependent_false<T>::value, "Unsupported type in Flowsheet::for_each<T>()");
       }
@@ -394,6 +409,7 @@ namespace px {
       heat_exchangers_.for_each([&](HeatExchanger& v){ units_.push_back(&v); }); 
       simple_heat_exchangers_.for_each([&](SimpleHeatExchanger& v){ units_.push_back(&v); }); 
       pumps_.for_each([&](Pump& v){ units_.push_back(&v); }); 
+      component_splitters_.for_each([&](ComponentSplitter& v){ units_.push_back(&v); }); 
     }
 
     bool assemble(std::string* err=nullptr);
@@ -460,6 +476,7 @@ namespace px {
 				cereal::make_nvp("Flowsheet_HeatExchanger_Registry", heat_exchangers_),
 				cereal::make_nvp("Flowsheet_SimpleHeatExchanger_Registry", simple_heat_exchangers_),
 				cereal::make_nvp("Flowsheet_Pump_Registry", pumps_),
+				cereal::make_nvp("Flowsheet_ComponentSplitter_Registry", component_splitters_),
 				cereal::make_nvp("Flowsheet_FluidPackage_Registry", fluids)
 			);
     }

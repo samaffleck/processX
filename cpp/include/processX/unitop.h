@@ -20,7 +20,7 @@
 
 namespace px {
 
-  enum class UnitType { Valve, Mixer, Inlet, Outlet, Splitter, HeatExchanger, SimpleHeatExchanger, Pump };
+  enum class UnitType { Valve, Mixer, Splitter, HeatExchanger, SimpleHeatExchanger, Pump, ComponentSplitter };
 
   class Flowsheet;
 
@@ -287,6 +287,38 @@ namespace px {
 				cereal::make_nvp("Pump_Efficiency", eta)
 			);
 		}
+  };
+
+  class ComponentSplitter : public IUnitOp {
+  public:
+    Handle<Stream> in{};
+    Handle<Stream> overhead{};
+    Handle<Stream> bottom{};
+
+    std::vector<Var> overhead_split_ratios{};
+    Var Q{"Q", 0.0, false};  // Heat duty (W)
+
+    UnitType get_type() const override { return UnitType::ComponentSplitter; }
+    const char* type_name() const override { return "ComponentSplitter"; }
+    bool validate(const Flowsheet& fs, std::string* why) const override;
+    void register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) override;
+    void add_equations(Flowsheet& fs, ResidualSystem& sys) override;
+    int num_inputs() override { return 1; };
+    int num_outputs() override { return 2; };
+
+  private:
+    friend class cereal::access;
+    template <class Archive>
+    void serialize(Archive& ar, std::uint32_t const version) {
+      ar(
+        cereal::virtual_base_class<IUnitOp>(this),
+        cereal::make_nvp("ComponentSplitter_Inlet", in),
+        cereal::make_nvp("ComponentSplitter_Overhead", overhead),
+        cereal::make_nvp("ComponentSplitter_Bottom", bottom),
+        cereal::make_nvp("ComponentSplitter_Overhead_Split_Ratios", overhead_split_ratios),
+        cereal::make_nvp("ComponentSplitter_Heat_Duty", Q)
+      );
+    }
   };
 
 } // namespace px
