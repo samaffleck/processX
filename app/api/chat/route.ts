@@ -5,7 +5,7 @@ import { BASE_SYSTEM_PROMPT } from './prompts';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { message, jsonData, conversationHistory } = body;
+    const { message, jsonData, conversationHistory, pdfContext } = body;
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -29,6 +29,14 @@ export async function POST(request: NextRequest) {
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: 'system', content: BASE_SYSTEM_PROMPT },
     ];
+
+    // Add PDF context if present
+    if (pdfContext && typeof pdfContext === 'string' && pdfContext.trim()) {
+      messages.push({
+        role: 'system',
+        content: `USER-UPLOADED PDF CONTENT (use this to answer questions accurately):\n\n${pdfContext.trim()}`,
+      });
+    }
 
     // Attach current flowsheet if provided
     if (jsonData && typeof jsonData === 'object') {

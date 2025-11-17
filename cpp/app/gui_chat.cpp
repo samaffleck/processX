@@ -57,6 +57,9 @@ EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json)
           jsonData = flowsheetJson;
         }
 
+        // Get PDF context if available (set by React app when PDF is uploaded)
+        const pdfContext = window.currentPdfContext || '';
+
         // Call the Next.js API endpoint
         const response = await fetch('/api/chat', {
           method: 'POST',
@@ -67,6 +70,7 @@ EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json)
             message: msg,
             jsonData: jsonData,
             conversationHistory: [],
+            pdfContext: pdfContext,
           }),
         });
 
