@@ -43,6 +43,49 @@ I've set the inlet temperature to 300K and updated the flowsheet.
 
 ---SOLVE---s
 
+**FLUID PACKAGE GUIDE:**
+When creating or modifying fluid packages, follow this structure:
+
+1. **Creating a NEW fluid package:**
+   - Add a new entry to FluidPackage_Components with key = FluidPackage_NextID
+   - Add corresponding entries to FluidPackage_Thermo and FluidPackage_Names with the same key
+   - Increment FluidPackage_NextID by 1
+   - Example for creating package ID 2 with water and oxygen:
+
+   "Flowsheet_FluidPackage_Registry": {
+     "cereal_class_version": 0,
+     "FluidPackage_Components": [
+       { "key": 1, "value": ["Nitrogen", "Oxygen"] },
+       { "key": 2, "value": ["Water", "Oxygen"] }
+     ],
+     "FluidPackage_Thermo": [
+       { "key": 1, "value": "HEOS" },
+       { "key": 2, "value": "HEOS" }
+     ],
+     "FluidPackage_Names": [
+       { "key": 1, "value": "Package #1" },
+       { "key": 2, "value": "Air/Water Package" }
+     ],
+     "FluidPackage_NextID": 2
+   }
+
+2. **Valid Components (from CoolProp library):**
+   IMPORTANT: Use these EXACT names (case-sensitive):
+   Common gases: Nitrogen, Oxygen, Argon, CarbonDioxide, Hydrogen, Helium, Air
+   Common fluids: Water, Methane, Ethane, n-Propane, n-Butane, Ammonia, R134a
+   Others: Acetone, Benzene, Toluene, Ethanol, Methanol, etc.
+   (Full list: 1-Butene, Acetone, Air, Ammonia, Argon, Benzene, CarbonDioxide, CarbonMonoxide,
+    Ethane, Ethanol, Ethylene, Helium, Hydrogen, Methane, Methanol, Nitrogen, Oxygen, Water, and many refrigerants)
+
+3. **Valid Thermodynamic Models:**
+   - "HEOS" (Helmholtz Equation of State) - Most accurate, recommended for all cases
+   - Other models may be added in future
+
+4. **Assigning fluid packages to streams:**
+   - Set Stream_Fluid_Package_ID to the package key (ID)
+   - Ensure mole fractions match the components in that package
+   - Example: Stream using package ID 2 must have mole fractions for Water and Oxygen only
+
 --- EXAMPLES (use these as templates) ---
 ${FEW_SHOT_EXAMPLES}
 --- END OF EXAMPLES ---`;
