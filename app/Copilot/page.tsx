@@ -39,9 +39,9 @@ export default function CopilotPage() {
     }
   }, [currentPdfText]);
 
-  const handlePdfUploaded = (text: string) => {
+  const handlePdfUploaded = (text: string, metadata: any) => {
     setCurrentPdfText(text);
-    console.log('✅ PDF uploaded successfully, context will be sent to WASM chat');
+    console.log('✅ PDF uploaded:', metadata.title, `(${metadata.numPages} pages)`);
   };
 
   return (
