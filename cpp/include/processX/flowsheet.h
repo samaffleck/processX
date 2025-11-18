@@ -449,6 +449,55 @@ namespace px {
       }
     }
 
+    // Rebuild name counters from existing object names (call after loading from JSON)
+    void rebuild_name_counters() {
+      counters_.clear();
+
+      // Helper lambda to extract counter from name like "stream-5" -> ("stream", 5)
+      auto update_counter = [this](const std::string& name) {
+        auto dash_pos = name.rfind('-');
+        if (dash_pos != std::string::npos && dash_pos + 1 < name.size()) {
+          std::string prefix = name.substr(0, dash_pos);
+          std::string num_str = name.substr(dash_pos + 1);
+          try {
+            uint32_t num = std::stoul(num_str);
+            auto& counter = counters_[prefix];
+            if (num > counter) counter = num;
+          } catch (...) {
+            // Not a valid number, skip
+          }
+        }
+      };
+
+      // Scan all streams
+      streams_.for_each([&](const Stream& s) {
+        update_counter(s.name);
+      });
+
+      // Scan all unit operations
+      valves_.for_each([&](const Valve& u) {
+        update_counter(u.name);
+      });
+      mixers_.for_each([&](const Mixer& u) {
+        update_counter(u.name);
+      });
+      splitters_.for_each([&](const Splitter& u) {
+        update_counter(u.name);
+      });
+      heat_exchangers_.for_each([&](const HeatExchanger& u) {
+        update_counter(u.name);
+      });
+      simple_heat_exchangers_.for_each([&](const SimpleHeatExchanger& u) {
+        update_counter(u.name);
+      });
+      pumps_.for_each([&](const Pump& u) {
+        update_counter(u.name);
+      });
+      component_splitters_.for_each([&](const ComponentSplitter& u) {
+        update_counter(u.name);
+      });
+    }
+
   private:
     std::unordered_map<std::string, uint32_t> counters_;
     LogCallback log_callback_;

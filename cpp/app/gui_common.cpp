@@ -205,9 +205,14 @@ bool LoadFlowsheetFromJSONString(const std::string& json_string) {
     
     std::cerr << "[LoadFlowsheetFromJSONString] Deserializing flowsheet..." << std::endl;
     archive(flowsheet);
-    
+
     std::cerr << "[LoadFlowsheetFromJSONString] Deserialization successful!" << std::endl;
-    
+
+    // Rebuild name counters from loaded data to prevent duplicate names
+    std::cerr << "[LoadFlowsheetFromJSONString] Rebuilding name counters..." << std::endl;
+    flowsheet.rebuild_name_counters();
+    std::cerr << "[LoadFlowsheetFromJSONString] Name counters rebuilt" << std::endl;
+
     // Clear selection when loading new data
     selected_unit.clear();
     std::cerr << "[LoadFlowsheetFromJSONString] Selection cleared" << std::endl;
