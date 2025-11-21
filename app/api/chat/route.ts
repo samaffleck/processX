@@ -5,7 +5,7 @@ import { BASE_SYSTEM_PROMPT } from './prompts';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { message, jsonData, conversationHistory, pdfContext } = body;
+    const { message, jsonData, conversationHistory, pdfContext, recentErrors } = body;
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -36,6 +36,21 @@ export async function POST(request: NextRequest) {
         role: 'system',
         content: `USER-UPLOADED PDF CONTENT (use this to answer questions accurately):\n\n${pdfContext.trim()}`,
       });
+    }
+
+    // Add recent errors if present
+    if (recentErrors && Array.isArray(recentErrors) && recentErrors.length > 0) {
+      const errorText = recentErrors
+        .filter((err: any) => typeof err === 'string' && err.trim().length > 0)
+        .map((err: string, idx: number) => `${idx + 1}. ${err.trim()}`)
+        .join('\n');
+      
+      if (errorText.length > 0) {
+        messages.push({
+          role: 'system',
+          content: `RECENT FLOWSHEET ERRORS (fix these issues in the flowsheet):\n\n${errorText}\n\nThese errors occurred when trying to assemble or solve the flowsheet. Please fix the issues mentioned above when updating the flowsheet.`,
+        });
+      }
     }
 
     // Attach current flowsheet if provided

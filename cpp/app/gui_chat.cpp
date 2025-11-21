@@ -36,9 +36,10 @@ extern "C" {
 }
 
 // Update the EM_JS wrapper
-EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json), {
+EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json, const char* recent_errors), {
   const message = UTF8ToString(user_message);
   const json = UTF8ToString(flowsheet_json);
+  const errors = UTF8ToString(recent_errors);
   
   // Define callLLMAPI inline if not already defined (fallback implementation)
   if (typeof window.callLLMAPI !== 'function') {
@@ -60,6 +61,17 @@ EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json)
         // Get PDF context if available (set by React app when PDF is uploaded)
         const pdfContext = window.currentPdfContext || '';
 
+        // Parse errors if provided
+        let errorMessages = null;
+        if (errors && errors.length > 0) {
+          try {
+            errorMessages = JSON.parse(errors);
+          } catch (e) {
+            console.warn('[callLLMAPI] Failed to parse error messages:', e);
+            errorMessages = null;
+          }
+        }
+
         // Call the Next.js API endpoint
         const response = await fetch('/api/chat', {
           method: 'POST',
@@ -71,6 +83,7 @@ EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json)
             jsonData: jsonData,
             conversationHistory: [],
             pdfContext: pdfContext,
+            recentErrors: errorMessages,
           }),
         });
 
@@ -147,6 +160,32 @@ EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json)
 static std::vector<ChatMessage> chat_messages;
 static char input_buffer[1024] = "";
 static constexpr size_t MAX_CHAT_MESSAGES = 1000;
+
+// Helper function to escape JSON string
+static std::string escape_json_string(const std::string& str) {
+  std::ostringstream oss;
+  for (char c : str) {
+    switch (c) {
+      case '"': oss << "\\\""; break;
+      case '\\': oss << "\\\\"; break;
+      case '\b': oss << "\\b"; break;
+      case '\f': oss << "\\f"; break;
+      case '\n': oss << "\\n"; break;
+      case '\r': oss << "\\r"; break;
+      case '\t': oss << "\\t"; break;
+      default:
+        if (static_cast<unsigned char>(c) < 0x20) {
+          // Control character - escape as \uXXXX
+          oss << "\\u" << std::hex << std::setw(4) << std::setfill('0') 
+              << static_cast<int>(static_cast<unsigned char>(c)) << std::dec;
+        } else {
+          oss << c;
+        }
+        break;
+    }
+  }
+  return oss.str();
+}
 
 void AddChatMessage(const std::string& message, bool is_user) {
   // Get current time
@@ -507,8 +546,41 @@ void ShowChatWindow() {
     // Get current flowsheet JSON
     std::string flowsheet_json = GetFlowsheetJSONString();
     
-    // Call the EM_JS function with both message and JSON
-    call_llm_api(user_message.c_str(), flowsheet_json.c_str());
+    // Extract recent error messages - prioritize the MOST RECENT errors
+    // Look through all messages backwards (most recent first) to find errors
+    std::vector<std::string> recent_errors;
+    const size_t max_errors_to_capture = 10; // Limit to avoid overwhelming LLM
+    
+    // Search backwards through messages (most recent first)
+    for (int i = static_cast<int>(chat_messages.size()) - 1; 
+         i >= 0 && recent_errors.size() < max_errors_to_capture; 
+         --i) {
+      const auto& msg = chat_messages[static_cast<size_t>(i)];
+      if (msg.type == ChatMessage::LogError) {
+        // Insert at beginning to maintain reverse chronological order
+        // (most recent first, but we'll reverse later to show oldest first)
+        recent_errors.insert(recent_errors.begin(), msg.content);
+      }
+    }
+    
+    // Reverse to show oldest error first, most recent last (helps LLM understand progression)
+    std::reverse(recent_errors.begin(), recent_errors.end());
+    
+    // Serialize the errors as JSON array with proper escaping
+    std::string errors_json = "[]";
+    if (!recent_errors.empty()) {
+      std::ostringstream oss;
+      oss << "[";
+      for (size_t i = 0; i < recent_errors.size(); ++i) {
+        if (i > 0) oss << ",";
+        oss << "\"" << escape_json_string(recent_errors[i]) << "\"";
+      }
+      oss << "]";
+      errors_json = oss.str();
+    }
+    
+    // Call the EM_JS function with message, JSON, and errors
+    call_llm_api(user_message.c_str(), flowsheet_json.c_str(), errors_json.c_str());
     
     // Add a "thinking..." message (will be replaced when response arrives)
     AddChatMessage("Thinking...", false);
