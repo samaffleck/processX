@@ -17,11 +17,15 @@ static std::string pending_llm_message;
 static std::string pending_llm_json;
 static bool llm_response_ready = false;
 static bool llm_should_solve = false; // Flag to trigger solve
+static int pending_prompt_tokens = 0;
+static int pending_completion_tokens = 0;
+static int pending_total_tokens = 0;
 
 // Update the callback function
 extern "C" {
   EMSCRIPTEN_KEEPALIVE
-  void on_llm_response_received(const char* message, const char* simulation_json, int should_solve) {
+  void on_llm_response_received(const char* message, const char* simulation_json, int should_solve, 
+                                 int prompt_tokens, int completion_tokens, int total_tokens) {
     if (message) {
       pending_llm_message = message;
       if (simulation_json) {
@@ -30,6 +34,12 @@ extern "C" {
         pending_llm_json = "{}";
       }
       llm_should_solve = (should_solve != 0);
+      
+      // Store token usage values directly
+      pending_prompt_tokens = prompt_tokens;
+      pending_completion_tokens = completion_tokens;
+      pending_total_tokens = total_tokens;
+      
       llm_response_ready = true;
     }
   }
@@ -105,10 +115,11 @@ EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json,
           };
         }
 
-        // Extract text response, JSON, and solve flag
+        // Extract text response, JSON, solve flag, and token usage
         let responseMessage = data.response || 'No response received';
         let simulationJson = '{}';
         let shouldSolve = data.shouldSolve || false;
+        let tokenUsage = data.tokenUsage || null;
 
         // If there's updated JSON, include it
         if (data.hasJsonUpdate && data.editedJson) {
@@ -118,14 +129,16 @@ EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json,
         return {
           message: responseMessage,
           simulationJson: simulationJson,
-          shouldSolve: shouldSolve
+          shouldSolve: shouldSolve,
+          tokenUsage: tokenUsage
         };
       } catch (error) {
         console.error('[callLLMAPI] Error:', error);
         return {
           message: 'Error: ' + (error.message || 'Failed to get response from AI'),
           simulationJson: '{}',
-          shouldSolve: false
+          shouldSolve: false,
+          tokenUsage: null
         };
       }
     };
@@ -137,12 +150,27 @@ EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json,
       const responseMessage = result.message || "No response";
       const simulationJson = result.simulationJson || "{}";
       const shouldSolve = result.shouldSolve ? 1 : 0;
+      const tokenUsage = result.tokenUsage || null;
       
-      // Call the C++ callback function with solve flag
+      // Parse token usage and extract individual values
+      let promptTokens = 0;
+      let completionTokens = 0;
+      let totalTokens = 0;
+      
+      if (tokenUsage) {
+        promptTokens = tokenUsage.prompt_tokens || 0;
+        completionTokens = tokenUsage.completion_tokens || 0;
+        totalTokens = tokenUsage.total_tokens || 0;
+      }
+      
+      // Call the C++ callback function with solve flag and token usage
       Module._on_llm_response_received(
         Module.stringToNewUTF8(responseMessage),
         Module.stringToNewUTF8(simulationJson),
-        shouldSolve
+        shouldSolve,
+        promptTokens,
+        completionTokens,
+        totalTokens
       );
     })
     .catch(error => {
@@ -150,6 +178,9 @@ EM_JS(void, call_llm_api, (const char* user_message, const char* flowsheet_json,
       Module._on_llm_response_received(
         Module.stringToNewUTF8(errorMsg),
         Module.stringToNewUTF8("{}"),
+        0,
+        0,
+        0,
         0
       );
     });
@@ -250,8 +281,30 @@ void ShowChatWindow() {
       chat_messages.pop_back();
     }
     
-    // Add the actual response
-    AddChatMessage(pending_llm_message, false);
+    // Add the actual response with token usage
+    auto now = std::chrono::system_clock::now();
+    auto time_t = std::chrono::system_clock::to_time_t(now);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+      now.time_since_epoch()) % 1000;
+    
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&time_t), "%H:%M:%S");
+    ss << "." << std::setfill('0') << std::setw(3) << ms.count();
+    
+    ChatMessage chat_msg;
+    chat_msg.content = pending_llm_message;
+    chat_msg.type = ChatMessage::LLM;
+    chat_msg.timestamp = ss.str();
+    chat_msg.prompt_tokens = pending_prompt_tokens;
+    chat_msg.completion_tokens = pending_completion_tokens;
+    chat_msg.total_tokens = pending_total_tokens;
+    
+    chat_messages.push_back(chat_msg);
+    
+    // Limit chat size
+    if (chat_messages.size() > MAX_CHAT_MESSAGES) {
+      chat_messages.erase(chat_messages.begin());
+    }
     
     // Process and load flowsheet JSON if provided
     if (pending_llm_json.length() > 2) { // More than just "{}"
@@ -317,6 +370,9 @@ void ShowChatWindow() {
     llm_should_solve = false;
     pending_llm_message.clear();
     pending_llm_json.clear();
+    pending_prompt_tokens = 0;
+    pending_completion_tokens = 0;
+    pending_total_tokens = 0;
   }
   #endif
   
@@ -478,6 +534,14 @@ void ShowChatWindow() {
     ImGui::PushStyleColor(ImGuiCol_Text, color);
     if (msg.type == ChatMessage::User || msg.type == ChatMessage::LLM) {
       ImGui::TextWrapped("[%s] %s: %s", msg.timestamp.c_str(), prefix, msg.content.c_str());
+      
+      // Display token usage for LLM messages
+      if (msg.type == ChatMessage::LLM && msg.total_tokens > 0) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f)); // Gray for token info
+        ImGui::Text("  Tokens: %d prompt + %d completion = %d total", 
+                    msg.prompt_tokens, msg.completion_tokens, msg.total_tokens);
+        ImGui::PopStyleColor();
+      }
     } else {
       ImGui::TextWrapped("[%s] %s", msg.timestamp.c_str(), msg.content.c_str());
     }

@@ -39,7 +39,7 @@ processX/
 │   ├── gui/              # Python GUI scripts
 │   └── core/             # Python core modules
 ├── public/                # Static assets
-│   ├── Examples/         # Example flowsheet JSON files
+│   ├── /         # Example flowsheet JSON files
 │   └── wasm_app/         # WASM build artifacts
 ├── scripts/               # Build scripts
 └── requirements.txt       # Python dependencies

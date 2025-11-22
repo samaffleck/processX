@@ -102,6 +102,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Empty response from AI' }, { status: 500 });
     }
 
+    // Extract token usage information
+    const tokenUsage = completion.usage ? {
+      prompt_tokens: completion.usage.prompt_tokens || 0,
+      completion_tokens: completion.usage.completion_tokens || 0,
+      total_tokens: completion.usage.total_tokens || 0,
+    } : null;
+
     // === Extract text response, JSON, and solve flag ===
     let textResponse = response;
     let editedJson = null;
@@ -159,6 +166,7 @@ export async function POST(request: NextRequest) {
       editedJson: hasJsonUpdate ? editedJson : null,
       hasJsonUpdate,
       shouldSolve,
+      tokenUsage,
     });
   } catch (error: any) {
     console.error('Chat API Error:', error);
