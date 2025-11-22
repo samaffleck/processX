@@ -579,13 +579,31 @@ namespace px {
     sys.add(name + ": balance", [&](){ 
       return si.molar_flow.value - so_overhead.molar_flow.value - so_bottom.molar_flow.value; 
     });
+
+    // sys.add(name + ": overhead_mass_balance", [&, self]() {
+    //   double Fi_in = 0.0;
+    //   size_t num_components = si.mole_fractions.size();
+    //   for (size_t i = 0; i < num_components; ++i) {
+    //     Fi_in += si.mole_fractions[i].value * si.molar_flow.value * self->overhead_split_ratios[i].value;
+    //   }
+    //   return Fi_in - so_overhead.molar_flow.value;
+    // });
+
+    // sys.add(name + ": bottom_mass_balance", [&, self]() {
+    //   double Fi_in = 0.0;
+    //   size_t num_components = si.mole_fractions.size();
+    //   for (size_t i = 0; i < num_components; ++i) {
+    //     Fi_in += si.mole_fractions[i].value * si.molar_flow.value * (1.0 - self->overhead_split_ratios[i].value);
+    //   }
+    //   return Fi_in - so_bottom.molar_flow.value;
+    // });
     
     // Energy balance: Q = m_overhead * h_overhead + m_bottom * h_bottom - m_in * h_in
     sys.add(name + ": energy", [&, self](){ 
       return self->Q.value 
-        + so_overhead.molar_flow.value * so_overhead.molar_enthalpy.value
-        + so_bottom.molar_flow.value * so_bottom.molar_enthalpy.value
-        - si.molar_flow.value * si.molar_enthalpy.value; 
+        - so_overhead.molar_flow.value * so_overhead.molar_enthalpy.value
+        - so_bottom.molar_flow.value * so_bottom.molar_enthalpy.value
+        + si.molar_flow.value * si.molar_enthalpy.value; 
     });
     
     // Pressure drop: P_overhead = P_bottom
@@ -602,36 +620,18 @@ namespace px {
     // For each component i:
     //   - Overhead: n_in * x_in,i * split_ratio_i = n_overhead * x_overhead,i
     //   - Bottom: n_in * x_in,i * (1 - split_ratio_i) = n_bottom * x_bottom,i
-    // The general balance (n_in * x_in,i = n_overhead * x_overhead,i + n_bottom * x_bottom,i) 
-    // is automatically satisfied by these two equations
     size_t num_components = si.mole_fractions.size();
     for (size_t i = 0; i < num_components; ++i) {
-      // Check bounds for split ratios
-      if (i >= overhead_split_ratios.size()) {
-        // If split ratio not provided, assume equal split (0.5)
-        sys.add(name + ": overhead_comp_balance[" + std::to_string(i) + "]", [&, i]() {
-          double split_ratio = 0.5;
-          return si.mole_fractions[i].value * si.molar_flow.value * split_ratio 
-            - so_overhead.mole_fractions[i].value * so_overhead.molar_flow.value;
-        });
-        sys.add(name + ": bottom_comp_balance[" + std::to_string(i) + "]", [&, i]() {
-          double split_ratio = 0.5;
-          return si.mole_fractions[i].value * si.molar_flow.value * (1.0 - split_ratio) 
-            - so_bottom.mole_fractions[i].value * so_bottom.molar_flow.value;
-        });
-      } else {
-        // Overhead component balance: n_in * x_in,i * split_ratio_i = n_overhead * x_overhead,i
-        sys.add(name + ": overhead_comp_balance[" + std::to_string(i) + "]", [&, i, self]() {
-          return si.mole_fractions[i].value * si.molar_flow.value * self->overhead_split_ratios[i].value 
-            - so_overhead.mole_fractions[i].value * so_overhead.molar_flow.value;
-        });
+      sys.add(name + ": overhead_comp_balance[" + std::to_string(i) + "]", [&, i, self]() {
+        return si.mole_fractions[i].value * si.molar_flow.value * self->overhead_split_ratios[i].value 
+          - so_overhead.mole_fractions[i].value * so_overhead.molar_flow.value;
+      });
 
-        // Bottom component balance: n_in * x_in,i * (1 - split_ratio_i) = n_bottom * x_bottom,i
-        sys.add(name + ": bottom_comp_balance[" + std::to_string(i) + "]", [&, i, self]() {
-          return si.mole_fractions[i].value * si.molar_flow.value * (1.0 - self->overhead_split_ratios[i].value) 
-            - so_bottom.mole_fractions[i].value * so_bottom.molar_flow.value;
-        });
-      }
+      sys.add(name + ": bottom_comp_balance[" + std::to_string(i) + "]", [&, i, self]() {
+        return si.mole_fractions[i].value * si.molar_flow.value * (1.0 - self->overhead_split_ratios[i].value) 
+          - so_bottom.mole_fractions[i].value * so_bottom.molar_flow.value;
+      });
+    
     }
     // Note: State equations are added once per stream in Flowsheet::assemble() to avoid duplicates
   }

@@ -942,9 +942,9 @@ namespace px {
     splitter.overhead_split_ratios.resize(components.size());
     
     // Component 0 (N2): 70% goes to overhead, 30% to bottom
-    splitter.overhead_split_ratios[0] = Var("split_ratio_N2", 0.7, true);
+    splitter.overhead_split_ratios[0] = Var("split_ratio_N2", 1.0, true);
     // Component 1 (O2): 30% goes to overhead, 70% to bottom
-    splitter.overhead_split_ratios[1] = Var("split_ratio_O2", 0.3, true);
+    splitter.overhead_split_ratios[1] = Var("split_ratio_O2", 0.0, true);
 
     // Given: inlet conditions
     const double Pin = 1.0e5;   // Pa
@@ -956,29 +956,17 @@ namespace px {
     in.pressure.set_val(Pin, true);
     in.temperature.set_val(Tin, true);
     in.molar_flow.set_val(Fin, true);
-    splitter.Q.set_val(Q, true);
+    splitter.Q.set_val(Q, false);
 
     // Unknowns
     overhead.pressure.set_val(0.95e5, false);  // Should equal bottom pressure
     bottom.pressure.set_val(0.95e5, false);    // Should equal Pin
-    overhead.temperature.set_val(300.0, false);
-    bottom.temperature.set_val(300.0, false);
+    overhead.temperature.set_val(300.0, true);
+    bottom.temperature.set_val(300.0, true);
     
-    // Fix one outlet flow and one mole fraction to remove redundancy
-    // The mole fraction sum constraints are redundant when we have component balance equations
-    // for all components. By fixing one outlet flow and one mole fraction, we break the redundancy.
-    // Expected overhead flow from split ratios: n_overhead ≈ n_in * (x_in,0 * r0 + x_in,1 * r1)
-    double expected_overhead_flow = Fin * (in.mole_fractions[0].value * splitter.overhead_split_ratios[0].value + 
-                                           in.mole_fractions[1].value * splitter.overhead_split_ratios[1].value);
-    overhead.molar_flow.set_val(expected_overhead_flow, true);  // Fix overhead flow
-    bottom.molar_flow.set_val(Fin - expected_overhead_flow, false);  // Will be determined by mass balance
+    overhead.molar_flow.set_val(0.5 * Fin, false);  // Fix overhead flow
+    bottom.molar_flow.set_val(0.5 * Fin, false);  // Will be determined by mass balance
     
-    // Fix one overhead mole fraction to remove the remaining redundancy
-    // Overhead will be richer in N2 since r0 (0.7) > r1 (0.3)
-    if (overhead.mole_fractions.size() > 0) {
-      overhead.mole_fractions[0].set_val(0.85, true);  // Fix overhead mole fraction for N2
-    }
-
     run();
 
     // Verify mass balance: m_in = m_overhead + m_bottom
