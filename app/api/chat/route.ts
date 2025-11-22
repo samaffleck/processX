@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { BASE_SYSTEM_PROMPT } from './prompts';
+import { buildSystemPrompt } from './prompts';
+import { retrieveRelevantExamples } from './exampleRetrieval';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,9 +26,14 @@ export async function POST(request: NextRequest) {
 
     const openai = new OpenAI({ apiKey });
 
+    // === Retrieve relevant examples based on user query ===
+    // Get top 2 most relevant examples (instead of all 12)
+    const relevantExamples = retrieveRelevantExamples(message, 2);
+    const systemPrompt = buildSystemPrompt(relevantExamples);
+
     // === Build messages ===
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-      { role: 'system', content: BASE_SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt },
     ];
 
     // Add PDF context if present

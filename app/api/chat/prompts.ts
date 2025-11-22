@@ -1,11 +1,15 @@
 // app/api/chat/prompts.ts
-import { EXAMPLE_FLOWSHEETS } from './examples';
 
-const FEW_SHOT_EXAMPLES = EXAMPLE_FLOWSHEETS
-  .map((json, i) => `EXAMPLE ${i + 1}:\n\`\`\`json\n${json}\n\`\`\``)
-  .join('\n\n');
+/**
+ * Build the base system prompt with dynamically selected examples
+ * @param exampleFlowsheets - Array of example JSON strings to include
+ */
+export function buildSystemPrompt(exampleFlowsheets: string[]): string {
+  const fewShotExamples = exampleFlowsheets
+    .map((json, i) => `EXAMPLE ${i + 1}:\n\`\`\`json\n${json}\n\`\`\``)
+    .join('\n\n');
 
-export const BASE_SYSTEM_PROMPT = `You are an expert chemical process engineer assistant.
+  return `You are an expert chemical process engineer assistant.
 You can **create a new flowsheet from scratch** or edit an existing one.
 
 **IMPORTANT RESPONSE FORMAT:**
@@ -87,5 +91,6 @@ When creating or modifying fluid packages, follow this structure:
    - Example: Stream using package ID 2 must have mole fractions for Water and Oxygen only
 
 --- EXAMPLES (use these as templates) ---
-${FEW_SHOT_EXAMPLES}
+${fewShotExamples}
 --- END OF EXAMPLES ---`;
+}
