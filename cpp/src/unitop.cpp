@@ -534,6 +534,40 @@ namespace px {
     auto& so_overhead = fs.get<Stream>(overhead);
     auto& so_bottom = fs.get<Stream>(bottom);
 
+    // Initialize outlet streams' fluid packages to match inlet
+    if (si.fluid_package_id != 0) {
+      if (so_overhead.fluid_package_id != si.fluid_package_id) {
+        so_overhead.fluid_package_id = si.fluid_package_id;
+      }
+      if (so_bottom.fluid_package_id != si.fluid_package_id) {
+        so_bottom.fluid_package_id = si.fluid_package_id;
+      }
+    }
+
+    // Initialize mole fractions for outlet streams based on inlet's fluid package
+    if (si.fluid_package_id != 0) {
+      auto components = fs.fluids.GetComponents(si.fluid_package_id);
+      if (!components.empty()) {
+        // Initialize overhead stream mole fractions
+        if (so_overhead.mole_fractions.size() != components.size()) {
+          so_overhead.initialize_composition(components.size(), components);
+        }
+        // Initialize bottom stream mole fractions
+        if (so_bottom.mole_fractions.size() != components.size()) {
+          so_bottom.initialize_composition(components.size(), components);
+        }
+        // Initialize split ratios if needed
+        if (overhead_split_ratios.size() != components.size()) {
+          overhead_split_ratios.resize(components.size());
+          for (size_t i = 0; i < components.size(); ++i) {
+            if (overhead_split_ratios[i].GetName().empty()) {
+              overhead_split_ratios[i] = Var("split_ratio_" + components[i], 0.5, false);
+            }
+          }
+        }
+      }
+    }
+
     reg.register_var(si.molar_flow);
     reg.register_var(so_overhead.molar_flow);
     reg.register_var(so_bottom.molar_flow);
@@ -576,27 +610,27 @@ namespace px {
     auto& so_bottom = fs.get<Stream>(bottom);
     
     // Mass balance: m_in = m_overhead + m_bottom
-    sys.add(name + ": balance", [&](){ 
-      return si.molar_flow.value - so_overhead.molar_flow.value - so_bottom.molar_flow.value; 
+    // sys.add(name + ": balance", [&](){ 
+    //   return si.molar_flow.value - so_overhead.molar_flow.value - so_bottom.molar_flow.value; 
+    // });
+
+    sys.add(name + ": overhead_mass_balance", [&, self]() {
+      double Fi_in = 0.0;
+      size_t num_components = si.mole_fractions.size();
+      for (size_t i = 0; i < num_components; ++i) {
+        Fi_in += si.mole_fractions[i].value * si.molar_flow.value * self->overhead_split_ratios[i].value;
+      }
+      return Fi_in - so_overhead.molar_flow.value;
     });
 
-    // sys.add(name + ": overhead_mass_balance", [&, self]() {
-    //   double Fi_in = 0.0;
-    //   size_t num_components = si.mole_fractions.size();
-    //   for (size_t i = 0; i < num_components; ++i) {
-    //     Fi_in += si.mole_fractions[i].value * si.molar_flow.value * self->overhead_split_ratios[i].value;
-    //   }
-    //   return Fi_in - so_overhead.molar_flow.value;
-    // });
-
-    // sys.add(name + ": bottom_mass_balance", [&, self]() {
-    //   double Fi_in = 0.0;
-    //   size_t num_components = si.mole_fractions.size();
-    //   for (size_t i = 0; i < num_components; ++i) {
-    //     Fi_in += si.mole_fractions[i].value * si.molar_flow.value * (1.0 - self->overhead_split_ratios[i].value);
-    //   }
-    //   return Fi_in - so_bottom.molar_flow.value;
-    // });
+    sys.add(name + ": bottom_mass_balance", [&, self]() {
+      double Fi_in = 0.0;
+      size_t num_components = si.mole_fractions.size();
+      for (size_t i = 0; i < num_components; ++i) {
+        Fi_in += si.mole_fractions[i].value * si.molar_flow.value * (1.0 - self->overhead_split_ratios[i].value);
+      }
+      return Fi_in - so_bottom.molar_flow.value;
+    });
     
     // Energy balance: Q = m_overhead * h_overhead + m_bottom * h_bottom - m_in * h_in
     sys.add(name + ": energy", [&, self](){ 
@@ -621,6 +655,21 @@ namespace px {
     //   - Overhead: n_in * x_in,i * split_ratio_i = n_overhead * x_overhead,i
     //   - Bottom: n_in * x_in,i * (1 - split_ratio_i) = n_bottom * x_bottom,i
     size_t num_components = si.mole_fractions.size();
+    
+    // Safety check: ensure all streams have the same number of components
+    if (num_components == 0) {
+      // If inlet has no components, skip component balance equations
+      return;
+    }
+    
+    // Ensure outlet streams and split ratios are properly sized
+    if (so_overhead.mole_fractions.size() != num_components ||
+        so_bottom.mole_fractions.size() != num_components ||
+        self->overhead_split_ratios.size() != num_components) {
+      // This should have been initialized in register_unknowns, but add a safety check
+      return;
+    }
+    
     for (size_t i = 0; i < num_components; ++i) {
       sys.add(name + ": overhead_comp_balance[" + std::to_string(i) + "]", [&, i, self]() {
         return si.mole_fractions[i].value * si.molar_flow.value * self->overhead_split_ratios[i].value 

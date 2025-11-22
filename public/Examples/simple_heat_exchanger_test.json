@@ -132,14 +132,19 @@
             "Registry_Slots": [],
             "Registry_Free_Head": 4294967295
         },
+        "Flowsheet_ComponentSplitter_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
+            "Registry_Free_Head": 4294967295
+        },
         "Flowsheet_FluidPackage_Registry": {
             "cereal_class_version": 0,
             "FluidPackage_Components": [
                 {
                     "key": 1,
                     "value": [
-                        "Nitrogen",
-                        "Oxygen"
+                        "N2",
+                        "O2"
                     ]
                 }
             ],

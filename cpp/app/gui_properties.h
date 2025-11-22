@@ -11,5 +11,6 @@ void ShowStreamProperties(px::Stream& stream);
 void ShowSimpleHeatExchangerProperties(px::SimpleHeatExchanger& hex);
 void ShowHeatExchangerProperties(px::HeatExchanger& hex);
 void ShowPumpProperties(px::Pump& pump);
+void ShowComponentSplitterProperties(px::ComponentSplitter& cs);
 void ShowSelectedUnitProperties();
 

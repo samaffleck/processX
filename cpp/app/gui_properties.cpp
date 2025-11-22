@@ -421,6 +421,92 @@ void ShowPumpProperties(px::Pump& pump) {
   StreamCombo("Outlet:", pump.out, stream_list);
 }
 
+void ShowComponentSplitterProperties(px::ComponentSplitter& cs) {
+  ImGui::Text("ComponentSplitter Properties");
+  ImGui::Separator();
+
+  ShowTextInput(cs.name, "Name");
+
+  ImGui::Spacing();
+
+  // Parameters editing
+  ImGui::Text("Parameters:");
+  
+  static QuantityEditState Q_state;
+  ShowDoubleInput(cs.Q, Q_state, "Heat Duty", MakeUnitSet(kPowerUnits));
+
+  ImGui::Spacing();
+
+  // Connections with dropdowns
+  ImGui::Text("Connections:");
+  
+  // Build stream list
+  std::vector<StreamItem> stream_list = GetStreamList();
+  
+  // Inlet dropdown
+  StreamCombo("Inlet:", cs.in, stream_list);
+  
+  // Overhead outlet dropdown
+  StreamCombo("Overhead:", cs.overhead, stream_list);
+  
+  // Bottom outlet dropdown
+  StreamCombo("Bottom:", cs.bottom, stream_list);
+
+  ImGui::Spacing();
+  ImGui::Separator();
+  ImGui::Spacing();
+
+  // Split ratios - need to get components from inlet stream's fluid package
+  if (cs.in.valid()) {
+    auto& inlet_stream = flowsheet.get<px::Stream>(cs.in);
+    if (inlet_stream.fluid_package_id != 0) {
+      auto components = flowsheet.fluids.GetComponents(inlet_stream.fluid_package_id);
+      
+      if (!components.empty()) {
+        ImGui::Text("Overhead Split Ratios:");
+        ImGui::Spacing();
+        
+        // Ensure split ratios are initialized
+        if (cs.overhead_split_ratios.size() != components.size()) {
+          size_t old_size = cs.overhead_split_ratios.size();
+          cs.overhead_split_ratios.resize(components.size());
+          // Initialize new elements (those beyond the old size)
+          for (size_t i = old_size; i < components.size(); ++i) {
+            cs.overhead_split_ratios[i] = px::Var("split_ratio_" + components[i], 0.5, false);
+          }
+          // Also initialize any existing elements that have empty names
+          for (size_t i = 0; i < old_size && i < components.size(); ++i) {
+            if (cs.overhead_split_ratios[i].GetName().empty()) {
+              cs.overhead_split_ratios[i] = px::Var("split_ratio_" + components[i], cs.overhead_split_ratios[i].value, cs.overhead_split_ratios[i].fixed);
+            }
+          }
+        }
+        
+        ImGui::PushItemWidth(200);
+        static QuantityEditState split_ratio_state;
+        for (size_t i = 0; i < components.size() && i < cs.overhead_split_ratios.size(); ++i) {
+          std::string label = components[i] + " to Overhead:";
+          ShowDoubleInput(cs.overhead_split_ratios[i], split_ratio_state, label.c_str(), MakeUnitSet(kDimensionlessUnits));
+        }
+        ImGui::PopItemWidth();
+        
+        ImGui::Spacing();
+        ImGui::Text("Note: Split ratio is the fraction of each component that goes to the overhead stream.");
+        ImGui::Text("      The remaining fraction (1 - ratio) goes to the bottom stream.");
+      } else {
+        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "Inlet stream has no components defined.");
+        ImGui::Text("Set the fluid package for the inlet stream to configure split ratios.");
+      }
+    } else {
+      ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "Inlet stream has no fluid package assigned.");
+      ImGui::Text("Assign a fluid package to the inlet stream to configure split ratios.");
+    }
+  } else {
+    ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "No inlet stream connected.");
+    ImGui::Text("Connect an inlet stream to configure split ratios.");
+  }
+}
+
 void ShowSelectedUnitProperties() {
   if (!selected_unit.valid()) {
     ImGui::Text("No unit selected");
@@ -568,6 +654,27 @@ void ShowSelectedUnitProperties() {
         
         // Delete button
         if (ImGui::Button("Delete Pump", ImVec2(-1, 0))) {
+          flowsheet.erase(handle);
+          selected_unit.clear();
+          found = true;
+          return;
+        }
+        found = true;
+      }
+      idx++;
+    });
+  } else if (selected_unit.type == SelectionType::ComponentSplitter) {
+    uint32_t idx = 0;
+    flowsheet.component_splitters_.for_each_with_handle([&](px::ComponentSplitter& cs, px::Handle<px::ComponentSplitter> handle) {
+      if (!found && idx == selected_unit.index) {
+        ShowComponentSplitterProperties(cs);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Delete button
+        if (ImGui::Button("Delete ComponentSplitter", ImVec2(-1, 0))) {
           flowsheet.erase(handle);
           selected_unit.clear();
           found = true;

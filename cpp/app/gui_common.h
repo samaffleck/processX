@@ -11,7 +11,7 @@
 extern px::Flowsheet flowsheet;
 
 // Selection state - tracks which unit is currently selected
-enum class SelectionType { None, Valve, Mixer, Splitter, Stream, HeatExchanger, SimpleHeatExchanger, Pump };
+enum class SelectionType { None, Valve, Mixer, Splitter, Stream, HeatExchanger, SimpleHeatExchanger, Pump, ComponentSplitter };
 
 struct Selection {
   SelectionType type = SelectionType::None;

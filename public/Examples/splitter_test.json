@@ -70,7 +70,7 @@
                             },
                             {
                                 "Variable_Name": "Mole_Fraction[O2]",
-                                "Variable_Value": 0.20999999999999997,
+                                "Variable_Value": 0.21,
                                 "Variable_Is_Fixed": false
                             }
                         ]
@@ -186,14 +186,19 @@
             "Registry_Slots": [],
             "Registry_Free_Head": 4294967295
         },
+        "Flowsheet_ComponentSplitter_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
+            "Registry_Free_Head": 4294967295
+        },
         "Flowsheet_FluidPackage_Registry": {
             "cereal_class_version": 0,
             "FluidPackage_Components": [
                 {
                     "key": 1,
                     "value": [
-                        "Nitrogen",
-                        "Oxygen"
+                        "N2",
+                        "O2"
                     ]
                 }
             ],

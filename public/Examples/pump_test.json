@@ -58,7 +58,7 @@
                         },
                         "Stream_Temperature": {
                             "Variable_Name": "Temperature",
-                            "Variable_Value": 365.42225687695739,
+                            "Variable_Value": 365.4222568769574,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Fluid_Package_ID": 1,
@@ -143,7 +143,7 @@
                         },
                         "Pump_Work": {
                             "Variable_Name": "W",
-                            "Variable_Value": 23891.327101620343,
+                            "Variable_Value": 23891.32710162039,
                             "Variable_Is_Fixed": false
                         },
                         "Pump_Efficiency": {
@@ -159,14 +159,19 @@
             ],
             "Registry_Free_Head": 4294967295
         },
+        "Flowsheet_ComponentSplitter_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
+            "Registry_Free_Head": 4294967295
+        },
         "Flowsheet_FluidPackage_Registry": {
             "cereal_class_version": 0,
             "FluidPackage_Components": [
                 {
                     "key": 1,
                     "value": [
-                        "Nitrogen",
-                        "Oxygen"
+                        "N2",
+                        "O2"
                     ]
                 }
             ],

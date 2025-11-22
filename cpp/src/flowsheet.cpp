@@ -216,6 +216,101 @@ namespace px {
 
   // Helper function to enforce state equation: T = f(H, P) or H = f(T, P)
   // Returns residual: 0 when state equation is satisfied
+  // Helper function to normalize and validate mole fractions for CoolProp
+  // Handles edge cases like near-zero values and values slightly > 1.0
+  static std::vector<double> normalize_mole_fractions(const std::vector<double>& raw_fractions) {
+    std::vector<double> mole_fracs;
+    mole_fracs.reserve(raw_fractions.size());
+    double sum = 0.0;
+    const double tolerance = 1e-10;
+    
+    // First pass: clamp and round values very close to 0 or 1
+    for (double val : raw_fractions) {
+      // Round values very close to 0 or 1 to exact bounds
+      if (std::abs(val) < tolerance) {
+        val = 0.0;
+      } else if (std::abs(val - 1.0) < tolerance) {
+        val = 1.0;
+      } else {
+        // Clamp to [0, 1] range
+        if (val < 0.0) val = 0.0;
+        if (val > 1.0) val = 1.0;
+      }
+      mole_fracs.push_back(val);
+      sum += val;
+    }
+    
+    // Check if we have a near-pure component case (one component >> others)
+    // If so, set the dominant component to 1.0 and others to 0.0
+    bool is_near_pure = false;
+    size_t dominant_idx = 0;
+    double max_val = 0.0;
+    for (size_t i = 0; i < mole_fracs.size(); ++i) {
+      if (mole_fracs[i] > max_val) {
+        max_val = mole_fracs[i];
+        dominant_idx = i;
+      }
+    }
+    
+    // If the dominant component is > 0.99, treat as pure component
+    if (max_val > 0.99 && sum > 0.99) {
+      is_near_pure = true;
+      for (size_t i = 0; i < mole_fracs.size(); ++i) {
+        mole_fracs[i] = (i == dominant_idx) ? 1.0 : 0.0;
+      }
+    } else {
+      // Normalize to sum to 1.0 (CoolProp requirement)
+      if (sum > tolerance) {
+        for (auto& mf : mole_fracs) {
+          mf /= sum;
+        }
+      } else {
+        // If sum is too small, use equal fractions
+        double equal_frac = 1.0 / mole_fracs.size();
+        for (auto& mf : mole_fracs) {
+          mf = equal_frac;
+        }
+      }
+      
+      // Final pass: round very small values to 0 and ensure sum is exactly 1.0
+      double final_sum = 0.0;
+      for (auto& mf : mole_fracs) {
+        if (mf < tolerance) {
+          mf = 0.0;
+        } else if (mf > 1.0 - tolerance) {
+          mf = 1.0;
+        }
+        final_sum += mf;
+      }
+      
+      // If we have a near-pure case after normalization, handle it
+      if (final_sum > tolerance) {
+        double max_norm = 0.0;
+        size_t max_idx = 0;
+        for (size_t i = 0; i < mole_fracs.size(); ++i) {
+          if (mole_fracs[i] > max_norm) {
+            max_norm = mole_fracs[i];
+            max_idx = i;
+          }
+        }
+        
+        if (max_norm > 0.99) {
+          // Near-pure: set dominant to 1.0, others to 0.0
+          for (size_t i = 0; i < mole_fracs.size(); ++i) {
+            mole_fracs[i] = (i == max_idx) ? 1.0 : 0.0;
+          }
+        } else {
+          // Renormalize to ensure exact sum of 1.0
+          for (auto& mf : mole_fracs) {
+            mf /= final_sum;
+          }
+        }
+      }
+    }
+    
+    return mole_fracs;
+  }
+
   // Requires: P must be fixed, and at least one of (T, H) must be fixed
   static double state_equation_residual(
     Stream& stream,
@@ -237,28 +332,15 @@ namespace px {
     auto components = flowsheet->fluids.GetComponents(stream.fluid_package_id);
     if (components.size() > 1 && stream.mole_fractions.size() == components.size()) {
       try {
-        std::vector<double> mole_fracs;
-        mole_fracs.reserve(stream.mole_fractions.size());
-        double sum = 0.0;
+        // Extract raw mole fraction values
+        std::vector<double> raw_fractions;
+        raw_fractions.reserve(stream.mole_fractions.size());
         for (const auto& mf : stream.mole_fractions) {
-          double val = mf.value;
-          if (val < 0.0) val = 0.0; // Clamp negative values
-          mole_fracs.push_back(val);
-          sum += val;
+          raw_fractions.push_back(mf.value);
         }
         
-        // Normalize to sum to 1.0 (CoolProp requirement)
-        if (sum > 1e-10) {
-          for (auto& mf : mole_fracs) {
-            mf /= sum;
-          }
-        } else {
-          // If sum is too small, use equal fractions
-          double equal_frac = 1.0 / mole_fracs.size();
-          for (auto& mf : mole_fracs) {
-            mf = equal_frac;
-          }
-        }
+        // Normalize using helper function
+        std::vector<double> mole_fracs = normalize_mole_fractions(raw_fractions);
         
         fluid->set_mole_fractions(mole_fracs);
         
@@ -310,10 +392,15 @@ namespace px {
       // Prepare mole fractions for the calculation
       std::vector<double> mole_fracs;
       if (components.size() > 1 && stream.mole_fractions.size() == components.size()) {
-        mole_fracs.reserve(stream.mole_fractions.size());
+        // Extract raw mole fraction values
+        std::vector<double> raw_fractions;
+        raw_fractions.reserve(stream.mole_fractions.size());
         for (const auto& mf : stream.mole_fractions) {
-          mole_fracs.push_back(mf.value);
+          raw_fractions.push_back(mf.value);
         }
+        
+        // Normalize using helper function
+        mole_fracs = normalize_mole_fractions(raw_fractions);
       }
       
       // Use FluidRegistry helper method to calculate temperature
@@ -679,6 +766,31 @@ namespace px {
         auto fluid = fluids.GetFluidPackage(s.fluid_package_id);
         if (fluid) {
           try {
+            // For mixtures, set mole fractions before updating
+            // CoolProp requires mole fractions to be set for mixtures
+            auto components = fluids.GetComponents(s.fluid_package_id);
+            if (components.size() > 1) {
+              std::vector<double> mole_fracs;
+              
+              if (s.mole_fractions.size() == components.size()) {
+                // Extract raw mole fraction values
+                std::vector<double> raw_fractions;
+                raw_fractions.reserve(s.mole_fractions.size());
+                for (const auto& mf : s.mole_fractions) {
+                  raw_fractions.push_back(mf.value);
+                }
+                
+                // Normalize using helper function
+                mole_fracs = normalize_mole_fractions(raw_fractions);
+              } else {
+                // Mole fractions not initialized yet - use equal fractions as default
+                // This can happen when streams are first created before unit operations initialize them
+                mole_fracs.resize(components.size(), 1.0 / components.size());
+              }
+              
+              fluid->set_mole_fractions(mole_fracs);
+            }
+            
             fluid->update(CoolProp::PT_INPUTS, s.pressure.value, s.temperature.value);
             s.molar_enthalpy.value = fluid->hmolar();
           } catch (const std::exception& e) {
@@ -723,17 +835,18 @@ namespace px {
     // This ensures mole fractions are properly normalized
     // Note: If all mole fractions are fixed and sum to 1.0, this constraint is redundant
     // but structural analysis will detect and handle it appropriately
-    streams_.for_each([&](Stream& s) {
-      if (s.mole_fractions.size() > 1) {
-        sys.add("mole_frac_sum[" + s.name + "]", [&s]() {
-          double sum = 0.0;
-          for (const auto& x : s.mole_fractions) {
-            sum += x.value;
-          }
-          return sum - 1.0; // Residual: sum should equal 1.0
-        });
-      }
-    });
+
+    // streams_.for_each([&](Stream& s) {
+    //   if (s.mole_fractions.size() > 1) {
+    //     sys.add("mole_frac_sum[" + s.name + "]", [&s]() {
+    //       double sum = 0.0;
+    //       for (const auto& x : s.mole_fractions) {
+    //         sum += x.value;
+    //       }
+    //       return sum - 1.0; // Residual: sum should equal 1.0
+    //     });
+    //   }
+    // });
 
     // DOF check: allow equations >= unknowns (redundancy will be caught by rank analysis)
     if (reg.size() > sys.size()) {

@@ -48,5 +48,11 @@ void ShowUnitOperationsPalette() {
     selected_unit.clear();
     AddLogEntry(LogEntry::Info, "Added new Pump");
   }
+  ImGui::SameLine();
+  if (ImGui::Button("ComponentSplitter", button_dim)) {
+    flowsheet.add<px::ComponentSplitter>();
+    selected_unit.clear();
+    AddLogEntry(LogEntry::Info, "Added new ComponentSplitter");
+  }
 }
 

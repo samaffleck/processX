@@ -12,7 +12,7 @@
                         "Stream_Molar_Flowrate": {
                             "cereal_class_version": 0,
                             "Variable_Name": "Molar Flowrate",
-                            "Variable_Value": -4.2599801546480928e-23,
+                            "Variable_Value": 1.0339757656912847e-25,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Pressure": {
@@ -48,7 +48,7 @@
                         "Stream_Name": "stream-2",
                         "Stream_Molar_Flowrate": {
                             "Variable_Name": "Molar Flowrate",
-                            "Variable_Value": -2.1341259803868116e-22,
+                            "Variable_Value": 0.0,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Pressure": {
@@ -84,7 +84,7 @@
                         "Stream_Name": "stream-3",
                         "Stream_Molar_Flowrate": {
                             "Variable_Name": "Molar Flowrate",
-                            "Variable_Value": -4.2599801546480928e-23,
+                            "Variable_Value": 1.0339757656912847e-25,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Pressure": {
@@ -216,14 +216,19 @@
             "Registry_Slots": [],
             "Registry_Free_Head": 4294967295
         },
+        "Flowsheet_ComponentSplitter_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
+            "Registry_Free_Head": 4294967295
+        },
         "Flowsheet_FluidPackage_Registry": {
             "cereal_class_version": 0,
             "FluidPackage_Components": [
                 {
                     "key": 1,
                     "value": [
-                        "Nitrogen",
-                        "Oxygen"
+                        "N2",
+                        "O2"
                     ]
                 }
             ],
