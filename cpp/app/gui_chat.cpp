@@ -629,7 +629,12 @@ void ShowChatWindow() {
     
     // Reverse to show oldest error first, most recent last (helps LLM understand progression)
     std::reverse(recent_errors.begin(), recent_errors.end());
-    
+
+    // DEBUG: Log error count
+    EM_ASM({
+      console.log('[C++ DEBUG] Captured ' + $0 + ' error messages from chat history (total messages: ' + $1 + ')');
+    }, recent_errors.size(), chat_messages.size());
+
     // Serialize the errors as JSON array with proper escaping
     std::string errors_json = "[]";
     if (!recent_errors.empty()) {

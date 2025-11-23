@@ -1,6 +1,8 @@
 // app/api/chat/exampleRetrieval.ts
-import { readdirSync, readFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import path from 'path';
+import crypto from 'crypto';
+import OpenAI from 'openai';
 
 interface ExampleMetadata {
   filename: string;
@@ -8,9 +10,24 @@ interface ExampleMetadata {
   description: string;
   tags: string[];
   equipmentTypes: string[];
+  embedding?: number[];
+}
+
+interface EmbeddingCache {
+  version: string;
+  metadataHash: string;
+  embeddings: {
+    filename: string;
+    embedding: number[];
+  }[];
 }
 
 const EXAMPLES_DIR = path.join(process.cwd(), 'public', 'Examples');
+const CACHE_FILE = path.join(EXAMPLES_DIR, 'embeddings_cache.json');
+const CACHE_VERSION = '1.0'; // Increment when embedding model changes
+
+// Cache for embeddings to avoid repeated API calls
+let embeddingsInitialized = false;
 
 // Metadata for each example flowsheet
 const EXAMPLE_METADATA: Omit<ExampleMetadata, 'content'>[] = [
@@ -110,12 +127,235 @@ function loadExamples() {
 loadExamples();
 
 /**
- * Retrieve the most relevant examples based on user query
+ * Calculate cosine similarity between two vectors
+ */
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length) return 0;
+
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+
+  if (normA === 0 || normB === 0) return 0;
+
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+/**
+ * Generate a hash of the example metadata to detect changes
+ */
+function generateMetadataHash(): string {
+  const metadataString = JSON.stringify(
+    EXAMPLE_METADATA.map(m => ({
+      filename: m.filename,
+      description: m.description,
+      tags: m.tags,
+      equipmentTypes: m.equipmentTypes
+    }))
+  );
+  return crypto.createHash('sha256').update(metadataString).digest('hex');
+}
+
+/**
+ * Load embeddings from cache file if valid
+ */
+function loadEmbeddingsFromCache(): boolean {
+  try {
+    if (!existsSync(CACHE_FILE)) {
+      console.log('No embeddings cache found');
+      return false;
+    }
+
+    const cacheData: EmbeddingCache = JSON.parse(readFileSync(CACHE_FILE, 'utf-8'));
+
+    // Validate cache version
+    if (cacheData.version !== CACHE_VERSION) {
+      console.log('Cache version mismatch, regenerating embeddings');
+      return false;
+    }
+
+    // Validate metadata hash
+    const currentHash = generateMetadataHash();
+    if (cacheData.metadataHash !== currentHash) {
+      console.log('Example metadata changed, regenerating embeddings');
+      return false;
+    }
+
+    // Load embeddings into metadata
+    const embeddingMap = new Map(
+      cacheData.embeddings.map(e => [e.filename, e.embedding])
+    );
+
+    let loadedCount = 0;
+    for (const example of EXAMPLES_WITH_METADATA) {
+      const embedding = embeddingMap.get(example.filename);
+      if (embedding) {
+        example.embedding = embedding;
+        loadedCount++;
+      }
+    }
+
+    if (loadedCount === EXAMPLES_WITH_METADATA.length) {
+      console.log(`Loaded ${loadedCount} embeddings from cache`);
+      return true;
+    } else {
+      console.log(`Cache incomplete (${loadedCount}/${EXAMPLES_WITH_METADATA.length}), regenerating`);
+      return false;
+    }
+  } catch (error) {
+    console.error('Failed to load embeddings cache:', error);
+    return false;
+  }
+}
+
+/**
+ * Save embeddings to cache file
+ */
+function saveEmbeddingsToCache(): void {
+  try {
+    const cache: EmbeddingCache = {
+      version: CACHE_VERSION,
+      metadataHash: generateMetadataHash(),
+      embeddings: EXAMPLES_WITH_METADATA
+        .filter(e => e.embedding)
+        .map(e => ({
+          filename: e.filename,
+          embedding: e.embedding!
+        }))
+    };
+
+    writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2), 'utf-8');
+    console.log(`Saved ${cache.embeddings.length} embeddings to cache`);
+  } catch (error) {
+    console.error('Failed to save embeddings cache:', error);
+  }
+}
+
+/**
+ * Initialize embeddings for all examples (called lazily on first retrieval)
+ */
+async function initializeEmbeddings(): Promise<void> {
+  if (embeddingsInitialized) return;
+
+  // Try to load from cache first
+  if (loadEmbeddingsFromCache()) {
+    embeddingsInitialized = true;
+    return;
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    console.warn('OPENAI_API_KEY not set, falling back to keyword-based retrieval');
+    embeddingsInitialized = true;
+    return;
+  }
+
+  const openai = new OpenAI({ apiKey });
+
+  try {
+    console.log('Generating embeddings for example flowsheets...');
+
+    // Generate text representations for each example
+    const texts = EXAMPLES_WITH_METADATA.map(example => {
+      // Combine description, tags, and equipment types for rich context
+      return `${example.description}. Equipment: ${example.equipmentTypes.join(', ')}. Tags: ${example.tags.join(', ')}`;
+    });
+
+    // Batch embed all examples at once (more efficient)
+    const response = await openai.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: texts,
+    });
+
+    // Store embeddings in metadata
+    response.data.forEach((item, index) => {
+      EXAMPLES_WITH_METADATA[index].embedding = item.embedding;
+    });
+
+    embeddingsInitialized = true;
+    console.log(`Successfully generated embeddings for ${EXAMPLES_WITH_METADATA.length} examples`);
+
+    // Save to cache for next time
+    saveEmbeddingsToCache();
+  } catch (error) {
+    console.error('Failed to generate embeddings, falling back to keyword search:', error);
+    embeddingsInitialized = true; // Prevent retry on every call
+  }
+}
+
+/**
+ * Retrieve the most relevant examples based on user query using semantic embeddings
  * @param query - The user's message/query
  * @param maxExamples - Maximum number of examples to return (default: 2)
  * @returns Array of example JSON strings
  */
-export function retrieveRelevantExamples(query: string, maxExamples: number = 2): string[] {
+export async function retrieveRelevantExamples(query: string, maxExamples: number = 2): Promise<string[]> {
+  // Initialize embeddings on first call
+  await initializeEmbeddings();
+
+  // If embeddings are available, use semantic search
+  if (EXAMPLES_WITH_METADATA[0]?.embedding) {
+    return await semanticRetrievalExamples(query, maxExamples);
+  }
+
+  // Fallback to keyword-based search if embeddings failed
+  return keywordRetrievalExamples(query, maxExamples);
+}
+
+/**
+ * Semantic retrieval using OpenAI embeddings
+ */
+async function semanticRetrievalExamples(query: string, maxExamples: number): Promise<string[]> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return keywordRetrievalExamples(query, maxExamples);
+  }
+
+  const openai = new OpenAI({ apiKey });
+
+  try {
+    // Generate embedding for the query
+    const queryEmbedding = await openai.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: query,
+    });
+
+    const queryVector = queryEmbedding.data[0].embedding;
+
+    // Calculate similarity scores
+    const scoredExamples = EXAMPLES_WITH_METADATA.map(example => {
+      const similarity = example.embedding
+        ? cosineSimilarity(queryVector, example.embedding)
+        : 0;
+
+      return { example, score: similarity };
+    });
+
+    // Sort by similarity (descending)
+    scoredExamples.sort((a, b) => b.score - a.score);
+
+    // Return top N examples
+    const relevantExamples = scoredExamples
+      .slice(0, maxExamples)
+      .map(item => item.example.content);
+
+    return relevantExamples;
+  } catch (error) {
+    console.error('Semantic retrieval failed, falling back to keyword search:', error);
+    return keywordRetrievalExamples(query, maxExamples);
+  }
+}
+
+/**
+ * Keyword-based retrieval (fallback when embeddings are unavailable)
+ */
+function keywordRetrievalExamples(query: string, maxExamples: number): string[] {
   const normalizedQuery = query.toLowerCase();
 
   // Score each example based on keyword matches

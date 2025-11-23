@@ -8,6 +8,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { message, jsonData, conversationHistory, pdfContext, recentErrors } = body;
 
+    console.log('📨 [DEBUG] API Request received:', {
+      messageLength: message?.length,
+      hasJsonData: !!jsonData,
+      conversationHistoryLength: conversationHistory?.length,
+      pdfContextLength: pdfContext?.length,
+      recentErrorsType: typeof recentErrors,
+      recentErrorsLength: Array.isArray(recentErrors) ? recentErrors.length : 'N/A',
+    });
+
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
         { error: 'Message is required and must be a string' },
@@ -27,8 +36,8 @@ export async function POST(request: NextRequest) {
     const openai = new OpenAI({ apiKey });
 
     // === Retrieve relevant examples based on user query ===
-    // Get top 2 most relevant examples (instead of all 12)
-    const relevantExamples = retrieveRelevantExamples(message, 2);
+    // Get top 2 most relevant examples using semantic embeddings
+    const relevantExamples = await retrieveRelevantExamples(message, 2);
     const systemPrompt = buildSystemPrompt(relevantExamples);
 
     // === Build messages ===
@@ -46,17 +55,22 @@ export async function POST(request: NextRequest) {
 
     // Add recent errors if present
     if (recentErrors && Array.isArray(recentErrors) && recentErrors.length > 0) {
+      console.log('🔴 [DEBUG] Received recentErrors:', JSON.stringify(recentErrors, null, 2));
+
       const errorText = recentErrors
         .filter((err: any) => typeof err === 'string' && err.trim().length > 0)
         .map((err: string, idx: number) => `${idx + 1}. ${err.trim()}`)
         .join('\n');
-      
+
       if (errorText.length > 0) {
+        console.log('🔴 [DEBUG] Sending errors to LLM:\n', errorText);
         messages.push({
           role: 'system',
           content: `RECENT FLOWSHEET ERRORS (fix these issues in the flowsheet):\n\n${errorText}\n\nThese errors occurred when trying to assemble or solve the flowsheet. Please fix the issues mentioned above when updating the flowsheet.`,
         });
       }
+    } else {
+      console.log('✅ [DEBUG] No recent errors received (recentErrors:', typeof recentErrors, ')');
     }
 
     // Attach current flowsheet if provided
@@ -74,7 +88,7 @@ export async function POST(request: NextRequest) {
       // Hint to generate new
       messages.push({
         role: 'system',
-        content: 'No current flowsheet. Generate a new one from scratch using the examples.',
+        content: 'No current flowsheet. Generate a new one from scratch using the examples. CRITICAL: Always include a Flowsheet_FluidPackage_Registry section with at least one fluid package. The FluidPackage_Components value MUST be an array of component names (e.g., ["N2", "O2"]), never an empty array!',
       });
     }
 

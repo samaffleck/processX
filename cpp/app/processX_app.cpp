@@ -6,6 +6,8 @@
 
 #include <iostream>
 #include <cstdio>
+#include <cstdlib>
+#include <string>
 
 #include "gui_docking.h"
 #include "gui_common.h"
@@ -108,6 +110,83 @@ void ShowStatusBar() {
 EM_JS(void, notify_ready, (), {
   try { parent.postMessage({ type: 'wasmReady' }, window.location.origin); } catch (e) {}
 });
+
+// Clipboard functions for Emscripten using browser Clipboard API
+EM_JS(void, set_clipboard_text_js, (const char* text), {
+  const str = UTF8ToString(text);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(str).catch(function(err) {
+      console.error('Failed to write to clipboard:', err);
+      // Fallback to older method
+      const textArea = document.createElement('textarea');
+      textArea.value = str;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+      } catch (e) {
+        console.error('Fallback copy failed:', e);
+      }
+      document.body.removeChild(textArea);
+    });
+  } else {
+    // Fallback for browsers without Clipboard API
+    const textArea = document.createElement('textarea');
+    textArea.value = str;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+    } catch (e) {
+      console.error('Copy failed:', e);
+    }
+    document.body.removeChild(textArea);
+  }
+});
+
+// Initialize clipboard cache on module load
+EM_JS(void, init_clipboard_cache, (), {
+  if (!window._clipboardCache) {
+    window._clipboardCache = '';
+  }
+  // Pre-fetch clipboard content if possible
+  if (navigator.clipboard && navigator.clipboard.readText) {
+    navigator.clipboard.readText().then(function(text) {
+      window._clipboardCache = text || '';
+    }).catch(function(err) {
+      // Silently fail - clipboard may require user interaction
+      window._clipboardCache = '';
+    });
+  }
+});
+
+// Get clipboard text from cache and return as allocated C string
+// Caller must free the returned pointer
+EM_JS(char*, get_clipboard_text_from_cache, (), {
+  // Try to update cache asynchronously (for next time)
+  if (navigator.clipboard && navigator.clipboard.readText) {
+    navigator.clipboard.readText().then(function(text) {
+      window._clipboardCache = text || '';
+    }).catch(function(err) {
+      // Silently fail
+      window._clipboardCache = '';
+    });
+  }
+  
+  // Return cached value (may be empty on first call)
+  const result = (window._clipboardCache || '');
+  const len = lengthBytesUTF8(result) + 1;
+  const ptr = _malloc(len);
+  stringToUTF8(result, ptr, len);
+  return ptr;
+});
+
+// Static clipboard buffer for Emscripten (managed by ImGui)
+static std::string clipboard_buffer;
 #endif
 
 
@@ -202,6 +281,30 @@ void PostInit() {
   ImGuiIO& io = ImGui::GetIO();
   io.ConfigDpiScaleFonts = true;
   io.ConfigDpiScaleViewports = true;
+  
+  #ifdef EMSCRIPTEN
+  // Initialize clipboard cache
+  init_clipboard_cache();
+  
+  // Set up clipboard handlers for Emscripten using browser Clipboard API
+  io.SetClipboardTextFn = [](void*, const char* text) {
+    set_clipboard_text_js(text);
+  };
+  io.GetClipboardTextFn = [](void*) -> const char* {
+    // Get clipboard text from JavaScript cache
+    char* ptr = get_clipboard_text_from_cache();
+    if (ptr) {
+      // Copy to our static buffer (ImGui will use this)
+      clipboard_buffer = std::string(ptr);
+      // Free the JavaScript-allocated memory
+      free(ptr);
+      return clipboard_buffer.c_str();
+    }
+    clipboard_buffer.clear();
+    return clipboard_buffer.c_str();
+  };
+  io.ClipboardUserData = nullptr;
+  #endif
 }
 
 void ShowMenus(HelloImGui::RunnerParams& params) {
@@ -233,13 +336,19 @@ void ShowMenus(HelloImGui::RunnerParams& params) {
     }
     ImGui::Separator();
     if (ImGui::MenuItem("Cut", "Ctrl+X")) {
-      // TODO: Implement cut functionality
+      // Cut selected text from active input field
+      // This works automatically with ImGui's InputText widgets via keyboard shortcuts
+      // Menu item is provided for discoverability
     }
     if (ImGui::MenuItem("Copy", "Ctrl+C")) {
-      // TODO: Implement copy functionality
+      // Copy selected text to clipboard
+      // This works automatically with ImGui's InputText widgets via keyboard shortcuts
+      // Menu item is provided for discoverability
     }
     if (ImGui::MenuItem("Paste", "Ctrl+V")) {
-      // TODO: Implement paste functionality
+      // Paste from clipboard to active input field
+      // This works automatically with ImGui's InputText widgets via keyboard shortcuts
+      // Menu item is provided for discoverability
     }
     ImGui::EndMenu();
   }

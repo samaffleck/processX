@@ -52,6 +52,7 @@ When creating or modifying fluid packages, follow this structure:
 
 1. **Creating a NEW fluid package:**
    - Add a new entry to FluidPackage_Components with key = FluidPackage_NextID
+   - The "value" MUST be an array of component names (never empty!)
    - Add corresponding entries to FluidPackage_Thermo and FluidPackage_Names with the same key
    - Increment FluidPackage_NextID by 1
    - Example for creating package ID 2 with water and oxygen:
@@ -72,6 +73,10 @@ When creating or modifying fluid packages, follow this structure:
      ],
      "FluidPackage_NextID": 2
    }
+
+   CRITICAL: The "value" array in FluidPackage_Components MUST contain at least one component name.
+   Example: { "key": 1, "value": ["N2", "O2"] } ✓ CORRECT
+   Example: { "key": 1, "value": [] } ✗ WRONG - will not work!
 
 2. **Valid Components (from CoolProp library):**
    IMPORTANT: Use these EXACT names (case-sensitive):

@@ -95,3 +95,6 @@ next-env.d.ts
 /.clerk/
 
 __pycache__
+
+# embeddings cache (regenerated automatically)
+public/Examples/embeddings_cache.json
