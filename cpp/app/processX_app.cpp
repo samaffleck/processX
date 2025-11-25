@@ -46,11 +46,40 @@ void ShowStatusBar() {
                                  ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings |
                                  ImGuiWindowFlags_NoNav;
   
+  // Frame-based throttling: only assemble every N frames
+  static int frame_counter = 0;
+  static bool cached_assembled = false;
+  static size_t cached_num_unknowns = 0;
+  static size_t cached_num_equations = 0;
+  static std::string cached_err;
+  static const int ASSEMBLE_INTERVAL = 10; // Assemble every 10 frames
+  
+  frame_counter++;
+  bool should_assemble = (frame_counter % ASSEMBLE_INTERVAL == 0);
+  
   // Calculate DOF first to determine background color
   std::string err;
-  bool assembled = flowsheet.assemble(&err);
-  size_t num_unknowns = flowsheet.reg.size();
-  size_t num_equations = flowsheet.sys.size();
+  bool assembled;
+  size_t num_unknowns;
+  size_t num_equations;
+  
+  if (should_assemble) {
+    assembled = flowsheet.assemble(&err);
+    num_unknowns = flowsheet.reg.size();
+    num_equations = flowsheet.sys.size();
+    // Update cache
+    cached_assembled = assembled;
+    cached_num_unknowns = num_unknowns;
+    cached_num_equations = num_equations;
+    cached_err = err;
+  } else {
+    // Use cached values
+    assembled = cached_assembled;
+    num_unknowns = cached_num_unknowns;
+    num_equations = cached_num_equations;
+    err = cached_err;
+  }
+  
   int dof = static_cast<int>(num_unknowns) - static_cast<int>(num_equations);
   
   // Set blue background if DOF == 0, otherwise use default
