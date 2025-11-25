@@ -426,6 +426,7 @@ int main(int, char**) {
   params.imGuiWindowParams.showMenu_App = false;
   params.imGuiWindowParams.showMenu_View = false;
   params.imGuiWindowParams.showStatusBar = false;  // Use our custom status bar instead
+  params.fpsIdling.enableIdling = false;
   
   // Reserve space at the bottom for the status bar
   // The margin is in em units (multiples of font size)
