@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useUser } from '@clerk/nextjs';
 import { Cpu, Zap, Users, TrendingUp, Droplets, Wind, Battery, Thermometer, Gauge, Snowflake, Bot } from 'lucide-react';
 import Header from './components/Header';
 import Footer from './components/Footer';
 
 export default function ProcessXLanding() {
   const [scrollY, setScrollY] = useState(0);
+  const { isSignedIn } = useUser();
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -37,13 +39,23 @@ export default function ProcessXLanding() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center px-4">
-            <Link 
-              href="/Copilot"
-              className="px-8 py-4 border border-white/20 rounded-lg font-semibold text-lg text-white transition-all duration-200 hover:bg-white/10 hover:border-white/40 flex items-center gap-2 w-full sm:w-auto"
-            >
-              <Bot className="w-5 h-5" />
-              Launch Copilot
-            </Link>
+            {isSignedIn ? (
+              <Link 
+                href="/Copilot"
+                className="px-8 py-4 border border-white/20 rounded-lg font-semibold text-lg text-white transition-all duration-200 hover:bg-white/10 hover:border-white/40 flex items-center gap-2 w-full sm:w-auto"
+              >
+                <Bot className="w-5 h-5" />
+                Launch Copilot
+              </Link>
+            ) : (
+              <Link 
+                href="/sign-in"
+                className="px-8 py-4 border border-white/20 rounded-lg font-semibold text-lg text-white transition-all duration-200 hover:bg-white/10 hover:border-white/40 flex items-center gap-2 w-full sm:w-auto"
+              >
+                <Bot className="w-5 h-5" />
+                Launch Copilot
+              </Link>
+            )}
             <Link 
               href="/waitlist"
               className="px-8 py-4 border border-white/20 rounded-lg font-semibold text-lg text-white transition-all duration-200 hover:bg-white/10 hover:border-white/40 w-full sm:w-auto"
