@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useOrganization, useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import { FileJson, Download, Trash2, Upload, Clock, User as UserIcon, History } from 'lucide-react';
+import { FileJson, Download, Trash2, Upload, Clock, User as UserIcon, History, Play } from 'lucide-react';
 
 interface FlowsheetMetadata {
   id: string;
@@ -31,6 +32,7 @@ interface FlowsheetVersion {
 }
 
 export default function FlowsheetsPage() {
+  const router = useRouter();
   const { organization, isLoaded: orgLoaded } = useOrganization();
   const { user, isLoaded: userLoaded } = useUser();
   const [flowsheets, setFlowsheets] = useState<FlowsheetMetadata[]>([]);
@@ -179,6 +181,10 @@ export default function FlowsheetsPage() {
     }
   };
 
+  const handleLoadInCopilot = (flowsheetId: string) => {
+    router.push(`/Copilot?load=${flowsheetId}`);
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
@@ -282,29 +288,36 @@ export default function FlowsheetsPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleViewVersionHistory(flowsheet)}
-                        className="p-2 rounded bg-white/5 hover:bg-white/10 transition-colors"
-                        title="View History"
-                      >
-                        <History className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDownloadFlowsheet(flowsheet)}
-                        className="p-2 rounded bg-white/5 hover:bg-white/10 transition-colors"
-                        title="Download"
-                      >
-                        <Download className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteFlowsheet(flowsheet.id, flowsheet.name)}
-                        className="p-2 rounded bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-4">
+                    <button
+                      onClick={() => handleLoadInCopilot(flowsheet.id)}
+                      className="flex-1 flex items-center justify-center gap-2 bg-white text-black px-4 py-2 rounded-lg font-medium hover:bg-white/90 transition-colors"
+                    >
+                      <Play className="w-4 h-4" />
+                      Load in Copilot
+                    </button>
+                    <button
+                      onClick={() => handleViewVersionHistory(flowsheet)}
+                      className="p-2 rounded bg-white/5 hover:bg-white/10 transition-colors"
+                      title="View History"
+                    >
+                      <History className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => handleDownloadFlowsheet(flowsheet)}
+                      className="p-2 rounded bg-white/5 hover:bg-white/10 transition-colors"
+                      title="Download"
+                    >
+                      <Download className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteFlowsheet(flowsheet.id, flowsheet.name)}
+                      className="p-2 rounded bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
               ))}

@@ -1,3 +1,8 @@
+// ⚠️ DEPRECATED: This file is no longer used
+// The app now uses Supabase for persistent storage
+// See lib/db/ for the new database layer
+// This file is kept for reference only
+
 // Flowsheet storage library (using in-memory storage for development)
 // For production, replace with Vercel KV, Prisma, or another database
 
