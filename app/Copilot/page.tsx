@@ -16,6 +16,11 @@ interface SavedFlowsheet {
 }
 
 export default function CopilotPage() {
+  // Render counter for debugging
+  const renderCountRef = React.useRef(0);
+  renderCountRef.current++;
+  console.log(`🎨 CopilotPage RENDER #${renderCountRef.current}`);
+
   const searchParams = useSearchParams();
   const [currentPdfText, setCurrentPdfText] = useState<string>('');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -27,6 +32,7 @@ export default function CopilotPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [wasmReady, setWasmReady] = useState(false);
   const [pendingLoadId, setPendingLoadId] = useState<string | null>(null);
+  const loadedFlowsheetRef = React.useRef<string | null>(null); // Track what we've already loaded
   const { organization, isLoaded: orgLoaded } = useOrganization();
   const { user, isLoaded: userLoaded } = useUser();
 
@@ -76,13 +82,27 @@ export default function CopilotPage() {
       // Check for both 'ready' status and 'Running...' status
       if (event.data?.type === 'wasmStatus' &&
           (event.data?.status === 'ready' || event.data?.status?.includes('Running'))) {
-        console.log('✅ WASM is ready - setting wasmReady to true');
-        setWasmReady(true);
+        console.log('✅ WASM is ready - conditionally setting wasmReady to true');
+        setWasmReady(prev => {
+          if (prev) {
+            console.log('⏭️ wasmReady already true, skipping state update');
+            return prev; // Don't trigger re-render if already true
+          }
+          console.log('🆕 Setting wasmReady to true for the first time');
+          return true;
+        });
       }
       // Also support wasmReady event
       if (event.data?.type === 'wasmReady') {
-        console.log('✅ WASM is ready (wasmReady event) - setting wasmReady to true');
-        setWasmReady(true);
+        console.log('✅ WASM is ready (wasmReady event) - conditionally setting wasmReady to true');
+        setWasmReady(prev => {
+          if (prev) {
+            console.log('⏭️ wasmReady already true, skipping state update');
+            return prev; // Don't trigger re-render if already true
+          }
+          console.log('🆕 Setting wasmReady to true for the first time');
+          return true;
+        });
       }
     };
 
@@ -246,19 +266,20 @@ export default function CopilotPage() {
   };
 
   const loadFlowsheetIntoWasm = useCallback(async (data: any) => {
-    console.log('🔧 loadFlowsheetIntoWasm called with data type:', typeof data);
+    const callId = Date.now();
+    console.log(`🔧 [${callId}] loadFlowsheetIntoWasm called with data type:`, typeof data);
 
     const iframe = document.querySelector('iframe[src*="processX_app.html"]') as HTMLIFrameElement;
     if (!iframe || !iframe.contentWindow) {
-      console.error('❌ WASM iframe not found or not accessible');
+      console.error(`❌ [${callId}] WASM iframe not found or not accessible`);
       throw new Error('WASM app not loaded');
     }
 
-    console.log('✅ Found WASM iframe');
+    console.log(`✅ [${callId}] Found WASM iframe`);
 
     const wasmModule = (iframe.contentWindow as any).Module;
     if (!wasmModule || typeof wasmModule.loadFlowsheetJSON !== 'function') {
-      console.error('❌ WASM Module.loadFlowsheetJSON not available:', {
+      console.error(`❌ [${callId}] WASM Module.loadFlowsheetJSON not available:`, {
         moduleExists: !!wasmModule,
         functionType: typeof wasmModule?.loadFlowsheetJSON
       });
@@ -267,34 +288,41 @@ export default function CopilotPage() {
 
     // If data is already a JSON string, use it directly; otherwise stringify it
     const jsonString = typeof data === 'string' ? data : JSON.stringify(data);
-    console.log('✅ WASM Module.loadFlowsheetJSON is available, calling it now...');
+    console.log(`✅ [${callId}] WASM Module.loadFlowsheetJSON is available, calling it now...`);
     const success = wasmModule.loadFlowsheetJSON(jsonString);
-    console.log('📊 WASM loadFlowsheetJSON returned:', success);
+    console.log(`📊 [${callId}] WASM loadFlowsheetJSON returned:`, success);
 
     // Note: Some WASM implementations don't return a value, so we don't fail on false/undefined
     // The WASM logs will show if the load actually failed
-    console.log('✅ WASM module load call completed');
+    console.log(`✅ [${callId}] WASM module load call completed`);
   }, []);
 
   const handleLoadFromDatabase = useCallback(async (flowsheetId: string, silent = false) => {
+    const callId = Date.now();
+    console.log(`📂 [${callId}] handleLoadFromDatabase called for flowsheet:`, flowsheetId, '(silent:', silent + ')');
     try {
+      console.log(`🌐 [${callId}] Fetching from API...`);
       const response = await fetch(`/api/flowsheets/${flowsheetId}`);
       if (!response.ok) {
         throw new Error('Failed to load flowsheet');
       }
 
       const result = await response.json();
+      console.log(`📦 [${callId}] Got flowsheet data:`, result.flowsheet.name);
+
       // Pass data directly - loadFlowsheetIntoWasm will handle string vs object
+      console.log(`🚀 [${callId}] Calling loadFlowsheetIntoWasm...`);
       await loadFlowsheetIntoWasm(result.flowsheet.data);
+      console.log(`✅ [${callId}] loadFlowsheetIntoWasm completed`);
 
       setShowLoadDialog(false);
       if (!silent) {
         alert('Flowsheet loaded successfully!');
       } else {
-        console.log('✅ Flowsheet auto-loaded:', result.flowsheet.name);
+        console.log(`✅ [${callId}] Flowsheet auto-loaded:`, result.flowsheet.name);
       }
     } catch (error) {
-      console.error('Error loading flowsheet:', error);
+      console.error(`❌ [${callId}] Error loading flowsheet:`, error);
       if (!silent) {
         alert('Failed to load flowsheet: ' + (error as Error).message);
       }
@@ -310,18 +338,35 @@ export default function CopilotPage() {
       userLoaded,
       orgLoaded,
       userExists: !!user,
-      shouldAutoLoad: wasmReady && !!pendingLoadId && userLoaded && orgLoaded && !!user
+      alreadyLoaded: loadedFlowsheetRef.current,
+      shouldAutoLoad: wasmReady && !!pendingLoadId && userLoaded && orgLoaded && !!user,
+      timestamp: Date.now()
     });
 
     // Wait for WASM, pending load ID, AND Clerk authentication to be ready
     if (wasmReady && pendingLoadId && userLoaded && orgLoaded && user) {
-      console.log('🚀 Auto-loading flowsheet:', pendingLoadId);
+      // Check if we've already loaded this flowsheet
+      if (loadedFlowsheetRef.current === pendingLoadId) {
+        console.log('⏭️ Flowsheet already loaded, skipping:', pendingLoadId);
+        return;
+      }
+
+      console.log('🚀 Auto-loading flowsheet:', pendingLoadId, '- Timer will fire in 500ms');
 
       const loadFlowsheet = async () => {
+        console.log('🔥 TIMER FIRED - Starting auto-load for:', pendingLoadId);
+
+        // Double-check we haven't loaded it yet (in case of race condition)
+        if (loadedFlowsheetRef.current === pendingLoadId) {
+          console.log('⏭️ Race condition detected - already loaded, aborting');
+          return;
+        }
+
         try {
           console.log('📥 Fetching flowsheet from API:', `/api/flowsheets/${pendingLoadId}`);
           await handleLoadFromDatabase(pendingLoadId, true); // silent = true
           console.log('✅ Auto-load completed successfully');
+          loadedFlowsheetRef.current = pendingLoadId; // Mark as loaded
           setPendingLoadId(null); // Clear pending load
         } catch (error) {
           console.error('❌ Auto-load failed:', error);
@@ -334,11 +379,14 @@ export default function CopilotPage() {
       console.log('⏱️ Setting 500ms timer before auto-load');
       const timer = setTimeout(loadFlowsheet, 500);
       return () => {
-        console.log('⏱️ Clearing auto-load timer');
+        console.log('🧹 CLEANUP CALLED - Clearing auto-load timer (effect re-triggered!)');
         clearTimeout(timer);
       };
+    } else {
+      console.log('⏸️ Conditions not met - NOT auto-loading');
     }
-  }, [wasmReady, pendingLoadId, userLoaded, orgLoaded, user, handleLoadFromDatabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wasmReady, pendingLoadId, userLoaded, orgLoaded, user]); // Removed handleLoadFromDatabase
 
   const handleDownloadFlowsheet = async () => {
     const iframe = document.querySelector('iframe[src*="processX_app.html"]') as HTMLIFrameElement;
