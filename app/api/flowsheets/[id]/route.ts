@@ -60,6 +60,11 @@ export async function GET(
     }
 
     // Transform to match the old API format
+    // If data was stored as wrapped string, unwrap it for the response
+    const responseData = (typeof file.data === 'object' && file.data !== null && '_json_string' in file.data)
+      ? file.data._json_string // Unwrap the JSON string
+      : file.data;
+
     const transformedFlowsheet = {
       id: file.id,
       name: file.name,
@@ -72,7 +77,7 @@ export async function GET(
       updatedBy: user.clerk_user_id,
       updatedByName: file.created_by_name || 'Unknown',
       version: file.current_version,
-      data: file.data,
+      data: responseData,
     };
 
     return NextResponse.json({ flowsheet: transformedFlowsheet });
@@ -100,7 +105,12 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { name, description, data, changeDescription } = body;
+    const { name, description, data, changeDescription, dataFormat } = body;
+
+    // If data is a JSON string (from WASM), wrap it to preserve exact format
+    const dataToStore = data && typeof data === 'string' && dataFormat === 'json_string'
+      ? { _json_string: data } // Wrap JSON string to preserve it
+      : data;
 
     // Get or create user in database
     const clerkUser = await getClerkUser(userId);
@@ -116,11 +126,11 @@ export async function PATCH(
     }
 
     // If data is being updated, create a new version
-    if (data) {
+    if (dataToStore) {
       const version = await createSimulationFileVersion(
         {
           file_id: id,
-          data,
+          data: dataToStore,
           created_by: user.id,
           change_description: changeDescription,
         },
@@ -167,6 +177,11 @@ export async function PATCH(
     }
 
     // Transform to match the old API format
+    // If data was stored as wrapped string, unwrap it for the response
+    const responseData = (typeof file.data === 'object' && file.data !== null && '_json_string' in file.data)
+      ? file.data._json_string // Unwrap the JSON string
+      : file.data;
+
     const transformedFlowsheet = {
       id: file.id,
       name: file.name,
@@ -179,7 +194,7 @@ export async function PATCH(
       updatedBy: user.clerk_user_id,
       updatedByName: fullName || email,
       version: file.current_version,
-      data: file.data,
+      data: responseData,
     };
 
     return NextResponse.json({ flowsheet: transformedFlowsheet });

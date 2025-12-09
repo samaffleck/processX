@@ -52,20 +52,27 @@ export async function GET(request: NextRequest) {
     const flowsheets = await getSimulationFilesByOrg(org.id, user.id);
 
     // Transform to match the old API format
-    const transformedFlowsheets = flowsheets.map((file) => ({
-      id: file.id,
-      name: file.name,
-      description: file.description,
-      organizationId: org.clerk_org_id,
-      createdBy: user.clerk_user_id,
-      createdByName: file.created_by_name || 'Unknown',
-      createdAt: file.created_at,
-      updatedAt: file.updated_at,
-      updatedBy: user.clerk_user_id,
-      updatedByName: file.created_by_name || 'Unknown',
-      version: file.current_version,
-      data: file.data,
-    }));
+    const transformedFlowsheets = flowsheets.map((file) => {
+      // If data was stored as wrapped string, unwrap it for the response
+      const responseData = (typeof file.data === 'object' && file.data !== null && '_json_string' in file.data)
+        ? file.data._json_string // Unwrap the JSON string
+        : file.data;
+
+      return {
+        id: file.id,
+        name: file.name,
+        description: file.description,
+        organizationId: org.clerk_org_id,
+        createdBy: user.clerk_user_id,
+        createdByName: file.created_by_name || 'Unknown',
+        createdAt: file.created_at,
+        updatedAt: file.updated_at,
+        updatedBy: user.clerk_user_id,
+        updatedByName: file.created_by_name || 'Unknown',
+        version: file.current_version,
+        data: responseData,
+      };
+    });
 
     return NextResponse.json({ flowsheets: transformedFlowsheets });
   } catch (error) {
@@ -88,11 +95,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, description, data } = body;
+    const { name, description, data, dataFormat } = body;
 
     if (!name || !data) {
       return NextResponse.json({ error: 'Name and data required' }, { status: 400 });
     }
+
+    // If data is a JSON string (from WASM), wrap it to preserve exact format
+    // Supabase JSONB will parse strings, so we wrap it in an object
+    const dataToStore = typeof data === 'string' && dataFormat === 'json_string'
+      ? { _json_string: data } // Wrap JSON string to preserve it
+      : data;
 
     // Get or create user in database
     const clerkUser = await getClerkUser(userId);
@@ -141,6 +154,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Transform to match the old API format
+    // If data was stored as wrapped string, unwrap it for the response
+    const responseData = (typeof file.data === 'object' && file.data !== null && '_json_string' in file.data)
+      ? file.data._json_string // Unwrap the JSON string
+      : (typeof data === 'string' ? data : file.data);
+
     const transformedFlowsheet = {
       id: file.id,
       name: file.name,
@@ -153,7 +171,7 @@ export async function POST(request: NextRequest) {
       updatedBy: user.clerk_user_id,
       updatedByName: fullName || email,
       version: file.current_version,
-      data,
+      data: responseData,
     };
 
     return NextResponse.json({ flowsheet: transformedFlowsheet }, { status: 201 });

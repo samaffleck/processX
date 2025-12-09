@@ -163,7 +163,9 @@ export default function CopilotPage() {
     try {
       const wasmModule = (iframe.contentWindow as any).Module;
       const flowsheetJSON = wasmModule.getFlowsheetJSON();
-      const flowsheetData = JSON.parse(flowsheetJSON);
+      // Don't parse the JSON - preserve it as a string to maintain Cereal metadata
+      // Parse it only to validate it's valid JSON
+      JSON.parse(flowsheetJSON); // Validate but don't use the parsed result
 
       const response = await fetch('/api/flowsheets', {
         method: 'POST',
@@ -171,7 +173,8 @@ export default function CopilotPage() {
         body: JSON.stringify({
           name: flowsheetName,
           description: flowsheetDescription,
-          data: flowsheetData,
+          data: flowsheetJSON, // Send as string, not parsed object
+          dataFormat: 'json_string', // Flag to indicate it's a JSON string
         }),
       });
 
@@ -243,7 +246,7 @@ export default function CopilotPage() {
   };
 
   const loadFlowsheetIntoWasm = useCallback(async (data: any) => {
-    console.log('🔧 loadFlowsheetIntoWasm called with data:', Object.keys(data || {}));
+    console.log('🔧 loadFlowsheetIntoWasm called with data type:', typeof data);
 
     const iframe = document.querySelector('iframe[src*="processX_app.html"]') as HTMLIFrameElement;
     if (!iframe || !iframe.contentWindow) {
@@ -262,8 +265,10 @@ export default function CopilotPage() {
       throw new Error('Flowsheet import not available. Please wait for the app to fully load.');
     }
 
+    // If data is already a JSON string, use it directly; otherwise stringify it
+    const jsonString = typeof data === 'string' ? data : JSON.stringify(data);
     console.log('✅ WASM Module.loadFlowsheetJSON is available, calling it now...');
-    const success = wasmModule.loadFlowsheetJSON(JSON.stringify(data));
+    const success = wasmModule.loadFlowsheetJSON(jsonString);
     console.log('📊 WASM loadFlowsheetJSON returned:', success);
 
     // Note: Some WASM implementations don't return a value, so we don't fail on false/undefined
@@ -279,6 +284,7 @@ export default function CopilotPage() {
       }
 
       const result = await response.json();
+      // Pass data directly - loadFlowsheetIntoWasm will handle string vs object
       await loadFlowsheetIntoWasm(result.flowsheet.data);
 
       setShowLoadDialog(false);
