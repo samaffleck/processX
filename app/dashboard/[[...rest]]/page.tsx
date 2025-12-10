@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useUser, useOrganization } from '@clerk/nextjs';
 import { UserProfile, OrganizationProfile } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
@@ -53,26 +53,13 @@ export default function DashboardPage() {
 
   const isLoading = !userLoaded || !orgLoaded;
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
-      </div>
-    );
-  }
-
   // Get user's role in the organization
   const userRole = membership?.role;
   const isAdmin = userRole === 'org:admin' || userRole === 'admin';
 
-  // Load flowsheets when flowsheets tab is active
-  useEffect(() => {
-    if (orgSubTab === 'flowsheets' && orgLoaded && organization) {
-      loadFlowsheets();
-    }
-  }, [orgSubTab, orgLoaded, organization]);
-
-  const loadFlowsheets = async () => {
+  // Define loadFlowsheets function before useEffect (needed for hook dependency)
+  // Memoize with useCallback to avoid recreating on every render
+  const loadFlowsheets = useCallback(async () => {
     try {
       setIsLoadingFlowsheets(true);
       const response = await fetch('/api/flowsheets');
@@ -85,7 +72,23 @@ export default function DashboardPage() {
     } finally {
       setIsLoadingFlowsheets(false);
     }
-  };
+  }, []); // Empty deps: only uses stable state setters
+
+  // Load flowsheets when flowsheets tab is active
+  // IMPORTANT: This hook must be called before any early returns
+  useEffect(() => {
+    if (orgSubTab === 'flowsheets' && orgLoaded && organization) {
+      loadFlowsheets();
+    }
+  }, [orgSubTab, orgLoaded, organization, loadFlowsheets]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
+      </div>
+    );
+  }
 
   const handleUploadFlowsheet = async () => {
     if (!uploadFile || !uploadName.trim()) {
