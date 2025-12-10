@@ -216,11 +216,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Transform to match the old API format
-    // If data was stored as wrapped string, unwrap it for the response
-    // Note: file.data comes from the database view which includes the current version's data
-    const responseData = (typeof file.data === 'object' && file.data !== null && '_json_string' in file.data)
-      ? file.data._json_string // Unwrap the JSON string
-      : (typeof data === 'string' ? data : file.data);
+    // Use the original data parameter since createSimulationFile doesn't return data
+    // If data was stored as wrapped string, we return the original unwrapped string
+    const responseData = data;
 
     const transformedFlowsheet = {
       id: file.id,

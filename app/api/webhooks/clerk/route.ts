@@ -4,13 +4,13 @@ import { Webhook } from 'svix';
 import { WebhookEvent } from '@clerk/nextjs/server';
 import { supabaseAdmin } from '@/lib/db/supabase';
 
-const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
-
-if (!webhookSecret) {
-  throw new Error('Please add CLERK_WEBHOOK_SECRET to .env.local');
-}
-
 export async function POST(req: Request) {
+  // Check webhook secret (lazy check - only when handler is called)
+  const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    return new Response('Error: Please add CLERK_WEBHOOK_SECRET to .env.local', { status: 500 });
+  }
+
   // Get the headers
   const headerPayload = await headers();
   const svix_id = headerPayload.get('svix-id');
@@ -27,8 +27,7 @@ export async function POST(req: Request) {
   const body = JSON.stringify(payload);
 
   // Create a new Svix instance with your webhook secret
-  // webhookSecret is guaranteed to be defined due to the check at module level
-  const wh = new Webhook(webhookSecret as string);
+  const wh = new Webhook(webhookSecret);
 
   let evt: WebhookEvent;
 

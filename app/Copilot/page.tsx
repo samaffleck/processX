@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ProcessXWasmApp from '../components/ProcessXWasmApp';
 import PDFUpload from '../components/PDFUpload';
@@ -15,7 +15,7 @@ interface SavedFlowsheet {
   version: number;
 }
 
-export default function CopilotPage() {
+function CopilotPageContent() {
   // Render counter for debugging
   const renderCountRef = React.useRef(0);
   renderCountRef.current++;
@@ -641,5 +641,17 @@ export default function CopilotPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CopilotPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-screen w-screen flex items-center justify-center" style={{ backgroundColor: '#000000' }}>
+        <div className="text-white">Loading...</div>
+      </div>
+    }>
+      <CopilotPageContent />
+    </Suspense>
   );
 }
