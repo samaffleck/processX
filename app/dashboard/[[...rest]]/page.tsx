@@ -299,7 +299,7 @@ export default function DashboardPage() {
                     >
                       <div className="flex items-center gap-2">
                         <FileJson className="w-4 h-4" />
-                        Organisation Flowsheets
+                        Flowsheets
                       </div>
                     </button>
                   </div>

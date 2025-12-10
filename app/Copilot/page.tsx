@@ -33,6 +33,8 @@ export default function CopilotPage() {
   const [wasmReady, setWasmReady] = useState(false);
   const [pendingLoadId, setPendingLoadId] = useState<string | null>(null);
   const loadedFlowsheetRef = React.useRef<string | null>(null); // Track what we've already loaded
+  const [currentFlowsheetId, setCurrentFlowsheetId] = useState<string | null>(null); // Track currently loaded flowsheet ID
+  const [currentFlowsheetName, setCurrentFlowsheetName] = useState<string | null>(null); // Track currently loaded flowsheet name
   const { organization, isLoaded: orgLoaded } = useOrganization();
   const { user, isLoaded: userLoaded } = useUser();
 
@@ -158,7 +160,10 @@ export default function CopilotPage() {
         return;
       }
 
-      const flowsheetData = JSON.parse(flowsheetJSON);
+      // Pre-fill name if we have a loaded flowsheet
+      if (currentFlowsheetName) {
+        setFlowsheetName(currentFlowsheetName);
+      }
       setShowSaveDialog(true);
     } catch (error) {
       console.error('Error getting flowsheet:', error);
@@ -166,7 +171,7 @@ export default function CopilotPage() {
     }
   };
 
-  const handleConfirmSave = async () => {
+  const handleConfirmSave = async (saveAs: boolean = false) => {
     if (!flowsheetName.trim()) {
       alert('Please enter a flowsheet name');
       return;
@@ -187,22 +192,51 @@ export default function CopilotPage() {
       // Parse it only to validate it's valid JSON
       JSON.parse(flowsheetJSON); // Validate but don't use the parsed result
 
-      const response = await fetch('/api/flowsheets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: flowsheetName,
-          description: flowsheetDescription,
-          data: flowsheetJSON, // Send as string, not parsed object
-          dataFormat: 'json_string', // Flag to indicate it's a JSON string
-        }),
-      });
+      // If we have a current flowsheet ID and not saving as new, update it
+      if (currentFlowsheetId && !saveAs) {
+        const response = await fetch(`/api/flowsheets/${currentFlowsheetId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: flowsheetName,
+            description: flowsheetDescription,
+            data: flowsheetJSON,
+            dataFormat: 'json_string',
+            changeDescription: 'Updated flowsheet',
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to save flowsheet');
+        if (!response.ok) {
+          throw new Error('Failed to update flowsheet');
+        }
+
+        alert('Flowsheet updated successfully!');
+        // Update the current flowsheet name
+        setCurrentFlowsheetName(flowsheetName);
+      } else {
+        // Create new flowsheet
+        const response = await fetch('/api/flowsheets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: flowsheetName,
+            description: flowsheetDescription,
+            data: flowsheetJSON, // Send as string, not parsed object
+            dataFormat: 'json_string', // Flag to indicate it's a JSON string
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save flowsheet');
+        }
+
+        const result = await response.json();
+        alert('Flowsheet saved successfully!');
+        // Track the new flowsheet
+        setCurrentFlowsheetId(result.flowsheet.id);
+        setCurrentFlowsheetName(flowsheetName);
       }
 
-      alert('Flowsheet saved successfully!');
       setShowSaveDialog(false);
       setFlowsheetName('');
       setFlowsheetDescription('');
@@ -256,6 +290,9 @@ export default function CopilotPage() {
         const text = await file.text();
         const data = JSON.parse(text);
         await loadFlowsheetIntoWasm(data);
+        // Clear current flowsheet tracking when loading from file
+        setCurrentFlowsheetId(null);
+        setCurrentFlowsheetName(null);
         alert('Flowsheet loaded successfully!');
       } catch (error) {
         console.error('Error loading flowsheet:', error);
@@ -309,6 +346,10 @@ export default function CopilotPage() {
 
       const result = await response.json();
       console.log(`📦 [${callId}] Got flowsheet data:`, result.flowsheet.name);
+
+      // Track the loaded flowsheet
+      setCurrentFlowsheetId(flowsheetId);
+      setCurrentFlowsheetName(result.flowsheet.name);
 
       // Pass data directly - loadFlowsheetIntoWasm will handle string vs object
       console.log(`🚀 [${callId}] Calling loadFlowsheetIntoWasm...`);
@@ -465,7 +506,20 @@ export default function CopilotPage() {
       {showSaveDialog && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
           <div className="bg-zinc-900 p-6 rounded-lg max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold text-white mb-4">Save Flowsheet</h2>
+            <h2 className="text-xl font-bold text-white mb-4">
+              {currentFlowsheetId ? 'Update Flowsheet' : 'Save Flowsheet'}
+            </h2>
+
+            {currentFlowsheetId && (
+              <div className="mb-4 p-3 bg-white/5 rounded border border-white/10">
+                <p className="text-sm text-white/80">
+                  Currently editing: <span className="font-medium text-white">{currentFlowsheetName}</span>
+                </p>
+                <p className="text-xs text-white/60 mt-1">
+                  Use "Update" to save changes, or "Save As" to create a new copy.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-4">
               <div>
@@ -503,12 +557,21 @@ export default function CopilotPage() {
                 >
                   Cancel
                 </button>
+                {currentFlowsheetId && (
+                  <button
+                    onClick={() => handleConfirmSave(true)}
+                    className="px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white transition-colors disabled:opacity-50"
+                    disabled={isSaving || !flowsheetName.trim()}
+                  >
+                    {isSaving ? 'Saving...' : 'Save As'}
+                  </button>
+                )}
                 <button
-                  onClick={handleConfirmSave}
+                  onClick={() => handleConfirmSave(false)}
                   className="px-4 py-2 rounded bg-white text-black hover:bg-white/90 transition-colors disabled:opacity-50"
                   disabled={isSaving || !flowsheetName.trim()}
                 >
-                  {isSaving ? 'Saving...' : 'Save'}
+                  {isSaving ? 'Saving...' : currentFlowsheetId ? 'Update' : 'Save'}
                 </button>
               </div>
             </div>

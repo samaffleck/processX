@@ -225,7 +225,7 @@ export default function FlowsheetsPage() {
         <div className="max-w-6xl mx-auto w-full">
           <div className="mb-8 flex justify-between items-center">
             <div>
-              <h1 className="text-4xl font-bold mb-2">Organization Flowsheets</h1>
+              <h1 className="text-4xl font-bold mb-2">Flowsheets</h1>
               <p className="text-white/60">
                 Manage and share flowsheets with your organization
               </p>

@@ -51,6 +51,45 @@ export async function GET(request: NextRequest) {
     // Get all flowsheets (simulation files) for this organisation
     const flowsheets = await getSimulationFilesByOrg(org.id, user.id);
 
+    // Get version creators for updated_by_name - batch fetch all version creators
+    const { supabaseAdmin } = await import('@/lib/db/supabase');
+    const { getUserById } = await import('@/lib/db/users');
+    
+    // Get all current version creators in one query
+    const fileIds = flowsheets.map(f => f.id);
+    const { data: versions } = await supabaseAdmin
+      .from('simulation_file_versions')
+      .select('file_id, version, created_by')
+      .in('file_id', fileIds);
+    
+    // Create a map of file_id -> version -> created_by
+    const versionCreators = new Map<string, Map<number, string>>();
+    if (versions) {
+      for (const v of versions) {
+        if (!versionCreators.has(v.file_id)) {
+          versionCreators.set(v.file_id, new Map());
+        }
+        versionCreators.get(v.file_id)!.set(v.version, v.created_by);
+      }
+    }
+    
+    // Get all unique user IDs and fetch them in batch
+    const userIds = new Set<string>();
+    flowsheets.forEach(f => {
+      if (f.created_by) userIds.add(f.created_by);
+      const versionMap = versionCreators.get(f.id);
+      if (versionMap) {
+        const creatorId = versionMap.get(f.current_version);
+        if (creatorId) userIds.add(creatorId);
+      }
+    });
+    
+    const usersMap = new Map<string, { full_name: string | null; email: string; clerk_user_id: string }>();
+    await Promise.all(Array.from(userIds).map(async (uid) => {
+      const u = await getUserById(uid);
+      if (u) usersMap.set(uid, u);
+    }));
+    
     // Transform to match the old API format
     const transformedFlowsheets = flowsheets.map((file) => {
       // If data was stored as wrapped string, unwrap it for the response
@@ -58,17 +97,29 @@ export async function GET(request: NextRequest) {
         ? file.data._json_string // Unwrap the JSON string
         : file.data;
 
+      // Get creator info
+      const creator = file.created_by ? usersMap.get(file.created_by) : null;
+      const createdByName = creator?.full_name || creator?.email || file.created_by_name || 'Unknown';
+      const createdBy = creator?.clerk_user_id || user.clerk_user_id;
+
+      // Get version creator info (for updated_by_name)
+      const versionMap = versionCreators.get(file.id);
+      const versionCreatorId = versionMap?.get(file.current_version);
+      const versionCreator = versionCreatorId ? usersMap.get(versionCreatorId) : null;
+      const updatedByName = versionCreator?.full_name || versionCreator?.email || createdByName;
+      const updatedBy = versionCreator?.clerk_user_id || createdBy;
+
       return {
         id: file.id,
         name: file.name,
         description: file.description,
         organizationId: org.clerk_org_id,
-        createdBy: user.clerk_user_id,
-        createdByName: file.created_by_name || 'Unknown',
+        createdBy,
+        createdByName,
         createdAt: file.created_at,
         updatedAt: file.updated_at,
-        updatedBy: user.clerk_user_id,
-        updatedByName: file.created_by_name || 'Unknown',
+        updatedBy,
+        updatedByName,
         version: file.current_version,
         data: responseData,
       };
