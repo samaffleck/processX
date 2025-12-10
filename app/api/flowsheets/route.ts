@@ -103,9 +103,20 @@ export async function POST(request: NextRequest) {
 
     // If data is a JSON string (from WASM), wrap it to preserve exact format
     // Supabase JSONB will parse strings, so we wrap it in an object
-    const dataToStore = typeof data === 'string' && dataFormat === 'json_string'
-      ? { _json_string: data } // Wrap JSON string to preserve it
-      : data;
+    // For uploaded JSON objects, convert to string first to preserve exact format
+    let dataToStore: any;
+    if (typeof data === 'string' && dataFormat === 'json_string') {
+      // Already a JSON string from WASM - wrap it
+      dataToStore = { _json_string: data };
+    } else if (typeof data === 'object' && data !== null) {
+      // Uploaded JSON object - convert to string and wrap to preserve exact format
+      // This prevents Supabase JSONB from normalizing/reordering keys
+      const jsonString = JSON.stringify(data);
+      dataToStore = { _json_string: jsonString };
+    } else {
+      // Fallback (shouldn't happen)
+      dataToStore = data;
+    }
 
     // Get or create user in database
     const clerkUser = await getClerkUser(userId);
@@ -137,13 +148,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to get project' }, { status: 500 });
     }
 
-    // Create the simulation file
+    // Create the simulation file (use dataToStore, not data)
     const file = await createSimulationFile(
       {
         project_id: project.id,
         name,
         description,
-        data,
+        data: dataToStore,
         created_by: user.id,
       },
       user.id
@@ -155,6 +166,7 @@ export async function POST(request: NextRequest) {
 
     // Transform to match the old API format
     // If data was stored as wrapped string, unwrap it for the response
+    // Note: file.data comes from the database view which includes the current version's data
     const responseData = (typeof file.data === 'object' && file.data !== null && '_json_string' in file.data)
       ? file.data._json_string // Unwrap the JSON string
       : (typeof data === 'string' ? data : file.data);

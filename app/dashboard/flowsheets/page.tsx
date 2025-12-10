@@ -77,15 +77,17 @@ export default function FlowsheetsPage() {
 
     try {
       const text = await uploadFile.text();
-      const data = JSON.parse(text);
-
+      // Validate JSON but send as string to preserve exact format (like WASM saves)
+      JSON.parse(text); // Validate it's valid JSON
+      
       const response = await fetch('/api/flowsheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: uploadName,
           description: uploadDescription,
-          data,
+          data: text, // Send as string to preserve exact format
+          dataFormat: 'json_string', // Flag to indicate it's a JSON string
         }),
       });
 

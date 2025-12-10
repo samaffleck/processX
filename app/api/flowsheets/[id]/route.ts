@@ -108,9 +108,22 @@ export async function PATCH(
     const { name, description, data, changeDescription, dataFormat } = body;
 
     // If data is a JSON string (from WASM), wrap it to preserve exact format
-    const dataToStore = data && typeof data === 'string' && dataFormat === 'json_string'
-      ? { _json_string: data } // Wrap JSON string to preserve it
-      : data;
+    // For uploaded JSON objects, convert to string first to preserve exact format
+    let dataToStore: any = null;
+    if (data) {
+      if (typeof data === 'string' && dataFormat === 'json_string') {
+        // Already a JSON string from WASM - wrap it
+        dataToStore = { _json_string: data };
+      } else if (typeof data === 'object' && data !== null) {
+        // Uploaded JSON object - convert to string and wrap to preserve exact format
+        // This prevents Supabase JSONB from normalizing/reordering keys
+        const jsonString = JSON.stringify(data);
+        dataToStore = { _json_string: jsonString };
+      } else {
+        // Fallback
+        dataToStore = data;
+      }
+    }
 
     // Get or create user in database
     const clerkUser = await getClerkUser(userId);
