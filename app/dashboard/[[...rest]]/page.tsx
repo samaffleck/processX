@@ -36,8 +36,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user, isLoaded: userLoaded } = useUser();
   const { organization, isLoaded: orgLoaded, membership } = useOrganization();
-  const [activeTab, setActiveTab] = useState<'account' | 'organization'>('account');
-  const [orgSubTab, setOrgSubTab] = useState<'profile' | 'flowsheets'>('profile');
+  const [activeTab, setActiveTab] = useState<'account' | 'organization' | 'flowsheets'>('account');
   
   // Flowsheets state
   const [flowsheets, setFlowsheets] = useState<FlowsheetMetadata[]>([]);
@@ -77,10 +76,10 @@ export default function DashboardPage() {
   // Load flowsheets when flowsheets tab is active
   // IMPORTANT: This hook must be called before any early returns
   useEffect(() => {
-    if (orgSubTab === 'flowsheets' && orgLoaded && organization) {
+    if (activeTab === 'flowsheets' && orgLoaded && organization) {
       loadFlowsheets();
     }
-  }, [orgSubTab, orgLoaded, organization, loadFlowsheets]);
+  }, [activeTab, orgLoaded, organization, loadFlowsheets]);
 
   if (isLoading) {
     return (
@@ -243,19 +242,34 @@ export default function DashboardPage() {
                 </div>
               </button>
               {organization && (
-                <button
-                  onClick={() => setActiveTab('organization')}
-                  className={`px-6 py-3 font-medium transition-colors border-b-2 ${
-                    activeTab === 'organization'
-                      ? 'border-white text-white'
-                      : 'border-transparent text-white/60 hover:text-white/80'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4" />
-                    Organization Settings
-                  </div>
-                </button>
+                <>
+                  <button
+                    onClick={() => setActiveTab('organization')}
+                    className={`px-6 py-3 font-medium transition-colors border-b-2 ${
+                      activeTab === 'organization'
+                        ? 'border-white text-white'
+                        : 'border-transparent text-white/60 hover:text-white/80'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      Organization Settings
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('flowsheets')}
+                    className={`px-6 py-3 font-medium transition-colors border-b-2 ${
+                      activeTab === 'flowsheets'
+                        ? 'border-white text-white'
+                        : 'border-transparent text-white/60 hover:text-white/80'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileJson className="w-4 h-4" />
+                      Flowsheets
+                    </div>
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -277,56 +291,27 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {activeTab === 'organization' && organization && (
+            {activeTab === 'organization' && organization && isAdmin && (
               <div className="w-full">
-                {/* Sub-tabs for Organization Settings */}
-                <div className="mb-6 border-b border-white/10">
-                  <div className="flex gap-4">
-                    <button
-                      onClick={() => setOrgSubTab('profile')}
-                      className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-                        orgSubTab === 'profile'
-                          ? 'border-white text-white'
-                          : 'border-transparent text-white/60 hover:text-white/80'
-                      }`}
-                    >
-                      Profile & Members
-                    </button>
-                    <button
-                      onClick={() => setOrgSubTab('flowsheets')}
-                      className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-                        orgSubTab === 'flowsheets'
-                          ? 'border-white text-white'
-                          : 'border-transparent text-white/60 hover:text-white/80'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <FileJson className="w-4 h-4" />
-                        Flowsheets
-                      </div>
-                    </button>
-                  </div>
-                </div>
+                <OrganizationProfile
+                  routing="path"
+                  path="/dashboard"
+                  appearance={{
+                    elements: {
+                      rootBox: "w-full",
+                      card: "w-full",
+                    },
+                  }}
+                />
+              </div>
+            )}
 
-                {/* Sub-tab Content */}
-                {orgSubTab === 'profile' && isAdmin && (
-                  <OrganizationProfile
-                    routing="path"
-                    path="/dashboard"
-                    appearance={{
-                      elements: {
-                        rootBox: "w-full",
-                        card: "w-full",
-                      },
-                    }}
-                  />
-                )}
-
-                {orgSubTab === 'flowsheets' && (
-                  <div className="w-full">
-                    <div className="mb-6 flex justify-end items-center">
-                      <button
-                        onClick={() => setShowUploadDialog(true)}
+            {activeTab === 'flowsheets' && organization && (
+              <div className="w-full">
+                <div className="w-full">
+                  <div className="mb-6 flex justify-end items-center">
+                    <button
+                      onClick={() => setShowUploadDialog(true)}
                         className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-white/90 transition-colors flex items-center gap-2"
                       >
                         <Upload className="w-5 h-5" />
@@ -421,7 +406,6 @@ export default function DashboardPage() {
                       </div>
                     )}
                   </div>
-                )}
               </div>
             )}
           </div>
