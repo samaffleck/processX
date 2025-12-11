@@ -39,15 +39,34 @@ export async function GET(
 
     const versions = await getSimulationFileVersions(id, user.id);
 
-    // Transform to match the old API format
-    const transformedVersions = versions.map((v) => ({
-      version: v.version,
-      data: v.data,
-      updatedBy: user.clerk_user_id,
-      updatedByName: fullName || email,
-      updatedAt: v.created_at,
-      changeDescription: v.change_description,
+    // Get all unique user IDs from versions and fetch them in batch
+    const { getUserById } = await import('@/lib/db/users');
+    const userIds = new Set<string>();
+    versions.forEach((v) => {
+      if (v.created_by) userIds.add(v.created_by);
+    });
+
+    const usersMap = new Map<string, { full_name: string | null; email: string; clerk_user_id: string }>();
+    await Promise.all(Array.from(userIds).map(async (uid) => {
+      const u = await getUserById(uid);
+      if (u) usersMap.set(uid, u);
     }));
+
+    // Transform to match the old API format
+    const transformedVersions = versions.map((v) => {
+      const versionCreator = v.created_by ? usersMap.get(v.created_by) : null;
+      const updatedByName = versionCreator?.full_name || versionCreator?.email || fullName || email;
+      const updatedBy = versionCreator?.clerk_user_id || user.clerk_user_id;
+
+      return {
+        version: v.version,
+        data: v.data,
+        updatedBy,
+        updatedByName,
+        updatedAt: v.created_at,
+        changeDescription: v.change_description,
+      };
+    });
 
     return NextResponse.json({ versions: transformedVersions });
   } catch (error) {

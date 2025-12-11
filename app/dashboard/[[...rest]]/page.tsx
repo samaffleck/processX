@@ -169,6 +169,10 @@ export default function DashboardPage() {
       const response = await fetch(`/api/flowsheets/${flowsheet.id}/versions`);
       if (response.ok) {
         const data = await response.json();
+        console.log('📊 Version History Data:', data.versions);
+        data.versions.forEach((v: FlowsheetVersion) => {
+          console.log(`Version ${v.version}: changeDescription =`, v.changeDescription);
+        });
         setVersionHistory(data.versions);
         setShowVersionHistory(true);
       }
@@ -347,9 +351,6 @@ export default function DashboardPage() {
                             <div className="flex justify-between items-start mb-4">
                               <div className="flex-1">
                                 <h3 className="text-xl font-bold mb-1">{flowsheet.name}</h3>
-                                {flowsheet.description && (
-                                  <p className="text-white/60 text-sm mb-3">{flowsheet.description}</p>
-                                )}
                                 <div className="flex flex-wrap gap-4 text-sm text-white/60">
                                   <div className="flex items-center gap-1">
                                     <UserIcon className="w-4 h-4" />
@@ -488,42 +489,47 @@ export default function DashboardPage() {
             </h2>
 
             <div className="space-y-3 mb-6">
-              {versionHistory.map((version) => (
+              {versionHistory.map((version) => {
+                console.log(`🎨 Rendering version ${version.version}:`, {
+                  hasChangeDescription: !!version.changeDescription,
+                  changeDescription: version.changeDescription,
+                  willRender: version.changeDescription ? true : false
+                });
+                return (
                 <div
                   key={version.version}
                   className="bg-black/50 p-4 rounded border border-white/10"
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <div className="font-semibold text-white">
-                        Version {version.version}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-white">Version {version.version}</span>
                         {version.version === selectedFlowsheet.version && (
-                          <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded">
+                          <span className="text-xs bg-white/20 px-2 py-1 rounded">
                             Current
                           </span>
                         )}
+                        {version.changeDescription && (
+                          <span className="text-sm text-white/60">— {version.changeDescription}</span>
+                        )}
                       </div>
-                      {version.changeDescription && (
-                        <div className="text-sm text-white/60 mt-1">
-                          {version.changeDescription}
-                        </div>
-                      )}
+                      <div className="text-sm text-white/60">
+                        <div>Updated by {version.updatedByName}</div>
+                        <div>{formatDate(version.updatedAt)}</div>
+                      </div>
                     </div>
                     {version.version !== selectedFlowsheet.version && (
                       <button
                         onClick={() => handleRestoreVersion(version.version)}
-                        className="text-sm bg-white/10 hover:bg-white/20 px-3 py-1 rounded transition-colors"
+                        className="text-sm bg-white/10 hover:bg-white/20 px-3 py-1 rounded transition-colors flex-shrink-0"
                       >
                         Restore
                       </button>
                     )}
                   </div>
-                  <div className="text-sm text-white/60">
-                    <div>Updated by {version.updatedByName}</div>
-                    <div>{formatDate(version.updatedAt)}</div>
-                  </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="flex justify-end">

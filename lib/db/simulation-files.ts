@@ -16,7 +16,8 @@ import { isUserMemberOfOrg } from './organisations';
  */
 export async function createSimulationFile(
   input: CreateSimulationFileInput,
-  userId: string
+  userId: string,
+  changeDescription?: string
 ): Promise<SimulationFile | null> {
   // Verify user has access to the project
   const project = await getProjectById(input.project_id, userId);
@@ -50,7 +51,7 @@ export async function createSimulationFile(
       file_id: file.id,
       version: 1,
       created_by: input.created_by || userId,
-      change_description: 'Initial version',
+      change_description: changeDescription || 'Initial version',
       data: input.data,
     });
 

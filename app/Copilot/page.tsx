@@ -10,7 +10,6 @@ import { useOrganization, useUser } from '@clerk/nextjs';
 interface SavedFlowsheet {
   id: string;
   name: string;
-  description?: string;
   updatedAt: string;
   version: number;
 }
@@ -28,7 +27,7 @@ function CopilotPageContent() {
   const [savedFlowsheets, setSavedFlowsheets] = useState<SavedFlowsheet[]>([]);
   const [isLoadingFlowsheets, setIsLoadingFlowsheets] = useState(false);
   const [flowsheetName, setFlowsheetName] = useState('');
-  const [flowsheetDescription, setFlowsheetDescription] = useState('');
+  const [changeDescription, setChangeDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [wasmReady, setWasmReady] = useState(false);
   const [pendingLoadId, setPendingLoadId] = useState<string | null>(null);
@@ -199,10 +198,9 @@ function CopilotPageContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: flowsheetName,
-            description: flowsheetDescription,
             data: flowsheetJSON,
             dataFormat: 'json_string',
-            changeDescription: 'Updated flowsheet',
+            changeDescription: changeDescription || 'Updated flowsheet',
           }),
         });
 
@@ -220,9 +218,9 @@ function CopilotPageContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: flowsheetName,
-            description: flowsheetDescription,
             data: flowsheetJSON, // Send as string, not parsed object
             dataFormat: 'json_string', // Flag to indicate it's a JSON string
+            changeDescription: changeDescription || undefined,
           }),
         });
 
@@ -239,7 +237,7 @@ function CopilotPageContent() {
 
       setShowSaveDialog(false);
       setFlowsheetName('');
-      setFlowsheetDescription('');
+      setChangeDescription('');
     } catch (error) {
       console.error('Error saving flowsheet:', error);
       alert('Failed to save flowsheet: ' + (error as Error).message);
@@ -535,14 +533,19 @@ function CopilotPageContent() {
               </div>
 
               <div>
-                <label className="text-white/80 text-sm mb-1 block">Description</label>
-                <textarea
-                  value={flowsheetDescription}
-                  onChange={(e) => setFlowsheetDescription(e.target.value)}
-                  className="w-full bg-black/50 text-white px-3 py-2 rounded border border-white/20 focus:border-white/40 outline-none resize-none"
-                  placeholder="Optional description..."
-                  rows={3}
+                <label className="text-white/80 text-sm mb-1 block">
+                  {currentFlowsheetId ? 'Change Description' : 'Description'}
+                </label>
+                <input
+                  type="text"
+                  value={changeDescription}
+                  onChange={(e) => setChangeDescription(e.target.value)}
+                  className="w-full bg-black/50 text-white px-3 py-2 rounded border border-white/20 focus:border-white/40 outline-none"
+                  placeholder={currentFlowsheetId ? "What changed in this version? (optional)" : "Describe this flowsheet (optional)"}
                 />
+                <p className="text-xs text-white/40 mt-1">
+                  This will appear in the version history
+                </p>
               </div>
 
               <div className="flex gap-2 justify-end">
@@ -550,7 +553,7 @@ function CopilotPageContent() {
                   onClick={() => {
                     setShowSaveDialog(false);
                     setFlowsheetName('');
-                    setFlowsheetDescription('');
+                    setChangeDescription('');
                   }}
                   className="px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white transition-colors"
                   disabled={isSaving}
@@ -612,9 +615,6 @@ function CopilotPageContent() {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <h3 className="text-white font-medium">{flowsheet.name}</h3>
-                          {flowsheet.description && (
-                            <p className="text-white/60 text-sm mt-1">{flowsheet.description}</p>
-                          )}
                           <p className="text-white/40 text-xs mt-2">
                             Version {flowsheet.version} • Updated {new Date(flowsheet.updatedAt).toLocaleDateString()}
                           </p>

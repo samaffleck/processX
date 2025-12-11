@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, description, data, dataFormat } = body;
+    const { name, description, data, dataFormat, changeDescription } = body;
 
     if (!name || !data) {
       return NextResponse.json({ error: 'Name and data required' }, { status: 400 });
@@ -208,7 +208,8 @@ export async function POST(request: NextRequest) {
         data: dataToStore,
         created_by: user.id,
       },
-      user.id
+      user.id,
+      changeDescription
     );
 
     if (!file) {
