@@ -114,6 +114,7 @@ export async function GET(request: NextRequest) {
         name: file.name,
         description: file.description,
         organizationId: org.clerk_org_id,
+        project_id: file.project_id,
         createdBy,
         createdByName,
         createdAt: file.created_at,
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, description, data, dataFormat, changeDescription } = body;
+    const { name, description, data, dataFormat, changeDescription, project_id } = body;
 
     if (!name || !data) {
       return NextResponse.json({ error: 'Name and data required' }, { status: 400 });
@@ -193,10 +194,21 @@ export async function POST(request: NextRequest) {
     const { getOrCreateOrganisationMember } = await import('@/lib/db');
     await getOrCreateOrganisationMember(user.id, org.id);
 
-    // Get or create default project for this organisation
-    const project = await getOrCreateDefaultProject(org.id, user.id);
-    if (!project) {
-      return NextResponse.json({ error: 'Failed to get project' }, { status: 500 });
+    // Get project - use provided project_id or default project
+    let project;
+    if (project_id) {
+      // Verify project exists and user has access
+      const { getProjectById } = await import('@/lib/db');
+      project = await getProjectById(project_id, user.id);
+      if (!project) {
+        return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 });
+      }
+    } else {
+      // Fall back to default project for backwards compatibility
+      project = await getOrCreateDefaultProject(org.id, user.id);
+      if (!project) {
+        return NextResponse.json({ error: 'Failed to get project' }, { status: 500 });
+      }
     }
 
     // Create the simulation file (use dataToStore, not data)
@@ -226,6 +238,7 @@ export async function POST(request: NextRequest) {
       name: file.name,
       description: file.description,
       organizationId: org.clerk_org_id,
+      project_id: file.project_id,
       createdBy: user.clerk_user_id,
       createdByName: fullName || email,
       createdAt: file.created_at,

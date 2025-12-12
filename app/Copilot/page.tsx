@@ -14,6 +14,12 @@ interface SavedFlowsheet {
   version: number;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 interface LockStatus {
   isLocked: boolean;
   lockedByCurrentUser: boolean;
@@ -34,6 +40,8 @@ function CopilotPageContent() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
   const [savedFlowsheets, setSavedFlowsheets] = useState<SavedFlowsheet[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [isLoadingFlowsheets, setIsLoadingFlowsheets] = useState(false);
   const [flowsheetName, setFlowsheetName] = useState('');
   const [changeDescription, setChangeDescription] = useState('');
@@ -170,6 +178,17 @@ function CopilotPageContent() {
         return;
       }
 
+      // Load projects before showing save dialog
+      try {
+        const response = await fetch('/api/projects');
+        if (response.ok) {
+          const data = await response.json();
+          setProjects(data.projects || []);
+        }
+      } catch (error) {
+        console.error('Error loading projects:', error);
+      }
+
       // Pre-fill name if we have a loaded flowsheet
       if (currentFlowsheetName) {
         setFlowsheetName(currentFlowsheetName);
@@ -184,6 +203,12 @@ function CopilotPageContent() {
   const handleConfirmSave = async (saveAs: boolean = false) => {
     if (!flowsheetName.trim()) {
       alert('Please enter a flowsheet name');
+      return;
+    }
+
+    // For new saves (not updates), require a project selection
+    if ((saveAs || !currentFlowsheetId) && !selectedProjectId) {
+      alert('Please select a project folder');
       return;
     }
 
@@ -232,6 +257,7 @@ function CopilotPageContent() {
             data: flowsheetJSON, // Send as string, not parsed object
             dataFormat: 'json_string', // Flag to indicate it's a JSON string
             changeDescription: changeDescription || undefined,
+            project_id: selectedProjectId, // Include selected project
           }),
         });
 
@@ -249,6 +275,7 @@ function CopilotPageContent() {
       setShowSaveDialog(false);
       setFlowsheetName('');
       setChangeDescription('');
+      setSelectedProjectId('');
     } catch (error) {
       console.error('Error saving flowsheet:', error);
       alert('Failed to save flowsheet: ' + (error as Error).message);
@@ -650,6 +677,34 @@ function CopilotPageContent() {
             )}
 
             <div className="space-y-4">
+              {/* Show project selector only when creating new or saving as */}
+              {(!currentFlowsheetId || showSaveDialog) && (
+                <div>
+                  <label className="text-white/80 text-sm mb-1 block">
+                    Project Folder *
+                    {currentFlowsheetId && <span className="text-white/60 ml-2">(for Save As)</span>}
+                  </label>
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    className="w-full bg-black/50 text-white px-3 py-2 rounded border border-white/20 focus:border-white/40 outline-none"
+                    disabled={!!currentFlowsheetId && !isSaving}
+                  >
+                    <option value="">Select a folder...</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                  {projects.length === 0 && (
+                    <p className="text-xs text-yellow-400 mt-1">
+                      No project folders found. Create one in the Dashboard first.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="text-white/80 text-sm mb-1 block">Name *</label>
                 <input
@@ -684,6 +739,7 @@ function CopilotPageContent() {
                     setShowSaveDialog(false);
                     setFlowsheetName('');
                     setChangeDescription('');
+                    setSelectedProjectId('');
                   }}
                   className="px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white transition-colors"
                   disabled={isSaving}
@@ -694,7 +750,7 @@ function CopilotPageContent() {
                   <button
                     onClick={() => handleConfirmSave(true)}
                     className="px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white transition-colors disabled:opacity-50"
-                    disabled={isSaving || !flowsheetName.trim()}
+                    disabled={isSaving || !flowsheetName.trim() || !selectedProjectId}
                   >
                     {isSaving ? 'Saving...' : 'Save As'}
                   </button>
@@ -702,7 +758,7 @@ function CopilotPageContent() {
                 <button
                   onClick={() => handleConfirmSave(false)}
                   className="px-4 py-2 rounded bg-white text-black hover:bg-white/90 transition-colors disabled:opacity-50"
-                  disabled={isSaving || !flowsheetName.trim()}
+                  disabled={isSaving || !flowsheetName.trim() || (!currentFlowsheetId && !selectedProjectId)}
                 >
                   {isSaving ? 'Saving...' : currentFlowsheetId ? 'Update' : 'Save'}
                 </button>
