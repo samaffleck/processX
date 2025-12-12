@@ -36,7 +36,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user, isLoaded: userLoaded } = useUser();
   const { organization, isLoaded: orgLoaded, membership } = useOrganization();
-  const [activeTab, setActiveTab] = useState<'account' | 'organization' | 'flowsheets'>('account');
+  const [activeTab, setActiveTab] = useState<'account' | 'organization' | 'projects'>('account');
   
   // Flowsheets state
   const [flowsheets, setFlowsheets] = useState<FlowsheetMetadata[]>([]);
@@ -73,10 +73,10 @@ export default function DashboardPage() {
     }
   }, []); // Empty deps: only uses stable state setters
 
-  // Load flowsheets when flowsheets tab is active
+  // Load flowsheets when projects tab is active
   // IMPORTANT: This hook must be called before any early returns
   useEffect(() => {
-    if (activeTab === 'flowsheets' && orgLoaded && organization) {
+    if (activeTab === 'projects' && orgLoaded && organization) {
       loadFlowsheets();
     }
   }, [activeTab, orgLoaded, organization, loadFlowsheets]);
@@ -224,7 +224,7 @@ export default function DashboardPage() {
       
       <main className="flex-1 px-2 py-12 md:py-16 overflow-x-hidden">
         <div className="max-w-5xl mx-auto w-full overflow-x-hidden">
-          <div className="mb-8">
+          <div className="mb-8 text-center">
             <h1 className="text-4xl font-bold mb-2">Dashboard</h1>
             <p className="text-white/60">Manage your account and launch simulations</p>
           </div>
@@ -261,16 +261,16 @@ export default function DashboardPage() {
                     </div>
                   </button>
                   <button
-                    onClick={() => setActiveTab('flowsheets')}
+                    onClick={() => setActiveTab('projects')}
                     className={`px-6 py-3 font-medium transition-colors border-b-2 ${
-                      activeTab === 'flowsheets'
+                      activeTab === 'projects'
                         ? 'border-white text-white'
                         : 'border-transparent text-white/60 hover:text-white/80'
                     }`}
                   >
                     <div className="flex items-center gap-2">
                       <FileJson className="w-4 h-4" />
-                      Flowsheets
+                      Projects
                     </div>
                   </button>
                 </>
@@ -310,7 +310,7 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {activeTab === 'flowsheets' && organization && (
+            {activeTab === 'projects' && organization && (
               <div className="w-full">
                 <div className="w-full">
                   <div className="mb-6 flex justify-end items-center">
@@ -319,7 +319,7 @@ export default function DashboardPage() {
                         className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-white/90 transition-colors flex items-center gap-2"
                       >
                         <Upload className="w-5 h-5" />
-                        Upload Flowsheet
+                        Upload Project
                       </button>
                     </div>
 
@@ -330,15 +330,15 @@ export default function DashboardPage() {
                     ) : flowsheets.length === 0 ? (
                       <div className="text-center py-20 bg-white/5 border border-white/10 rounded-lg">
                         <FileJson className="w-16 h-16 mx-auto mb-4 text-white/40" />
-                        <h3 className="text-xl font-semibold mb-2">No flowsheets yet</h3>
+                        <h3 className="text-xl font-semibold mb-2">No projects yet</h3>
                         <p className="text-white/60 mb-6">
-                          Upload a flowsheet or save one from the Copilot interface
+                          Upload a project or save one from the Copilot interface
                         </p>
                         <button
                           onClick={() => setShowUploadDialog(true)}
                           className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-lg transition-colors"
                         >
-                          Upload Your First Flowsheet
+                          Upload Your First Project
                         </button>
                       </div>
                     ) : (
@@ -419,7 +419,7 @@ export default function DashboardPage() {
       {showUploadDialog && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
           <div className="bg-zinc-900 p-6 rounded-lg max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold text-white mb-4">Upload Flowsheet</h2>
+            <h2 className="text-xl font-bold text-white mb-4">Upload Project</h2>
 
             <div className="space-y-4">
               <div>
