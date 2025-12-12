@@ -65,6 +65,9 @@ export interface SimulationFile {
   created_at: string;
   updated_at: string;
   current_version: number;
+  locked_by: string | null;
+  locked_at: string | null;
+  lock_expires_at: string | null;
 }
 
 export interface SimulationFileVersion {
@@ -83,6 +86,8 @@ export interface SimulationFileWithCurrentVersion extends SimulationFile {
   version_created_at: string;
   created_by_name: string | null;
   created_by_email: string | null;
+  locked_by_name: string | null;
+  locked_by_email: string | null;
 }
 
 // ============================================================================

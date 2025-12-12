@@ -8,6 +8,7 @@ import {
   updateSimulationFile,
   createSimulationFileVersion,
   deleteSimulationFile,
+  checkFileLock,
 } from '@/lib/db';
 import { getClerkUser, getUserDisplayInfo } from '@/lib/db/clerk-helpers';
 
@@ -65,6 +66,9 @@ export async function GET(
       ? file.data._json_string // Unwrap the JSON string
       : file.data;
 
+    // Check lock status
+    const lockStatus = await checkFileLock(id, user.id);
+
     const transformedFlowsheet = {
       id: file.id,
       name: file.name,
@@ -78,6 +82,7 @@ export async function GET(
       updatedByName: file.created_by_name || 'Unknown',
       version: file.current_version,
       data: responseData,
+      lockStatus,
     };
 
     return NextResponse.json({ flowsheet: transformedFlowsheet });
@@ -136,6 +141,17 @@ export async function PATCH(
     const user = await getOrCreateUser(userId, email, fullName || undefined);
     if (!user) {
       return NextResponse.json({ error: 'Failed to sync user' }, { status: 500 });
+    }
+
+    // Check if file is locked by another user
+    const lockStatus = await checkFileLock(id, user.id);
+    if (lockStatus.isLocked && !lockStatus.lockedByCurrentUser) {
+      return NextResponse.json(
+        {
+          error: `This flowsheet is locked by ${lockStatus.lockedByName || 'another user'}. Only they can make changes.`
+        },
+        { status: 423 } // 423 Locked status code
+      );
     }
 
     // If data is being updated, create a new version

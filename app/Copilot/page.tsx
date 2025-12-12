@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react
 import { useSearchParams } from 'next/navigation';
 import ProcessXWasmApp from '../components/ProcessXWasmApp';
 import PDFUpload from '../components/PDFUpload';
-import { Save, Upload, Download } from 'lucide-react';
+import { Save, Upload, Download, Lock, Unlock } from 'lucide-react';
 import { useOrganization, useUser } from '@clerk/nextjs';
 
 interface SavedFlowsheet {
@@ -12,6 +12,15 @@ interface SavedFlowsheet {
   name: string;
   updatedAt: string;
   version: number;
+}
+
+interface LockStatus {
+  isLocked: boolean;
+  lockedByCurrentUser: boolean;
+  lockedBy?: string;
+  lockedByName?: string;
+  lockedAt?: string;
+  lockExpiresAt?: string;
 }
 
 function CopilotPageContent() {
@@ -34,6 +43,8 @@ function CopilotPageContent() {
   const loadedFlowsheetRef = React.useRef<string | null>(null); // Track what we've already loaded
   const [currentFlowsheetId, setCurrentFlowsheetId] = useState<string | null>(null); // Track currently loaded flowsheet ID
   const [currentFlowsheetName, setCurrentFlowsheetName] = useState<string | null>(null); // Track currently loaded flowsheet name
+  const [lockStatus, setLockStatus] = useState<LockStatus | null>(null); // Track lock status
+  const [isLocking, setIsLocking] = useState(false); // Track lock operation in progress
   const { organization, isLoaded: orgLoaded } = useOrganization();
   const { user, isLoaded: userLoaded } = useUser();
 
@@ -291,6 +302,7 @@ function CopilotPageContent() {
         // Clear current flowsheet tracking when loading from file
         setCurrentFlowsheetId(null);
         setCurrentFlowsheetName(null);
+        setLockStatus(null);
         alert('Flowsheet loaded successfully!');
       } catch (error) {
         console.error('Error loading flowsheet:', error);
@@ -348,6 +360,11 @@ function CopilotPageContent() {
       // Track the loaded flowsheet
       setCurrentFlowsheetId(flowsheetId);
       setCurrentFlowsheetName(result.flowsheet.name);
+
+      // Update lock status if available
+      if (result.flowsheet.lockStatus) {
+        setLockStatus(result.flowsheet.lockStatus);
+      }
 
       // Pass data directly - loadFlowsheetIntoWasm will handle string vs object
       console.log(`🚀 [${callId}] Calling loadFlowsheetIntoWasm...`);
@@ -427,6 +444,37 @@ function CopilotPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wasmReady, pendingLoadId, userLoaded, orgLoaded, user]); // Removed handleLoadFromDatabase
 
+  // Auto-unlock when page is closed or user navigates away
+  useEffect(() => {
+    if (!currentFlowsheetId || !lockStatus?.lockedByCurrentUser) {
+      return;
+    }
+
+    const unlockOnExit = async () => {
+      try {
+        // Use sendBeacon for reliability when page is closing
+        const blob = new Blob([JSON.stringify({})], { type: 'application/json' });
+        navigator.sendBeacon(`/api/flowsheets/${currentFlowsheetId}/lock`, blob);
+      } catch (error) {
+        console.error('Failed to unlock on exit:', error);
+      }
+    };
+
+    // Handle page close/refresh
+    window.addEventListener('beforeunload', unlockOnExit);
+
+    // Handle component unmount (navigation)
+    return () => {
+      window.removeEventListener('beforeunload', unlockOnExit);
+      // Also unlock when navigating away
+      if (currentFlowsheetId && lockStatus?.lockedByCurrentUser) {
+        fetch(`/api/flowsheets/${currentFlowsheetId}/lock`, { method: 'DELETE' }).catch(() => {
+          // Ignore errors on cleanup
+        });
+      }
+    };
+  }, [currentFlowsheetId, lockStatus?.lockedByCurrentUser]);
+
   const handleDownloadFlowsheet = async () => {
     const iframe = document.querySelector('iframe[src*="processX_app.html"]') as HTMLIFrameElement;
     if (!iframe || !iframe.contentWindow) {
@@ -460,6 +508,51 @@ function CopilotPageContent() {
     }
   };
 
+  const handleToggleLock = async () => {
+    if (!currentFlowsheetId) {
+      alert('No flowsheet loaded');
+      return;
+    }
+
+    setIsLocking(true);
+    try {
+      if (lockStatus?.lockedByCurrentUser) {
+        // Unlock
+        const response = await fetch(`/api/flowsheets/${currentFlowsheetId}/lock`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to unlock');
+        }
+
+        setLockStatus({ isLocked: false, lockedByCurrentUser: false });
+        alert('Flowsheet unlocked');
+      } else {
+        // Lock
+        const response = await fetch(`/api/flowsheets/${currentFlowsheetId}/lock`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ durationMinutes: 10 }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to lock');
+        }
+
+        setLockStatus({ isLocked: true, lockedByCurrentUser: true });
+        alert('Flowsheet locked - you have exclusive edit access for 10 minutes');
+      }
+    } catch (error) {
+      console.error('Error toggling lock:', error);
+      alert((error as Error).message);
+    } finally {
+      setIsLocking(false);
+    }
+  };
+
   return (
     <div className="h-screen w-screen relative overflow-hidden" style={{ backgroundColor: '#000000' }}>
       {/* Full Screen WASM App */}
@@ -467,6 +560,43 @@ function CopilotPageContent() {
 
       {/* Toolbar - Top Right Corner */}
       <div className="absolute top-4 right-4 z-50 flex gap-2">
+        {organization && currentFlowsheetId && (
+          <button
+            onClick={handleToggleLock}
+            disabled={isLocking || (lockStatus?.isLocked && !lockStatus?.lockedByCurrentUser)}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+              lockStatus?.lockedByCurrentUser
+                ? 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-500/50'
+                : lockStatus?.isLocked
+                ? 'bg-red-500/20 text-red-300 border border-red-500/50 cursor-not-allowed'
+                : 'bg-white/10 hover:bg-white/20 text-white'
+            }`}
+            title={
+              lockStatus?.isLocked && !lockStatus?.lockedByCurrentUser
+                ? `Locked by ${lockStatus?.lockedByName || 'another user'}`
+                : lockStatus?.lockedByCurrentUser
+                ? 'You have this flowsheet locked - click to unlock'
+                : 'Lock this flowsheet for exclusive editing'
+            }
+          >
+            {lockStatus?.lockedByCurrentUser ? (
+              <>
+                <Unlock className="w-4 h-4" />
+                Locked
+              </>
+            ) : lockStatus?.isLocked ? (
+              <>
+                <Lock className="w-4 h-4" />
+                Locked
+              </>
+            ) : (
+              <>
+                <Lock className="w-4 h-4" />
+                Lock
+              </>
+            )}
+          </button>
+        )}
         {organization && (
           <button
             onClick={handleSaveFlowsheet}

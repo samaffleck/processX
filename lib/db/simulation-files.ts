@@ -350,3 +350,125 @@ export async function deleteSimulationFile(fileId: string, userId: string): Prom
 
   return true;
 }
+
+/**
+ * Lock a simulation file for editing
+ * Lock duration in minutes (default: 10 minutes)
+ */
+export async function lockSimulationFile(
+  fileId: string,
+  userId: string,
+  durationMinutes: number = 10
+): Promise<{ success: boolean; error?: string }> {
+  // Verify access
+  const file = await getSimulationFileById(fileId, userId);
+  if (!file) {
+    return { success: false, error: 'File not found or access denied' };
+  }
+
+  // Check if already locked by someone else
+  if (file.locked_by && file.locked_by !== userId) {
+    // Check if lock has expired
+    if (file.lock_expires_at && new Date(file.lock_expires_at) > new Date()) {
+      return {
+        success: false,
+        error: `File is locked by ${file.locked_by_name || 'another user'} until ${new Date(file.lock_expires_at).toLocaleTimeString()}`
+      };
+    }
+  }
+
+  // Acquire or refresh lock
+  const lockExpiresAt = new Date(Date.now() + durationMinutes * 60 * 1000);
+  const { error } = await supabaseAdmin
+    .from('simulation_files')
+    .update({
+      locked_by: userId,
+      locked_at: new Date().toISOString(),
+      lock_expires_at: lockExpiresAt.toISOString(),
+    })
+    .eq('id', fileId);
+
+  if (error) {
+    console.error('Error locking file:', error);
+    return { success: false, error: 'Failed to lock file' };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Unlock a simulation file
+ * Only the user who locked it (or admin) can unlock it
+ */
+export async function unlockSimulationFile(
+  fileId: string,
+  userId: string,
+  force: boolean = false
+): Promise<{ success: boolean; error?: string }> {
+  // Verify access
+  const file = await getSimulationFileById(fileId, userId);
+  if (!file) {
+    return { success: false, error: 'File not found or access denied' };
+  }
+
+  // Check if user is authorized to unlock
+  if (!force && file.locked_by && file.locked_by !== userId) {
+    return { success: false, error: 'Only the user who locked the file can unlock it' };
+  }
+
+  // Remove lock
+  const { error } = await supabaseAdmin
+    .from('simulation_files')
+    .update({
+      locked_by: null,
+      locked_at: null,
+      lock_expires_at: null,
+    })
+    .eq('id', fileId);
+
+  if (error) {
+    console.error('Error unlocking file:', error);
+    return { success: false, error: 'Failed to unlock file' };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Check if a file is locked and by whom
+ */
+export async function checkFileLock(
+  fileId: string,
+  userId: string
+): Promise<{
+  isLocked: boolean;
+  lockedByCurrentUser: boolean;
+  lockedBy?: string;
+  lockedByName?: string;
+  lockedAt?: string;
+  lockExpiresAt?: string;
+}> {
+  const file = await getSimulationFileById(fileId, userId);
+  if (!file) {
+    return { isLocked: false, lockedByCurrentUser: false };
+  }
+
+  // Check if lock has expired
+  if (file.lock_expires_at && new Date(file.lock_expires_at) <= new Date()) {
+    // Lock expired, clean it up
+    await unlockSimulationFile(fileId, userId, true);
+    return { isLocked: false, lockedByCurrentUser: false };
+  }
+
+  const isLocked = !!file.locked_by;
+  const lockedByCurrentUser = file.locked_by === userId;
+
+  return {
+    isLocked,
+    lockedByCurrentUser,
+    lockedBy: file.locked_by || undefined,
+    lockedByName: file.locked_by_name || undefined,
+    lockedAt: file.locked_at || undefined,
+    lockExpiresAt: file.lock_expires_at || undefined,
+  };
+}
