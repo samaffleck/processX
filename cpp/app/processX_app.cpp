@@ -19,6 +19,7 @@
 #include "gui_properties.h"
 #include "gui_fluids.h"
 #include "gui_chat.h"
+#include "gui_window_titles.h"
 
 
 void ShowStatusBar() {
@@ -53,7 +54,7 @@ void ShowStatusBar() {
   static size_t cached_num_unknowns = 0;
   static size_t cached_num_equations = 0;
   static std::string cached_err;
-  static const int ASSEMBLE_INTERVAL = 10; // Assemble every 10 frames
+  static const int ASSEMBLE_INTERVAL = 60; // Assemble every 60 frames
   
   frame_counter++;
   bool should_assemble = (frame_counter % ASSEMBLE_INTERVAL == 0);
@@ -106,11 +107,11 @@ void ShowStatusBar() {
     );
     
     // Display status information
-    ImGui::Text("DOF: %d", dof);
+    ImGui::Text(ICON_FA_CIRCLE_INFO " DOF: %d", dof);
     ImGui::SameLine();
-    ImGui::Text("Unknowns: %zu", num_unknowns);
+    ImGui::Text(ICON_FA_CUBES " Unknowns: %zu", num_unknowns);
     ImGui::SameLine();
-    ImGui::Text("Equations: %zu", num_equations);
+    ImGui::Text(ICON_FA_GEARS " Equations: %zu", num_equations);
     
     // Show error status if assembly failed
     if (!assembled && !err.empty()) {
@@ -120,7 +121,7 @@ void ShowStatusBar() {
       if (short_err.length() > 100) {
         short_err = short_err.substr(0, 97) + "...";
       }
-      ImGui::TextColored(ImVec4(0.9f, 0.7f, 0.3f, 1.0f), "Error: %s", short_err.c_str());
+      ImGui::TextColored(ImVec4(0.9f, 0.7f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION " Error: %s", short_err.c_str());
     }
   }
   ImGui::End();
@@ -245,7 +246,7 @@ void ShowGui()  {
   if (ImGui::BeginPopupModal("Data Loaded", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
     ImGui::Text("Data loaded successfully!");
     ImGui::Spacing();
-    if (ImGui::Button("OK", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+    if (ImGui::Button((std::string(ICON_FA_CHECK) + " OK").c_str(), ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
       ClearDataLoadedModal();
       ImGui::CloseCurrentPopup();
     }
@@ -253,23 +254,23 @@ void ShowGui()  {
   }
 
   // Render all dockable windows
-  ImGui::Begin("Unit Operations");
+  ImGui::Begin(WindowTitles::UnitOperations.c_str());
   ShowUnitOperationsPalette();
   ImGui::End();
 
-  ImGui::Begin("Flowsheet");
+  ImGui::Begin(WindowTitles::Flowsheet.c_str());
   ShowUnitOperations();
   ImGui::End();
 
-  ImGui::Begin("Properties");
+  ImGui::Begin(WindowTitles::Properties.c_str());
   ShowSelectedUnitProperties();
   ImGui::End();
 
-  ImGui::Begin("Fluid Packages");
+  ImGui::Begin(WindowTitles::FluidPackages.c_str());
   ShowFluidPackagesWindow();
   ImGui::End();
   
-  ImGui::Begin("Chat");
+  ImGui::Begin(WindowTitles::Chat.c_str());
   ShowChatWindow();
   ImGui::End();
   

@@ -3,6 +3,7 @@
 #include <hello_imgui/runner_params.h>
 #include <imgui.h>
 #include "themes.h"
+#include "hello_imgui/icons_font_awesome_6.h"
 #include <cstring>
 
 #ifdef EMSCRIPTEN
@@ -198,7 +199,7 @@ void ShowSaveDialog() {
   ImGui::SetNextWindowSize(ImVec2(500, 200), ImGuiCond_Appearing);
   
   if (ImGui::BeginPopupModal("Save Flowsheet", &show_save_dialog, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
-    std::string title = current_flowsheet_id.empty() ? "Save New Flowsheet" : "Update Flowsheet";
+    std::string title = current_flowsheet_id.empty() ? std::string(ICON_FA_FLOPPY_DISK) + " Save New Flowsheet" : std::string(ICON_FA_FLOPPY_DISK) + " Update Flowsheet";
     ImGui::Text("%s", title.c_str());
     ImGui::Spacing();
     ImGui::Separator();
@@ -222,7 +223,7 @@ void ShowSaveDialog() {
       ImGui::BeginDisabled();
     }
     
-    if (ImGui::Button("Save", ImVec2(100, 0))) {
+    if (ImGui::Button((std::string(ICON_FA_FLOPPY_DISK) + " Save").c_str(), ImVec2(100, 0))) {
       // Get flowsheet JSON
       const char* json_ptr = GetFlowsheetJSONPtr();
       if (!json_ptr || strlen(json_ptr) == 0) {
@@ -253,7 +254,7 @@ void ShowSaveDialog() {
     }
     
     ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(100, 0))) {
+    if (ImGui::Button((std::string(ICON_FA_XMARK) + " Cancel").c_str(), ImVec2(100, 0))) {
       show_save_dialog = false;
       change_message_buffer[0] = '\0';
       ImGui::CloseCurrentPopup();
@@ -372,37 +373,38 @@ void ShowMenus(HelloImGui::RunnerParams& params) {
     
     #ifdef EMSCRIPTEN
     // Save menu item
-    if (ImGui::MenuItem("Save", "Ctrl+S")) {
+    if (ImGui::MenuItem((std::string(ICON_FA_FLOPPY_DISK) + " Save").c_str(), "Ctrl+S")) {
       TriggerSaveDialog();
     }
     
     // Lock/Unlock menu item
     std::string lock_text = GetLockStatusText();
-    if (ImGui::MenuItem(lock_text.c_str())) {
+    std::string lock_icon = (js_lock_status == 1) ? ICON_FA_UNLOCK : ICON_FA_LOCK;
+    if (ImGui::MenuItem((lock_icon + " " + lock_text).c_str())) {
       ToggleLock();
     }
     
     ImGui::Separator();
     
     // Exit menu item
-    if (ImGui::MenuItem("Exit", "Ctrl+Q")) {
+    if (ImGui::MenuItem((std::string(ICON_FA_RIGHT_FROM_BRACKET) + " Exit").c_str(), "Ctrl+Q")) {
       ShowExitConfirmation();
     }
     #else
-    if (ImGui::MenuItem("New", "Ctrl+N")) {
+    if (ImGui::MenuItem((std::string(ICON_FA_FILE) + " New").c_str(), "Ctrl+N")) {
       // TODO: Implement new file functionality
     }
-    if (ImGui::MenuItem("Open", "Ctrl+O")) {
+    if (ImGui::MenuItem((std::string(ICON_FA_FOLDER_OPEN) + " Open").c_str(), "Ctrl+O")) {
       // TODO: Implement open file functionality
     }
-    if (ImGui::MenuItem("Save", "Ctrl+S")) {
+    if (ImGui::MenuItem((std::string(ICON_FA_FLOPPY_DISK) + " Save").c_str(), "Ctrl+S")) {
       // TODO: Implement save file functionality for native builds
     }
-    if (ImGui::MenuItem("Save As", "Ctrl+Shift+S")) {
+    if (ImGui::MenuItem((std::string(ICON_FA_FLOPPY_DISK) + " Save As").c_str(), "Ctrl+Shift+S")) {
       // TODO: Implement save as file functionality for native builds
     }
     ImGui::Separator();
-    if (ImGui::MenuItem("Exit", "Ctrl+Q")) {
+    if (ImGui::MenuItem((std::string(ICON_FA_RIGHT_FROM_BRACKET) + " Exit").c_str(), "Ctrl+Q")) {
       params.appShallExit = true;
     }
     #endif
@@ -411,13 +413,13 @@ void ShowMenus(HelloImGui::RunnerParams& params) {
   }
 
   // View menu
-  if (ImGui::BeginMenu("View")) {
+  if (ImGui::BeginMenu((std::string(ICON_FA_EYE) + " View").c_str())) {
     // Themes submenu
     if (ImGui::BeginMenu("Themes")) {
-      if (ImGui::MenuItem("Dark Theme")) {
+      if (ImGui::MenuItem((std::string(ICON_FA_MOON) + " Dark Theme").c_str())) {
         Themes::SetFluentUIColors();
       }
-      if (ImGui::MenuItem("Light Theme")) {
+      if (ImGui::MenuItem((std::string(ICON_FA_SUN) + " Light Theme").c_str())) {
         Themes::SetFluentLight();
       }
       ImGui::EndMenu();
@@ -440,12 +442,13 @@ void ShowMenus(HelloImGui::RunnerParams& params) {
   
   if (ImGui::BeginPopupModal("Message", &show_message_popup, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
     // Set text color based on error status
+    std::string icon = is_error_message ? ICON_FA_TRIANGLE_EXCLAMATION : ICON_FA_CHECK;
     if (is_error_message) {
       ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.3f, 0.3f, 1.0f)); // Red for errors
     } else {
       ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.3f, 1.0f, 0.3f, 1.0f)); // Green for success
     }
-    ImGui::Text("%s", message_title.c_str());
+    ImGui::Text("%s %s", icon.c_str(), message_title.c_str());
     ImGui::PopStyleColor();
     
     ImGui::Spacing();
@@ -459,7 +462,7 @@ void ShowMenus(HelloImGui::RunnerParams& params) {
     ImGui::Separator();
     ImGui::Spacing();
     
-    if (ImGui::Button("OK", ImVec2(100, 0))) {
+    if (ImGui::Button((std::string(ICON_FA_CHECK) + " OK").c_str(), ImVec2(100, 0))) {
       show_message_popup = false;
       ImGui::CloseCurrentPopup();
     }
@@ -477,21 +480,21 @@ void ShowMenus(HelloImGui::RunnerParams& params) {
   ImGui::SetNextWindowSize(ImVec2(350, 120), ImGuiCond_Appearing);
   
   if (ImGui::BeginPopupModal("Exit Confirmation", &show_exit_confirmation, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
-    ImGui::Text("Are you sure you want to exit?");
+    ImGui::Text(ICON_FA_RIGHT_FROM_BRACKET " Are you sure you want to exit?");
     ImGui::Spacing();
     ImGui::Text("You will be redirected to the dashboard.");
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
     
-    if (ImGui::Button("Yes", ImVec2(100, 0))) {
+    if (ImGui::Button((std::string(ICON_FA_CHECK) + " Yes").c_str(), ImVec2(100, 0))) {
       show_exit_confirmation = false;
       ImGui::CloseCurrentPopup();
       ExitToDashboard();
     }
     
     ImGui::SameLine();
-    if (ImGui::Button("No", ImVec2(100, 0))) {
+    if (ImGui::Button((std::string(ICON_FA_XMARK) + " No").c_str(), ImVec2(100, 0))) {
       show_exit_confirmation = false;
       ImGui::CloseCurrentPopup();
     }

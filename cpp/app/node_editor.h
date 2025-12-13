@@ -4,6 +4,7 @@
 #include <imgui.h>
 
 #include "processX/flowsheet.h"
+#include "gui_window_titles.h"
 
 static inline ImVec2 operator+(const ImVec2& lhs, const ImVec2& rhs) { return ImVec2(lhs.x + rhs.x, lhs.y + rhs.y); }
 static inline ImVec2 operator-(const ImVec2& lhs, const ImVec2& rhs) { return ImVec2(lhs.x - rhs.x, lhs.y - rhs.y); }
@@ -17,7 +18,7 @@ ImVec2 GetOutputSlotPos(int slot_no, px::IUnitOp& op) {
 }
 
 static void ShowFlowsheet(bool* opened, px::Flowsheet& fs) {
-  if (!ImGui::Begin("Flowsheet", opened)) {
+  if (!ImGui::Begin(WindowTitles::Flowsheet.c_str(), opened)) {
     ImGui::End();
     return;
   }

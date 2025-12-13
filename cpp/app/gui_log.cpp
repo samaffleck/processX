@@ -1,6 +1,7 @@
 #include "gui_log.h"
 #include "gui_common.h"
 #include "gui_chat.h"
+#include "gui_window_titles.h"
 #include <imgui.h>
 #include <chrono>
 #include <sstream>
@@ -45,7 +46,7 @@ void AddLogEntry(LogEntry::Type type, const std::string& message) {
 }
 
 void ShowLogWindow() {
-  ImGui::Begin("Log");
+  ImGui::Begin(WindowTitles::Log.c_str());
   
   // Auto-scroll to bottom if scrolled to bottom before
   static bool auto_scroll = true;

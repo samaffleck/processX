@@ -1,6 +1,7 @@
 #include "gui_chat.h"
 #include "gui_common.h"
 #include "gui_log.h"
+#include "gui_window_titles.h"
 #include <imgui.h>
 #include <chrono>
 #include <sstream>
@@ -376,7 +377,7 @@ void ShowChatWindow() {
   }
   #endif
   
-  ImGui::Begin("Chat");
+  ImGui::Begin(WindowTitles::Chat.c_str());
   
   // Solve and Clear buttons at the top
   if (ImGui::Button("Solve")) {

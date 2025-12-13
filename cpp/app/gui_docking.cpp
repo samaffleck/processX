@@ -1,4 +1,5 @@
 #include "gui_docking.h"
+#include "gui_window_titles.h"
 
 std::vector<HelloImGui::DockingSplit> CreateDefaultDockingSplits()
 {
@@ -49,23 +50,24 @@ std::vector<HelloImGui::DockableWindow> CreateDockableWindows()
   // The DockableWindow entries are just for docking layout - they tell hello_imgui where to dock windows
   
   // Chat replaces Log - left side (25% width)
-  windows.emplace_back("Chat", "LogSpace", []() {}, true, true);
+  // Note: Use title with icon for docking to match ImGui::Begin calls
+  windows.emplace_back(WindowTitles::Chat.c_str(), "LogSpace", []() {}, true, true);
   windows.back().callBeginEnd = false;
   
   // Flowsheet - top right, shares space with Properties (50% of top right)
-  windows.emplace_back("Flowsheet", "MainDockSpace", []() {}, true, true);
+  windows.emplace_back(WindowTitles::Flowsheet.c_str(), "MainDockSpace", []() {}, true, true);
   windows.back().callBeginEnd = false;
   
   // Properties - top right, shares space with Flowsheet (50% of top right)
-  windows.emplace_back("Properties", "RightSpace", []() {}, true, true);
+  windows.emplace_back(WindowTitles::Properties.c_str(), "RightSpace", []() {}, true, true);
   windows.back().callBeginEnd = false;
   
   // Palette (Unit Operations) - bottom right
-  windows.emplace_back("Unit Operations", "BottomRightSpace", []() {}, true, true);
+  windows.emplace_back(WindowTitles::UnitOperations.c_str(), "BottomRightSpace", []() {}, true, true);
   windows.back().callBeginEnd = false;
   
   // Fluid Packages - can dock anywhere
-  windows.emplace_back("Fluid Packages", "RightSpace", []() {}, true, true);
+  windows.emplace_back(WindowTitles::FluidPackages.c_str(), "RightSpace", []() {}, true, true);
   windows.back().callBeginEnd = false;
   
   return windows;
