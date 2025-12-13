@@ -28,7 +28,7 @@ export default function ProcessXLanding() {
             className="text-6xl md:text-7xl lg:text-8xl font-bold mb-6 md:mb-8 leading-tight"
             style={{ transform: `translateY(${scrollY * 0.05}px)` }}
           >
-            ProcessX
+            Fugasity
           </h1>
           
           <p 

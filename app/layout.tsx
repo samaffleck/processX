@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ProcessX - AI Copilot for Process Engineers",
+  title: "Fugasity - AI Copilot for Process Engineers",
   description: "Transform chemical engineering workflows with web-native simulation powered by advanced AI.",
 };
 

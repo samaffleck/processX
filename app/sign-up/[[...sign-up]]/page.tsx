@@ -17,7 +17,7 @@ export default function SignUpPage() {
               <div className="w-10 h-10 bg-white text-black rounded-lg flex items-center justify-center">
                 <Atom className="w-6 h-6" />
               </div>
-              <span className="text-2xl font-bold text-white">ProcessX</span>
+              <span className="text-2xl font-bold text-white">Fugasity</span>
             </div>
           </Link>
         </div>
@@ -28,7 +28,7 @@ export default function SignUpPage() {
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
             <h1 className="text-4xl font-bold mb-2">Create an account</h1>
-            <p className="text-white/60">Get started with ProcessX</p>
+            <p className="text-white/60">Get started with Fugasity</p>
           </div>
           <div className="flex justify-center">
             <SignUp 

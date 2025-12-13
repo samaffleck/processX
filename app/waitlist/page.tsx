@@ -17,7 +17,7 @@ export default function WaitlistPage() {
               <div className="w-10 h-10 bg-white text-black rounded-lg flex items-center justify-center">
                 <Cpu className="w-6 h-6" />
               </div>
-              <span className="text-2xl font-bold text-white">ProcessX</span>
+              <span className="text-2xl font-bold text-white">Fugasity</span>
             </div>
           </Link>
         </div>

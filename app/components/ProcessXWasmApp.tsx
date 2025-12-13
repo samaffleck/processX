@@ -8,7 +8,7 @@ interface ProcessXWasmAppProps {
 
 export default function ProcessXWasmApp({ className }: ProcessXWasmAppProps) {
   const [isWasmLoading, setIsWasmLoading] = useState(true);
-  const [wasmStatus, setWasmStatus] = useState<string>('Loading ProcessX app...');
+  const [wasmStatus, setWasmStatus] = useState<string>('Loading Fugasity app...');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export default function ProcessXWasmApp({ className }: ProcessXWasmAppProps) {
       <iframe
         ref={iframeRef}
         src="/wasm_app/processX_app.html"
-        title="ProcessX Application"
+        title="Fugasity Application"
         className="w-full h-full"
         style={{ border: 'none' }}
       />
