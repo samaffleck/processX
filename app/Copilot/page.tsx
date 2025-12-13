@@ -275,7 +275,28 @@ function CopilotPageContent() {
     }
 
     // If data is already a JSON string, use it directly; otherwise stringify it
-    const jsonString = typeof data === 'string' ? data : JSON.stringify(data);
+    let jsonString: string;
+    if (typeof data === 'string') {
+      jsonString = data;
+      console.log(`🔧 [${callId}] Data is already a string (length: ${jsonString.length})`);
+    } else if (typeof data === 'object' && data !== null) {
+      // Check if it's wrapped in _json_string format (shouldn't happen here, but defensive check)
+      if ('_json_string' in data && typeof data._json_string === 'string') {
+        jsonString = data._json_string;
+        console.log(`🔧 [${callId}] Data was wrapped, unwrapped to string (length: ${jsonString.length})`);
+      } else {
+        jsonString = JSON.stringify(data);
+        console.log(`🔧 [${callId}] Data is object, stringified (length: ${jsonString.length})`);
+      }
+    } else {
+      console.error(`❌ [${callId}] Invalid data type:`, typeof data, data);
+      throw new Error('Invalid flowsheet data format');
+    }
+
+    // Log preview of JSON for debugging
+    const preview = jsonString.substring(0, 200);
+    console.log(`🔧 [${callId}] JSON preview (first 200 chars):`, preview);
+
     console.log(`✅ [${callId}] WASM Module.loadFlowsheetJSON is available, calling it now...`);
     const success = wasmModule.loadFlowsheetJSON(jsonString);
     console.log(`📊 [${callId}] WASM loadFlowsheetJSON returned:`, success);

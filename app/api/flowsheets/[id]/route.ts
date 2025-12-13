@@ -62,9 +62,22 @@ export async function GET(
 
     // Transform to match the old API format
     // If data was stored as wrapped string, unwrap it for the response
+    console.log('[API GET flowsheet] Raw data from database:', {
+      dataType: typeof file.data,
+      isObject: typeof file.data === 'object',
+      hasJsonString: file.data && typeof file.data === 'object' && '_json_string' in file.data,
+      preview: typeof file.data === 'string' ? file.data.substring(0, 100) : JSON.stringify(file.data)?.substring(0, 100)
+    });
+
     const responseData = (typeof file.data === 'object' && file.data !== null && '_json_string' in file.data)
       ? file.data._json_string // Unwrap the JSON string
       : file.data;
+
+    console.log('[API GET flowsheet] Response data:', {
+      dataType: typeof responseData,
+      isString: typeof responseData === 'string',
+      preview: typeof responseData === 'string' ? responseData.substring(0, 100) : JSON.stringify(responseData)?.substring(0, 100)
+    });
 
     // Check lock status
     const lockStatus = await checkFileLock(id, user.id);

@@ -6,7 +6,7 @@ import { UserProfile, OrganizationProfile } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import { User, Building2, FileJson, Download, Trash2, Upload, Clock, History, Play, User as UserIcon, Folder, ChevronDown, ChevronRight, Plus, Edit2 } from 'lucide-react';
+import { User, Building2, FileJson, Download, Trash2, Clock, History, Play, User as UserIcon, Folder, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -61,12 +61,11 @@ export default function DashboardPage() {
   // Flowsheets state
   const [flowsheets, setFlowsheets] = useState<FlowsheetMetadata[]>([]);
   const [isLoadingFlowsheets, setIsLoadingFlowsheets] = useState(false);
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const [uploadName, setUploadName] = useState('');
-  const [uploadDescription, setUploadDescription] = useState('');
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadProjectId, setUploadProjectId] = useState<string>('');
-  const [isUploading, setIsUploading] = useState(false);
+  const [showCreateFileDialog, setShowCreateFileDialog] = useState(false);
+  const [createFileName, setCreateFileName] = useState('');
+  const [createFileDescription, setCreateFileDescription] = useState('');
+  const [createFileProjectId, setCreateFileProjectId] = useState<string>('');
+  const [isCreatingFile, setIsCreatingFile] = useState(false);
   const [selectedFlowsheet, setSelectedFlowsheet] = useState<FlowsheetMetadata | null>(null);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [versionHistory, setVersionHistory] = useState<FlowsheetVersion[]>([]);
@@ -162,47 +161,70 @@ export default function DashboardPage() {
     }
   };
 
-  const handleUploadFlowsheet = async () => {
-    if (!uploadFile || !uploadName.trim() || !uploadProjectId) {
-      alert('Please provide a name, select a project, and select a file');
+  const handleCreateSimulationFile = async () => {
+    if (!createFileName.trim() || !createFileProjectId) {
+      alert('Please provide a name and select a project');
       return;
     }
 
-    setIsUploading(true);
+    setIsCreatingFile(true);
 
     try {
-      const text = await uploadFile.text();
-      // Validate JSON but send as string to preserve exact format (like WASM saves)
-      JSON.parse(text); // Validate it's valid JSON
+      // Create a minimal empty flowsheet structure as JSON string (like WASM saves)
+      // This ensures it's stored and retrieved in the same format
+      const emptyFlowsheet = {
+        Flowsheet_Data: {
+          cereal_class_version: 0,
+          Flowsheet_Stream_Registry: {
+            cereal_class_version: 0,
+            Registry_Slots: []
+          },
+          Flowsheet_Node_Registry: {
+            cereal_class_version: 0,
+            Registry_Slots: []
+          },
+          Flowsheet_Edge_Registry: {
+            cereal_class_version: 0,
+            Registry_Slots: []
+          },
+          Flowsheet_FluidPackage_Registry: {
+            cereal_class_version: 0,
+            Registry_Slots: []
+          }
+        }
+      };
+
+      // Convert to JSON string and pass with dataFormat flag (like WASM does)
+      const flowsheetJsonString = JSON.stringify(emptyFlowsheet);
 
       const response = await fetch('/api/flowsheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: uploadName,
-          description: uploadDescription,
-          data: text, // Send as string to preserve exact format
+          name: createFileName,
+          description: createFileDescription,
+          data: flowsheetJsonString, // Pass as JSON string
           dataFormat: 'json_string', // Flag to indicate it's a JSON string
-          project_id: uploadProjectId, // Include selected project
+          project_id: createFileProjectId,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to upload flowsheet');
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create simulation file');
       }
 
-      alert('Flowsheet uploaded successfully!');
-      setShowUploadDialog(false);
-      setUploadName('');
-      setUploadDescription('');
-      setUploadFile(null);
-      setUploadProjectId('');
+      alert('Simulation file created successfully! You can now edit it in the Copilot.');
+      setShowCreateFileDialog(false);
+      setCreateFileName('');
+      setCreateFileDescription('');
+      setCreateFileProjectId('');
       loadFlowsheets();
     } catch (error) {
-      console.error('Error uploading flowsheet:', error);
-      alert('Failed to upload flowsheet: ' + (error as Error).message);
+      console.error('Error creating simulation file:', error);
+      alert('Failed to create simulation file: ' + (error as Error).message);
     } finally {
-      setIsUploading(false);
+      setIsCreatingFile(false);
     }
   };
 
@@ -390,22 +412,13 @@ export default function DashboardPage() {
                 <div className="w-full">
                   <div className="mb-6 flex justify-between items-center gap-2">
                     <h2 className="text-2xl font-bold">Project Folders</h2>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setShowCreateProjectDialog(true)}
-                        className="bg-white/10 text-white px-4 py-2 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-2"
-                      >
-                        <Plus className="w-5 h-5" />
-                        New Folder
-                      </button>
-                      <button
-                        onClick={() => setShowUploadDialog(true)}
-                        className="bg-white text-black px-4 py-2 rounded-lg font-medium hover:bg-white/90 transition-colors flex items-center gap-2"
-                      >
-                        <Upload className="w-5 h-5" />
-                        Upload Flowsheet
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setShowCreateProjectDialog(true)}
+                      className="bg-white/10 text-white px-4 py-2 rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-2"
+                    >
+                      <Plus className="w-5 h-5" />
+                      New Folder
+                    </button>
                   </div>
 
                   {isLoadingProjects || isLoadingFlowsheets ? (
@@ -472,6 +485,18 @@ export default function DashboardPage() {
                             {/* Flowsheets in this project */}
                             {isExpanded && (
                               <div className="border-t border-white/10">
+                                <div className="p-2 border-b border-white/10">
+                                  <button
+                                    onClick={() => {
+                                      setCreateFileProjectId(project.id);
+                                      setShowCreateFileDialog(true);
+                                    }}
+                                    className="w-full flex items-center justify-center gap-2 bg-white/10 text-white px-3 py-1.5 rounded text-sm hover:bg-white/20 transition-colors"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    Create New Simulation File
+                                  </button>
+                                </div>
                                 {projectFlowsheets.length === 0 ? (
                                   <div className="p-8 text-center text-white/60">
                                     <FileJson className="w-12 h-12 mx-auto mb-2 text-white/40" />
@@ -607,18 +632,18 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Upload Dialog */}
-      {showUploadDialog && (
+      {/* Create Simulation File Dialog */}
+      {showCreateFileDialog && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
           <div className="bg-zinc-900 p-6 rounded-lg max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold text-white mb-4">Upload Flowsheet</h2>
+            <h2 className="text-xl font-bold text-white mb-4">Create New Simulation File</h2>
 
             <div className="space-y-4">
               <div>
                 <label className="text-white/80 text-sm mb-1 block">Project Folder *</label>
                 <select
-                  value={uploadProjectId}
-                  onChange={(e) => setUploadProjectId(e.target.value)}
+                  value={createFileProjectId}
+                  onChange={(e) => setCreateFileProjectId(e.target.value)}
                   className="w-full bg-black/50 text-white px-3 py-2 rounded border border-white/20 focus:border-white/40 outline-none"
                 >
                   <option value="">Select a folder...</option>
@@ -634,54 +659,43 @@ export default function DashboardPage() {
                 <label className="text-white/80 text-sm mb-1 block">Name *</label>
                 <input
                   type="text"
-                  value={uploadName}
-                  onChange={(e) => setUploadName(e.target.value)}
+                  value={createFileName}
+                  onChange={(e) => setCreateFileName(e.target.value)}
                   className="w-full bg-black/50 text-white px-3 py-2 rounded border border-white/20 focus:border-white/40 outline-none"
-                  placeholder="My Flowsheet"
+                  placeholder="My Simulation File"
                 />
               </div>
 
               <div>
                 <label className="text-white/80 text-sm mb-1 block">Description</label>
                 <textarea
-                  value={uploadDescription}
-                  onChange={(e) => setUploadDescription(e.target.value)}
+                  value={createFileDescription}
+                  onChange={(e) => setCreateFileDescription(e.target.value)}
                   className="w-full bg-black/50 text-white px-3 py-2 rounded border border-white/20 focus:border-white/40 outline-none resize-none"
                   placeholder="Optional description..."
                   rows={3}
                 />
               </div>
 
-              <div>
-                <label className="text-white/80 text-sm mb-1 block">JSON File *</label>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                  className="w-full bg-black/50 text-white px-3 py-2 rounded border border-white/20 focus:border-white/40 outline-none file:mr-4 file:py-1 file:px-4 file:rounded file:border-0 file:text-sm file:bg-white/10 file:text-white hover:file:bg-white/20"
-                />
-              </div>
-
               <div className="flex gap-2 justify-end">
                 <button
                   onClick={() => {
-                    setShowUploadDialog(false);
-                    setUploadName('');
-                    setUploadDescription('');
-                    setUploadFile(null);
-                    setUploadProjectId('');
+                    setShowCreateFileDialog(false);
+                    setCreateFileName('');
+                    setCreateFileDescription('');
+                    setCreateFileProjectId('');
                   }}
                   className="px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white transition-colors"
-                  disabled={isUploading}
+                  disabled={isCreatingFile}
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handleUploadFlowsheet}
+                  onClick={handleCreateSimulationFile}
                   className="px-4 py-2 rounded bg-white text-black hover:bg-white/90 transition-colors disabled:opacity-50"
-                  disabled={isUploading || !uploadName.trim() || !uploadFile || !uploadProjectId}
+                  disabled={isCreatingFile || !createFileName.trim() || !createFileProjectId}
                 >
-                  {isUploading ? 'Uploading...' : 'Upload'}
+                  {isCreatingFile ? 'Creating...' : 'Create'}
                 </button>
               </div>
             </div>

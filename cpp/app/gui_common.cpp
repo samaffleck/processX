@@ -188,7 +188,7 @@ bool LoadFlowsheetFromJSONString(const std::string& json_string) {
   
   if (json_string.empty()) {
     std::cerr << "[LoadFlowsheetFromJSONString] ERROR: JSON string is empty!" << std::endl;
-    AddLogEntry(LogEntry::Error, "Failed to load flowsheet: Empty JSON string");
+    // Don't show error in UI for empty JSON - just log to stderr
     return false;
   }
   
@@ -228,16 +228,17 @@ bool LoadFlowsheetFromJSONString(const std::string& json_string) {
     return true;
   } catch (const cereal::Exception& e) {
     std::cerr << "[LoadFlowsheetFromJSONString] ❌ Cereal exception: " << e.what() << std::endl;
-    AddLogEntry(LogEntry::Error, "Failed to load flowsheet (Cereal error): " + std::string(e.what()));
+    // Don't show error in UI - just log to stderr for debugging
+    // This prevents confusing error messages for empty/new flowsheets
     return false;
   } catch (const std::exception& e) {
     std::cerr << "[LoadFlowsheetFromJSONString] ❌ Standard exception: " << e.what() << std::endl;
     std::cerr << "[LoadFlowsheetFromJSONString] Exception type: " << typeid(e).name() << std::endl;
-    AddLogEntry(LogEntry::Error, "Failed to load flowsheet: " + std::string(e.what()));
+    // Don't show error in UI - just log to stderr for debugging
     return false;
   } catch (...) {
     std::cerr << "[LoadFlowsheetFromJSONString] ❌ Unknown exception caught!" << std::endl;
-    AddLogEntry(LogEntry::Error, "Failed to load flowsheet: Unknown error");
+    // Don't show error in UI - just log to stderr for debugging
     return false;
   }
 }
