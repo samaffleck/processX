@@ -220,14 +220,14 @@ void ShowStreamProperties(px::Stream& stream) {
           double sum = 0.0;
           for (size_t i = 0; i < components.size() && i < stream.mole_fractions.size(); ++i) {
             ShowDoubleInput(stream.mole_fractions[i], mole_frac_state, components[i].c_str(), MakeUnitSet(kMoleFractionUnits));
-            sum += stream.mole_fractions[i].value;
+            sum += stream.mole_fractions[i].value_;
           }
           ImGui::Text("Sum: %.6f", sum);
           if (std::abs(sum - 1.0) > 1e-6 && sum > 0.0) {
             ImGui::SameLine();
             if (ImGui::Button("Normalize")) {
               for (size_t i = 0; i < stream.mole_fractions.size(); ++i) {
-                stream.mole_fractions[i].value /= sum;
+                stream.mole_fractions[i].value_ /= sum;
               }
             }
           }
@@ -477,7 +477,7 @@ void ShowComponentSplitterProperties(px::ComponentSplitter& cs) {
           // Also initialize any existing elements that have empty names
           for (size_t i = 0; i < old_size && i < components.size(); ++i) {
             if (cs.overhead_split_ratios[i].GetName().empty()) {
-              cs.overhead_split_ratios[i] = px::Var("split_ratio_" + components[i], cs.overhead_split_ratios[i].value, cs.overhead_split_ratios[i].fixed);
+                cs.overhead_split_ratios[i] = px::Var("split_ratio_" + components[i], cs.overhead_split_ratios[i].value_, cs.overhead_split_ratios[i].is_fixed_);
             }
           }
         }

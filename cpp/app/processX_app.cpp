@@ -67,8 +67,8 @@ void ShowStatusBar() {
   
   if (should_assemble) {
     assembled = flowsheet.assemble(&err);
-    num_unknowns = flowsheet.reg.size();
-    num_equations = flowsheet.sys.size();
+    num_unknowns = flowsheet.reg.GetNumberOfUnknowns();
+    num_equations = flowsheet.sys.GetNumberOfEquations();
     // Update cache
     cached_assembled = assembled;
     cached_num_unknowns = num_unknowns;

@@ -41,7 +41,7 @@ bool ShowDoubleInput(
   ImGui::PushID(&var);               // unique + stable per field
 
   if (!units.data || units.size == 0) {
-    const double a = std::fabs(var.value);
+    const double a = std::fabs(var.value_);
     const char* fmt = ChooseAutoFormat(a, ui_state.sticky_fmt, ImGui::IsItemActive());
     ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoBordersInBody;
     
@@ -53,10 +53,10 @@ bool ShowDoubleInput(
       ImGui::TextUnformatted(label);
       
       ImGui::TableNextColumn();
-      ImGui::Checkbox("##fixed", &var.fixed);
+      ImGui::Checkbox("##fixed", &var.is_fixed_);
       ImGui::SameLine();
       ImGui::SetNextItemWidth(-FLT_MIN);
-      ImGui::InputDouble("##val", &var.value, 0, 0, fmt);
+      ImGui::InputDouble("##val", &var.value_, 0, 0, fmt);
       
       ImGui::EndTable();
     }
@@ -68,7 +68,7 @@ bool ShowDoubleInput(
     ui_state.unit_index = 0;
 
   const UnitDef& u = units.data[ui_state.unit_index];
-  double ui_value = u.xf.FromBase(var.value);
+  double ui_value = u.xf.FromBase(var.value_);
   bool changed = false;
 
   ImGuiTableFlags flags = ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoBordersInBody;
@@ -82,7 +82,7 @@ bool ShowDoubleInput(
     ImGui::TextUnformatted(label);
 
     ImGui::TableNextColumn();
-    ImGui::Checkbox("##fixed", &var.fixed);
+    ImGui::Checkbox("##fixed", &var.is_fixed_);
     ImGui::SameLine();
     ImGui::SetNextItemWidth(-FLT_MIN);
 
@@ -93,7 +93,7 @@ bool ShowDoubleInput(
     }
     if (ImGui::IsItemDeactivatedAfterEdit()) {
       double new_base = u.xf.ToBase(ui_value);
-      if (new_base != var.value) { var.value = new_base; changed = true; }
+      if (new_base != var.value_) { var.value_ = new_base; changed = true; }
       // allow auto to switch next frame
       ui_state.sticky_fmt = QuantityEditState::Fmt::Auto;
     }

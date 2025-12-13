@@ -336,7 +336,7 @@ namespace px {
         std::vector<double> raw_fractions;
         raw_fractions.reserve(stream.mole_fractions.size());
         for (const auto& mf : stream.mole_fractions) {
-          raw_fractions.push_back(mf.value);
+          raw_fractions.push_back(mf.value_);
         }
         
         // Normalize using helper function
@@ -361,16 +361,16 @@ namespace px {
       }
     }
     
-    if (stream.temperature.fixed) {
+    if (stream.temperature.is_fixed_) {
       // T and P are fixed -> calculate H and compare
       try {
-        fluid->update(CoolProp::PT_INPUTS, stream.pressure.value, stream.temperature.value);
+        fluid->update(CoolProp::PT_INPUTS, stream.pressure.value_, stream.temperature.value_);
         double calculated_h = fluid->hmolar();
-        return stream.molar_enthalpy.value - calculated_h;
+        return stream.molar_enthalpy.value_ - calculated_h;
       } catch (const std::exception& e) {
         std::string msg = "CoolProp exception (PT_INPUTS): " + std::string(e.what()) + 
                          " | Stream: " + (stream.name.empty() ? "(unnamed)" : stream.name) +
-                         " | P = " + std::to_string(stream.pressure.value) + " Pa, T = " + std::to_string(stream.temperature.value) + " K";
+                         " | P = " + std::to_string(stream.pressure.value_) + " Pa, T = " + std::to_string(stream.temperature.value_) + " K";
         std::cerr << "[state_equation_residual] " << msg << std::endl;
         // Also log to callback if available
         if (flowsheet) {
@@ -396,7 +396,7 @@ namespace px {
         std::vector<double> raw_fractions;
         raw_fractions.reserve(stream.mole_fractions.size());
         for (const auto& mf : stream.mole_fractions) {
-          raw_fractions.push_back(mf.value);
+          raw_fractions.push_back(mf.value_);
         }
         
         // Normalize using helper function
@@ -404,22 +404,22 @@ namespace px {
       }
       
       // Use FluidRegistry helper method to calculate temperature
-      double T_guess = stream.temperature.value;
+      double T_guess = stream.temperature.value_;
       if (T_guess <= 0 || T_guess < 50.0) T_guess = 300.0;
       
       double calculated_t = flowsheet->fluids.CalculateTemperatureFromEnthalpyAndPressure(
         stream.fluid_package_id,
-        stream.molar_enthalpy.value,
-        stream.pressure.value,
+        stream.molar_enthalpy.value_,
+        stream.pressure.value_,
         T_guess,
         mole_fracs
       );
       
-      return stream.temperature.value - calculated_t;
+      return stream.temperature.value_ - calculated_t;
     } catch (const std::exception& e) {
       std::string msg = "CoolProp exception (H,P->T): " + std::string(e.what()) + 
                        " | Stream: " + (stream.name.empty() ? "(unnamed)" : stream.name) +
-                       " | P = " + std::to_string(stream.pressure.value) + " Pa, H = " + std::to_string(stream.molar_enthalpy.value) + " J/mol";
+                       " | P = " + std::to_string(stream.pressure.value_) + " Pa, H = " + std::to_string(stream.molar_enthalpy.value_) + " J/mol";
       std::cerr << "[state_equation_residual] " << msg << std::endl;
       if (flowsheet) {
         flowsheet->log_message(msg, true);
@@ -729,7 +729,7 @@ namespace px {
     units_.clear();
     build_unit_list();
 
-    reg.clear(); sys.clear();
+    reg.Clear(); sys.Clear();
 
     // Auto-assign fluid packages to streams that don't have one
     if (!auto_assign_fluid_packages(*this, err)) {
@@ -762,7 +762,7 @@ namespace px {
     // This provides sensible initial guesses to avoid CoolProp exceptions
     streams_.for_each([this](Stream& s) {
       // Only initialize if enthalpy is not fixed and has a zero or unreasonable value
-      if (!s.molar_enthalpy.fixed) {
+      if (!s.molar_enthalpy.is_fixed_) {
         auto fluid = fluids.GetFluidPackage(s.fluid_package_id);
         if (fluid) {
           try {
@@ -777,7 +777,7 @@ namespace px {
                 std::vector<double> raw_fractions;
                 raw_fractions.reserve(s.mole_fractions.size());
                 for (const auto& mf : s.mole_fractions) {
-                  raw_fractions.push_back(mf.value);
+                  raw_fractions.push_back(mf.value_);
                 }
                 
                 // Normalize using helper function
@@ -791,13 +791,13 @@ namespace px {
               fluid->set_mole_fractions(mole_fracs);
             }
             
-            fluid->update(CoolProp::PT_INPUTS, s.pressure.value, s.temperature.value);
-            s.molar_enthalpy.value = fluid->hmolar();
+            fluid->update(CoolProp::PT_INPUTS, s.pressure.value_, s.temperature.value_);
+            s.molar_enthalpy.value_ = fluid->hmolar();
           } catch (const std::exception& e) {
             // If CoolProp fails, leave enthalpy as is (will be set by solver)
             std::string msg = "CoolProp exception during enthalpy initialization: " + std::string(e.what()) + 
                              " | Stream: " + (s.name.empty() ? "(unnamed)" : s.name) +
-                             " | P = " + std::to_string(s.pressure.value) + " Pa, T = " + std::to_string(s.temperature.value) + " K";
+                             " | P = " + std::to_string(s.pressure.value_) + " Pa, T = " + std::to_string(s.temperature.value_) + " K";
             std::cerr << "[Flowsheet::assemble] " << msg << std::endl;
             log_message(msg, true);
           } catch (...) {
@@ -821,13 +821,13 @@ namespace px {
       // Only add state equation once per stream (track by handle index)
       if (streams_with_state_eq.find(h.index) == streams_with_state_eq.end()) {
         streams_with_state_eq.insert(h.index);
-        sys.add("state_eq[" + s.name + "]", [&s, this]() {
+        sys.AddEquation("state_eq[" + s.name + "]", [&s, this]() {
           return state_equation_residual(s, this);
         });
       }
 
-      if (!s.molar_flow.fixed && s.molar_flow.value == 0.0) {
-        s.molar_flow.value = 1e-12;
+      if (!s.molar_flow.is_fixed_ && s.molar_flow.value_ == 0.0) {
+        s.molar_flow.value_ = 1e-12;
       }
     });
 
@@ -849,9 +849,11 @@ namespace px {
     // });
 
     // DOF check: allow equations >= unknowns (redundancy will be caught by rank analysis)
-    if (reg.size() > sys.size()) {
-      if (err) *err = "DOF mismatch: unknowns=" + std::to_string(reg.size())
-                    + " > equations=" + std::to_string(sys.size()) + " (under-specified)";
+    int num_of_unknowns = reg.GetNumberOfUnknowns();
+    int num_of_equations = sys.GetNumberOfEquations();
+    if (num_of_unknowns > num_of_equations) {
+      if (err) *err = "DOF mismatch: unknowns=" + std::to_string(num_of_unknowns)
+                    + " > equations=" + std::to_string(num_of_equations) + " (under-specified)";
       return false;
     }
     // Note: equations > unknowns is OK - rank analysis will detect redundant equations
@@ -862,26 +864,26 @@ namespace px {
       if (err) {
         *err = "Inconsistent equations:\n";
         for (int i : a.inconsistent_eqs)
-          *err += "  - " + sys.names[(size_t)i] + " (res=" + std::to_string(a.r[(size_t)i]) + ")\n";
+          *err += "  - " + sys.GetEquationNames()[(size_t)i] + " (res=" + std::to_string(a.r[(size_t)i]) + ")\n";
       }
       return false;
     }
     // Check for redundant equations - only fail if rank is insufficient
     // Redundant equations with zero residual are OK (e.g., pressure equalities when all pressures are fixed)
-    if (!a.redundant_eqs.empty() && a.rank < (int)reg.size()) {
+    if (!a.redundant_eqs.empty() && a.rank < num_of_unknowns) {
       if (err) {
         *err = "Redundant equations causing rank deficiency:\n";
-        for (int i : a.redundant_eqs) *err += "  - " + sys.names[(size_t)i] + "\n";
-        *err += "rank(J)=" + std::to_string(a.rank) + " < unknowns=" + std::to_string(reg.size());
+        for (int i : a.redundant_eqs) *err += "  - " + sys.GetEquationNames()[(size_t)i] + "\n";
+        *err += "rank(J)=" + std::to_string(a.rank) + " < unknowns=" + std::to_string(num_of_unknowns);
       }
       return false;
     }
-    if (a.rank < (int)reg.size()) {
+    if (a.rank < num_of_unknowns) {
       if (err) {
-        *err = "Rank-deficient: rank(J)=" + std::to_string(a.rank) + " < " + std::to_string(reg.size());
+        *err = "Rank-deficient: rank(J)=" + std::to_string(a.rank) + " < " + std::to_string(num_of_unknowns);
         if (!a.unconstrained_unknowns.empty()) {
           *err += "\nUnconstrained unknowns:";
-          for (int j : a.unconstrained_unknowns) *err += " " + reg.vars[(size_t)j]->GetName();
+          for (int j : a.unconstrained_unknowns) *err += " " + reg.GetFeeVariableNames()[(size_t)j];
         }
       }
       return false;

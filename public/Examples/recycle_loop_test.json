@@ -47,7 +47,7 @@
                         },
                         "Stream_Temperature": {
                             "Variable_Name": "Temperature",
-                            "Variable_Value": 299.99999999999997,
+                            "Variable_Value": 300.0,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Fluid_Package_ID": 1,
@@ -62,7 +62,7 @@
                         "Stream_Name": "stream-3",
                         "Stream_Molar_Flowrate": {
                             "Variable_Name": "Molar Flowrate",
-                            "Variable_Value": 10.000000000000002,
+                            "Variable_Value": 10.0,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Pressure": {
@@ -72,7 +72,7 @@
                         },
                         "Stream_Temperature": {
                             "Variable_Name": "Temperature",
-                            "Variable_Value": 299.99999999999997,
+                            "Variable_Value": 300.0,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Fluid_Package_ID": 1,
@@ -97,7 +97,7 @@
                         },
                         "Stream_Temperature": {
                             "Variable_Name": "Temperature",
-                            "Variable_Value": 299.99999999999997,
+                            "Variable_Value": 300.0,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Fluid_Package_ID": 1,

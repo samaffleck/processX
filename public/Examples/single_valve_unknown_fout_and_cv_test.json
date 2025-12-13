@@ -47,7 +47,7 @@
                         },
                         "Stream_Temperature": {
                             "Variable_Name": "Temperature",
-                            "Variable_Value": 299.7782296859688,
+                            "Variable_Value": 299.7624545306334,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Fluid_Package_ID": 1,
@@ -91,7 +91,7 @@
                         },
                         "Valve_Flow_Coefficient": {
                             "Variable_Name": "Cv",
-                            "Variable_Value": 0.00010000000000000002,
+                            "Variable_Value": 0.0001,
                             "Variable_Is_Fixed": false
                         }
                     },

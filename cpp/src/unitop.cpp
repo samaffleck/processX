@@ -15,22 +15,22 @@ namespace px {
   void Valve::register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) {
     auto& si = fs.get<Stream>(in);
     auto& so = fs.get<Stream>(out);
-    reg.register_var(si.molar_flow);
-    reg.register_var(so.molar_flow);
-    reg.register_var(si.pressure);
-    reg.register_var(so.pressure);
-    reg.register_var(si.molar_enthalpy);
-    reg.register_var(so.molar_enthalpy);
-    reg.register_var(si.temperature);  // Needed for state equation: T = f(H, P)
-    reg.register_var(so.temperature);  // Needed for state equation: T = f(H, P)
-    reg.register_var(Cv);
+    reg.AddVariable(si.molar_flow);
+    reg.AddVariable(so.molar_flow);
+    reg.AddVariable(si.pressure);
+    reg.AddVariable(so.pressure);
+    reg.AddVariable(si.molar_enthalpy);
+    reg.AddVariable(so.molar_enthalpy);
+    reg.AddVariable(si.temperature);  // Needed for state equation: T = f(H, P)
+    reg.AddVariable(so.temperature);  // Needed for state equation: T = f(H, P)
+    reg.AddVariable(Cv);
     
     // Register mole fractions for inlet and outlet
     for (auto& x : si.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
     for (auto& x : so.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
   }
 
@@ -38,15 +38,15 @@ namespace px {
     auto* self = this;
     auto& si = fs.get<Stream>(in);
     auto& so = fs.get<Stream>(out);
-    sys.add(name + ": balance", [&](){ return si.molar_flow.value - so.molar_flow.value; });
-    sys.add(name + ": PF",      [&, self](){ return so.molar_flow.value - self->Cv.value * (si.pressure.value - so.pressure.value); });
-    sys.add(name + ": h_equal", [&](){ return si.molar_enthalpy.value - so.molar_enthalpy.value; });
+    sys.AddEquation(name + ": balance", [&](){ return si.molar_flow.value_ - so.molar_flow.value_; });
+    sys.AddEquation(name + ": PF",      [&, self](){ return so.molar_flow.value_ - self->Cv.value_ * (si.pressure.value_ - so.pressure.value_); });
+    sys.AddEquation(name + ": h_equal", [&](){ return si.molar_enthalpy.value_ - so.molar_enthalpy.value_; });
     
     // Component mass balances: composition unchanged (x_in = x_out for each component)
     size_t num_components = si.mole_fractions.size();
     for (size_t i = 0; i < num_components; ++i) {
-      sys.add(name + ": comp_balance[" + std::to_string(i) + "]", [&, i]() {
-        return si.mole_fractions[i].value - so.mole_fractions[i].value;
+      sys.AddEquation(name + ": comp_balance[" + std::to_string(i) + "]", [&, i]() {
+        return si.mole_fractions[i].value_ - so.mole_fractions[i].value_;
       });
     }
     // Note: State equations are added once per stream in Flowsheet::assemble() to avoid duplicates
@@ -63,26 +63,26 @@ namespace px {
 
   void Mixer::register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) {
     auto& so = fs.get<Stream>(out);
-    reg.register_var(so.molar_flow);
-    reg.register_var(so.pressure);
-    reg.register_var(so.molar_enthalpy);
-    reg.register_var(so.temperature);  // Needed for state equation: T = f(H, P)
+    reg.AddVariable(so.molar_flow);
+    reg.AddVariable(so.pressure);
+    reg.AddVariable(so.molar_enthalpy);
+    reg.AddVariable(so.temperature);  // Needed for state equation: T = f(H, P)
     
     // Register mole fractions for outlet
     for (auto& x : so.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
 
     for (auto h : in) {
       auto& si = fs.get<Stream>(h);
-      reg.register_var(si.molar_flow);
-      reg.register_var(si.pressure);
-      reg.register_var(si.molar_enthalpy);
-      reg.register_var(si.temperature);  // Needed for state equation: T = f(H, P)
+      reg.AddVariable(si.molar_flow);
+      reg.AddVariable(si.pressure);
+      reg.AddVariable(si.molar_enthalpy);
+      reg.AddVariable(si.temperature);  // Needed for state equation: T = f(H, P)
       
       // Register mole fractions for each inlet
       for (auto& x : si.mole_fractions) {
-        reg.register_var(x);
+        reg.AddVariable(x);
       }
     }
   }
@@ -90,25 +90,25 @@ namespace px {
   void Mixer::add_equations(Flowsheet& fs, ResidualSystem& sys) {
     auto& so = fs.get<Stream>(out);
 
-    sys.add(name + ": total balance", [&]() {
+    sys.AddEquation(name + ": total balance", [&]() {
       double sum_in = 0.0;
-      for (auto h : in) sum_in += fs.get<Stream>(h).molar_flow.value;
-      return sum_in - so.molar_flow.value;
+      for (auto h : in) sum_in += fs.get<Stream>(h).molar_flow.value_;
+      return sum_in - so.molar_flow.value_;
     });
 
-    sys.add(name + ": energy balance", [&]() {
+    sys.AddEquation(name + ": energy balance", [&]() {
       double sum_in = 0.0;
       for (auto h : in) {
         auto& s = fs.get<Stream>(h);
-        sum_in += s.molar_flow.value * s.molar_enthalpy.value;
+        sum_in += s.molar_flow.value_ * s.molar_enthalpy.value_;
       }
-      return sum_in - so.molar_flow.value * so.molar_enthalpy.value;
+      return sum_in - so.molar_flow.value_ * so.molar_enthalpy.value_;
     });
 
     for (size_t i = 0; i < in.size(); ++i) {
       auto& si = fs.get<Stream>(in[i]);
-      sys.add(name + ": p_equal[" + std::to_string(i) + "]", [&si, &so]() {
-        return si.pressure.value - so.pressure.value;
+      sys.AddEquation(name + ": p_equal[" + std::to_string(i) + "]", [&si, &so]() {
+        return si.pressure.value_ - so.pressure.value_;
       });
       // Note: State equations are added once per stream in Flowsheet::assemble() to avoid duplicates
     }
@@ -116,15 +116,15 @@ namespace px {
     // Component mass balances: Σ(n_in * x_in,i) = n_out * x_out,i for each component i
     size_t num_components = so.mole_fractions.size();
     for (size_t comp_idx = 0; comp_idx < num_components; ++comp_idx) {
-      sys.add(name + ": comp_balance[" + std::to_string(comp_idx) + "]", [&, comp_idx]() {
+      sys.AddEquation(name + ": comp_balance[" + std::to_string(comp_idx) + "]", [&, comp_idx]() {
         double sum_in = 0.0;
         for (auto h : in) {
           auto& s = fs.get<Stream>(h);
           if (comp_idx < s.mole_fractions.size()) {
-            sum_in += s.molar_flow.value * s.mole_fractions[comp_idx].value;
+            sum_in += s.molar_flow.value_ * s.mole_fractions[comp_idx].value_;
           }
         }
-        return sum_in - so.molar_flow.value * so.mole_fractions[comp_idx].value;
+        return sum_in - so.molar_flow.value_ * so.mole_fractions[comp_idx].value_;
       });
     }
   }
@@ -140,26 +140,26 @@ namespace px {
 
   void Splitter::register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) {
     auto& si = fs.get<Stream>(in);
-    reg.register_var(si.molar_flow);
-    reg.register_var(si.pressure);
-    reg.register_var(si.molar_enthalpy);
-    reg.register_var(si.temperature);  // Needed for state equation: T = f(H, P)
+    reg.AddVariable(si.molar_flow);
+    reg.AddVariable(si.pressure);
+    reg.AddVariable(si.molar_enthalpy);
+    reg.AddVariable(si.temperature);  // Needed for state equation: T = f(H, P)
     
     // Register mole fractions for inlet
     for (auto& x : si.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
 
     for (auto h : out) {
       auto& so = fs.get<Stream>(h);
-      reg.register_var(so.molar_flow);
-      reg.register_var(so.pressure);
-      reg.register_var(so.molar_enthalpy);
-      reg.register_var(so.temperature);  // Needed for state equation: T = f(H, P)
+      reg.AddVariable(so.molar_flow);
+      reg.AddVariable(so.pressure);
+      reg.AddVariable(so.molar_enthalpy);
+      reg.AddVariable(so.temperature);  // Needed for state equation: T = f(H, P)
       
       // Register mole fractions for each outlet
       for (auto& x : so.mole_fractions) {
-        reg.register_var(x);
+        reg.AddVariable(x);
       }
     }
   }
@@ -167,28 +167,28 @@ namespace px {
   void Splitter::add_equations(Flowsheet& fs, ResidualSystem& sys) {
     auto& si = fs.get<Stream>(in);
 
-    sys.add(name + ": total balance", [&]() {
+    sys.AddEquation(name + ": total balance", [&]() {
       double sum_out = 0.0;
-      for (auto h : out) sum_out += fs.get<Stream>(h).molar_flow.value;
-      return si.molar_flow.value - sum_out;
+      for (auto h : out) sum_out += fs.get<Stream>(h).molar_flow.value_;
+      return si.molar_flow.value_ - sum_out;
     });
 
-    sys.add(name + ": energy balance", [&]() {
+    sys.AddEquation(name + ": energy balance", [&]() {
       double sum_out = 0.0;
       for (auto h : out) {
         auto& s = fs.get<Stream>(h);
-        sum_out += s.molar_flow.value * s.molar_enthalpy.value;
+        sum_out += s.molar_flow.value_ * s.molar_enthalpy.value_;
       }
-      return si.molar_flow.value * si.molar_enthalpy.value - sum_out;
+      return si.molar_flow.value_ * si.molar_enthalpy.value_ - sum_out;
     });
 
     for (size_t i = 0; i < out.size(); ++i) {
       auto& so = fs.get<Stream>(out[i]);
-      sys.add(name + ": p_equal[" + std::to_string(i) + "]", [&si, &so]() {
-        return si.pressure.value - so.pressure.value;
+      sys.AddEquation(name + ": p_equal[" + std::to_string(i) + "]", [&si, &so]() {
+        return si.pressure.value_ - so.pressure.value_;
       });
-      sys.add(name + ": h_equal[" + std::to_string(i) + "]", [&si, &so]() {
-        return si.molar_enthalpy.value - so.molar_enthalpy.value;
+      sys.AddEquation(name + ": h_equal[" + std::to_string(i) + "]", [&si, &so]() {
+        return si.molar_enthalpy.value_ - so.molar_enthalpy.value_;
       });
       // Note: State equations are added once per stream in Flowsheet::assemble() to avoid duplicates
     }
@@ -199,9 +199,9 @@ namespace px {
     for (size_t comp_idx = 0; comp_idx < num_components; ++comp_idx) {
       for (size_t out_idx = 0; out_idx < out.size(); ++out_idx) {
         auto& so = fs.get<Stream>(out[out_idx]);
-        sys.add(name + ": comp_balance[" + std::to_string(comp_idx) + "][" + std::to_string(out_idx) + "]", [&, comp_idx, out_idx]() {
+        sys.AddEquation(name + ": comp_balance[" + std::to_string(comp_idx) + "][" + std::to_string(out_idx) + "]", [&, comp_idx, out_idx]() {
           if (comp_idx < si.mole_fractions.size() && comp_idx < so.mole_fractions.size()) {
-            return si.mole_fractions[comp_idx].value - so.mole_fractions[comp_idx].value;
+            return si.mole_fractions[comp_idx].value_ - so.mole_fractions[comp_idx].value_;
           }
           return 0.0; // Should not happen if streams are properly initialized
         });
@@ -224,45 +224,45 @@ namespace px {
     auto& so_cold = fs.get<Stream>(out_cold);
 
     // Hot side
-    reg.register_var(si_hot.molar_flow);
-    reg.register_var(so_hot.molar_flow);
-    reg.register_var(si_hot.pressure);
-    reg.register_var(so_hot.pressure);
-    reg.register_var(si_hot.molar_enthalpy);
-    reg.register_var(so_hot.molar_enthalpy);
-    reg.register_var(si_hot.temperature);  // Needed for state equation: T = f(H, P)
-    reg.register_var(so_hot.temperature);  // Needed for state equation: T = f(H, P)
+    reg.AddVariable(si_hot.molar_flow);
+    reg.AddVariable(so_hot.molar_flow);
+    reg.AddVariable(si_hot.pressure);
+    reg.AddVariable(so_hot.pressure);
+    reg.AddVariable(si_hot.molar_enthalpy);
+    reg.AddVariable(so_hot.molar_enthalpy);
+    reg.AddVariable(si_hot.temperature);  // Needed for state equation: T = f(H, P)
+    reg.AddVariable(so_hot.temperature);  // Needed for state equation: T = f(H, P)
     
     // Register mole fractions for hot side
     for (auto& x : si_hot.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
     for (auto& x : so_hot.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
 
     // Cold side
-    reg.register_var(si_cold.molar_flow);
-    reg.register_var(so_cold.molar_flow);
-    reg.register_var(si_cold.pressure);
-    reg.register_var(so_cold.pressure);
-    reg.register_var(si_cold.molar_enthalpy);
-    reg.register_var(so_cold.molar_enthalpy);
-    reg.register_var(si_cold.temperature);  // Needed for state equation: T = f(H, P)
-    reg.register_var(so_cold.temperature);  // Needed for state equation: T = f(H, P)
+    reg.AddVariable(si_cold.molar_flow);
+    reg.AddVariable(so_cold.molar_flow);
+    reg.AddVariable(si_cold.pressure);
+    reg.AddVariable(so_cold.pressure);
+    reg.AddVariable(si_cold.molar_enthalpy);
+    reg.AddVariable(so_cold.molar_enthalpy);
+    reg.AddVariable(si_cold.temperature);  // Needed for state equation: T = f(H, P)
+    reg.AddVariable(so_cold.temperature);  // Needed for state equation: T = f(H, P)
     
     // Register mole fractions for cold side
     for (auto& x : si_cold.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
     for (auto& x : so_cold.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
 
     // Heat exchanger parameters
-    reg.register_var(dP_hot);
-    reg.register_var(dP_cold);
-    reg.register_var(Q);
+    reg.AddVariable(dP_hot);
+    reg.AddVariable(dP_cold);
+    reg.AddVariable(Q);
   }
 
   void HeatExchanger::add_equations(Flowsheet& fs, ResidualSystem& sys) {
@@ -273,48 +273,48 @@ namespace px {
     auto* self = this;
 
     // Mass balance - hot side
-    sys.add(name + ": hot mass balance", [&]() {
-      return si_hot.molar_flow.value - so_hot.molar_flow.value;
+    sys.AddEquation(name + ": hot mass balance", [&]() {
+      return si_hot.molar_flow.value_ - so_hot.molar_flow.value_;
     });
 
     // Mass balance - cold side
-    sys.add(name + ": cold mass balance", [&]() {
-      return si_cold.molar_flow.value - so_cold.molar_flow.value;
+    sys.AddEquation(name + ": cold mass balance", [&]() {
+      return si_cold.molar_flow.value_ - so_cold.molar_flow.value_;
     });
 
     // Pressure drop - hot side: P_out = P_in - dP
-    sys.add(name + ": hot pressure drop", [&, self]() {
-      return so_hot.pressure.value - (si_hot.pressure.value - self->dP_hot.value);
+    sys.AddEquation(name + ": hot pressure drop", [&, self]() {
+      return so_hot.pressure.value_ - (si_hot.pressure.value_ - self->dP_hot.value_);
     });
 
     // Pressure drop - cold side: P_out = P_in - dP
-    sys.add(name + ": cold pressure drop", [&, self]() {
-      return so_cold.pressure.value - (si_cold.pressure.value - self->dP_cold.value);
+    sys.AddEquation(name + ": cold pressure drop", [&, self]() {
+      return so_cold.pressure.value_ - (si_cold.pressure.value_ - self->dP_cold.value_);
     });
 
     // Energy balance equations
-    if (self->Q.fixed) {
+    if (self->Q.is_fixed_) {
       // When Q is fixed, we have two independent equations:
       // Q = m_hot * (h_hot_in - h_hot_out) - constrains hot side
       // Q = m_cold * (h_cold_out - h_cold_in) - constrains cold side
-      sys.add(name + ": hot energy balance", [&, self]() {
-        return self->Q.value - si_hot.molar_flow.value * (si_hot.molar_enthalpy.value - so_hot.molar_enthalpy.value);
+      sys.AddEquation(name + ": hot energy balance", [&, self]() {
+        return self->Q.value_ - si_hot.molar_flow.value_ * (si_hot.molar_enthalpy.value_ - so_hot.molar_enthalpy.value_);
       });
-      sys.add(name + ": cold energy balance", [&, self]() {
-        return self->Q.value - so_cold.molar_flow.value * (so_cold.molar_enthalpy.value - si_cold.molar_enthalpy.value);
+      sys.AddEquation(name + ": cold energy balance", [&, self]() {
+        return self->Q.value_ - so_cold.molar_flow.value_ * (so_cold.molar_enthalpy.value_ - si_cold.molar_enthalpy.value_);
       });
     } else {
       // When Q is not fixed, we need:
       // 1. Energy balance: heat lost by hot equals heat gained by cold
       // 2. One equation to determine Q
-      sys.add(name + ": energy balance", [&]() {
-        double Q_hot = si_hot.molar_flow.value * (si_hot.molar_enthalpy.value - so_hot.molar_enthalpy.value);
-        double Q_cold = so_cold.molar_flow.value * (so_cold.molar_enthalpy.value - si_cold.molar_enthalpy.value);
+      sys.AddEquation(name + ": energy balance", [&]() {
+        double Q_hot = si_hot.molar_flow.value_ * (si_hot.molar_enthalpy.value_ - so_hot.molar_enthalpy.value_);
+        double Q_cold = so_cold.molar_flow.value_ * (so_cold.molar_enthalpy.value_ - si_cold.molar_enthalpy.value_);
         return Q_hot - Q_cold;
       });
-      sys.add(name + ": heat duty", [&, self]() {
-        double Q_hot = si_hot.molar_flow.value * (si_hot.molar_enthalpy.value - so_hot.molar_enthalpy.value);
-        return self->Q.value - Q_hot;
+      sys.AddEquation(name + ": heat duty", [&, self]() {
+        double Q_hot = si_hot.molar_flow.value_ * (si_hot.molar_enthalpy.value_ - so_hot.molar_enthalpy.value_);
+        return self->Q.value_ - Q_hot;
       });
     }
     
@@ -322,16 +322,16 @@ namespace px {
     // Hot side: x_in,i = x_out,i for each component i
     size_t num_components_hot = si_hot.mole_fractions.size();
     for (size_t i = 0; i < num_components_hot; ++i) {
-      sys.add(name + ": hot_comp_balance[" + std::to_string(i) + "]", [&, i]() {
-        return si_hot.mole_fractions[i].value - so_hot.mole_fractions[i].value;
+      sys.AddEquation(name + ": hot_comp_balance[" + std::to_string(i) + "]", [&, i]() {
+        return si_hot.mole_fractions[i].value_ - so_hot.mole_fractions[i].value_;
       });
     }
     
     // Cold side: x_in,i = x_out,i for each component i
     size_t num_components_cold = si_cold.mole_fractions.size();
     for (size_t i = 0; i < num_components_cold; ++i) {
-      sys.add(name + ": cold_comp_balance[" + std::to_string(i) + "]", [&, i]() {
-        return si_cold.mole_fractions[i].value - so_cold.mole_fractions[i].value;
+      sys.AddEquation(name + ": cold_comp_balance[" + std::to_string(i) + "]", [&, i]() {
+        return si_cold.mole_fractions[i].value_ - so_cold.mole_fractions[i].value_;
       });
     }
 
@@ -347,23 +347,23 @@ namespace px {
   void SimpleHeatExchanger::register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) {
     auto& si = fs.get<Stream>(in);
     auto& so = fs.get<Stream>(out);
-    reg.register_var(si.molar_flow);
-    reg.register_var(so.molar_flow);
-    reg.register_var(si.pressure);
-    reg.register_var(so.pressure);
-    reg.register_var(si.molar_enthalpy);
-    reg.register_var(so.molar_enthalpy);
-    reg.register_var(si.temperature);  // Needed for state equation: T = f(H, P)
-    reg.register_var(so.temperature);  // Needed for state equation: T = f(H, P)
-    reg.register_var(dP);
-    reg.register_var(Q);
+    reg.AddVariable(si.molar_flow);
+    reg.AddVariable(so.molar_flow);
+    reg.AddVariable(si.pressure);
+    reg.AddVariable(so.pressure);
+    reg.AddVariable(si.molar_enthalpy);
+    reg.AddVariable(so.molar_enthalpy);
+    reg.AddVariable(si.temperature);  // Needed for state equation: T = f(H, P)
+    reg.AddVariable(so.temperature);  // Needed for state equation: T = f(H, P)
+    reg.AddVariable(dP);
+    reg.AddVariable(Q);
     
     // Register mole fractions for inlet and outlet
     for (auto& x : si.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
     for (auto& x : so.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
   }
 
@@ -371,20 +371,20 @@ namespace px {
     auto* self = this;
     auto& si = fs.get<Stream>(in);
     auto& so = fs.get<Stream>(out);
-    sys.add(name + ": balance", [&](){ return si.molar_flow.value - so.molar_flow.value; });
-    sys.add(name + ": energy", [&, self](){ 
+    sys.AddEquation(name + ": balance", [&](){ return si.molar_flow.value_ - so.molar_flow.value_; });
+    sys.AddEquation(name + ": energy", [&, self](){ 
       // Q = m * (h_out - h_in), positive Q means heat added to stream
-      return self->Q.value - so.molar_flow.value * (so.molar_enthalpy.value - si.molar_enthalpy.value); 
+      return self->Q.value_ - so.molar_flow.value_ * (so.molar_enthalpy.value_ - si.molar_enthalpy.value_); 
     });
-    sys.add(name + ": pressure_drop", [&, self](){ 
-      return so.pressure.value - (si.pressure.value - self->dP.value); 
+    sys.AddEquation(name + ": pressure_drop", [&, self](){ 
+      return so.pressure.value_ - (si.pressure.value_ - self->dP.value_); 
     });
     
     // Component mass balances: composition unchanged (x_in = x_out for each component)
     size_t num_components = si.mole_fractions.size();
     for (size_t i = 0; i < num_components; ++i) {
-      sys.add(name + ": comp_balance[" + std::to_string(i) + "]", [&, i]() {
-        return si.mole_fractions[i].value - so.mole_fractions[i].value;
+      sys.AddEquation(name + ": comp_balance[" + std::to_string(i) + "]", [&, i]() {
+        return si.mole_fractions[i].value_ - so.mole_fractions[i].value_;
       });
     }
     // Note: State equations are added once per stream in Flowsheet::assemble() to avoid duplicates
@@ -399,24 +399,24 @@ namespace px {
   void Pump::register_unknowns(Flowsheet& fs, UnknownsRegistry& reg) {
     auto& si = fs.get<Stream>(in);
     auto& so = fs.get<Stream>(out);
-    reg.register_var(si.molar_flow);
-    reg.register_var(so.molar_flow);
-    reg.register_var(si.pressure);
-    reg.register_var(so.pressure);
-    reg.register_var(si.molar_enthalpy);
-    reg.register_var(so.molar_enthalpy);
-    reg.register_var(si.temperature);  // Needed for state equation: T = f(H, P)
-    reg.register_var(so.temperature);  // Needed for state equation: T = f(H, P)
-    reg.register_var(dP);
-    reg.register_var(W);
-    reg.register_var(eta);
+    reg.AddVariable(si.molar_flow);
+    reg.AddVariable(so.molar_flow);
+    reg.AddVariable(si.pressure);
+    reg.AddVariable(so.pressure);
+    reg.AddVariable(si.molar_enthalpy);
+    reg.AddVariable(so.molar_enthalpy);
+    reg.AddVariable(si.temperature);  // Needed for state equation: T = f(H, P)
+    reg.AddVariable(so.temperature);  // Needed for state equation: T = f(H, P)
+    reg.AddVariable(dP);
+    reg.AddVariable(W);
+    reg.AddVariable(eta);
     
     // Register mole fractions for inlet and outlet (composition unchanged)
     for (auto& x : si.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
     for (auto& x : so.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
   }
 
@@ -424,17 +424,17 @@ namespace px {
     auto* self = this;
     auto& si = fs.get<Stream>(in);
     auto& so = fs.get<Stream>(out);
-    sys.add(name + ": balance", [&](){ return si.molar_flow.value - so.molar_flow.value; });
+    sys.AddEquation(name + ": balance", [&](){ return si.molar_flow.value_ - so.molar_flow.value_; });
     
     // Pressure rise: P_out = P_in + dP (dP is positive for pumps)
-    sys.add(name + ": pressure_rise", [&, self](){ 
-      return so.pressure.value - (si.pressure.value + self->dP.value); 
+    sys.AddEquation(name + ": pressure_rise", [&, self](){ 
+      return so.pressure.value_ - (si.pressure.value_ + self->dP.value_); 
     });
     
     // Isentropic constraint: s_out = s_in (isentropic process)
     // This determines T_out from P_out and s_in, then H_out from (T_out, P_out)
     // Then W is determined from energy balance
-    sys.add(name + ": isentropic", [&, self]() {
+    sys.AddEquation(name + ": isentropic", [&, self]() {
       try {
         // Calculate inlet entropy from inlet state (T_in, P_in)
         auto fluid_in = fs.fluids.GetFluidPackage(si.fluid_package_id);
@@ -448,7 +448,7 @@ namespace px {
         if (components_in.size() > 1 && si.mole_fractions.size() == components_in.size()) {
           z_in.reserve(si.mole_fractions.size());
           for (const auto& mf : si.mole_fractions) {
-            z_in.push_back(mf.value);
+            z_in.push_back(mf.value_);
           }
         }
         
@@ -456,7 +456,7 @@ namespace px {
         if (!z_in.empty()) {
           fluid_in->set_mole_fractions(z_in);
         }
-        fluid_in->update(CoolProp::PT_INPUTS, si.pressure.value, si.temperature.value);
+        fluid_in->update(CoolProp::PT_INPUTS, si.pressure.value_, si.temperature.value_);
         double s_in = fluid_in->smolar(); // Molar entropy at inlet
         
         // Prepare outlet mole fractions for temperature calculation
@@ -465,18 +465,18 @@ namespace px {
         if (components_out.size() > 1 && so.mole_fractions.size() == components_out.size()) {
           z_out.reserve(so.mole_fractions.size());
           for (const auto& mf : so.mole_fractions) {
-            z_out.push_back(mf.value);
+            z_out.push_back(mf.value_);
           }
         }
         
         // Use FluidRegistry helper method to calculate isentropic outlet temperature
-        double T_guess = so.temperature.value;
-        if (T_guess <= 0 || T_guess < 50.0) T_guess = si.temperature.value;
+        double T_guess = so.temperature.value_;
+        if (T_guess <= 0 || T_guess < 50.0) T_guess = si.temperature.value_;
         
         double T_out_isentropic = fs.fluids.CalculateTemperatureFromEntropyAndPressure(
           so.fluid_package_id,
           s_in,
-          so.pressure.value,
+          so.pressure.value_,
           T_guess,
           z_out
         );
@@ -490,13 +490,13 @@ namespace px {
         if (!z_out.empty()) {
           fluid_out->set_mole_fractions(z_out);
         }
-        fluid_out->update(CoolProp::PT_INPUTS, so.pressure.value, T_out_isentropic);
+        fluid_out->update(CoolProp::PT_INPUTS, so.pressure.value_, T_out_isentropic);
         double h_out_calculated = fluid_out->hmolar();
         
         // Return residual: H_out should equal the calculated value
         // This ensures H_out is consistent with the isentropic T_out
         // The state equation will then verify T_out is consistent with H_out and P_out
-        return so.molar_enthalpy.value - h_out_calculated;
+        return so.molar_enthalpy.value_ - h_out_calculated;
       } catch (const std::exception& e) {
         return 1e10;
       } catch (...) {
@@ -506,17 +506,17 @@ namespace px {
     
     // Energy balance: W * eta = m * (h_out - h_in)
     // This ensures the actual enthalpy change matches the work input
-    sys.add(name + ": energy", [&, self](){ 
-      double delta_h = so.molar_enthalpy.value - si.molar_enthalpy.value;
+    sys.AddEquation(name + ": energy", [&, self](){ 
+      double delta_h = so.molar_enthalpy.value_ - si.molar_enthalpy.value_;
       // Use inlet flow for consistency (mass balance ensures they're equal)
-      return self->W.value * self->eta.value - si.molar_flow.value * delta_h; 
+      return self->W.value_ * self->eta.value_ - si.molar_flow.value_ * delta_h; 
     });
     
     // Component mass balances: composition unchanged (x_in = x_out for each component)
     size_t num_components = si.mole_fractions.size();
     for (size_t i = 0; i < num_components; ++i) {
-      sys.add(name + ": comp_balance[" + std::to_string(i) + "]", [&, i]() {
-        return si.mole_fractions[i].value - so.mole_fractions[i].value;
+      sys.AddEquation(name + ": comp_balance[" + std::to_string(i) + "]", [&, i]() {
+        return si.mole_fractions[i].value_ - so.mole_fractions[i].value_;
       });
     }
     // Note: State equations are added once per stream in Flowsheet::assemble() to avoid duplicates
@@ -568,38 +568,38 @@ namespace px {
       }
     }
 
-    reg.register_var(si.molar_flow);
-    reg.register_var(so_overhead.molar_flow);
-    reg.register_var(so_bottom.molar_flow);
+    reg.AddVariable(si.molar_flow);
+    reg.AddVariable(so_overhead.molar_flow);
+    reg.AddVariable(so_bottom.molar_flow);
 
-    reg.register_var(si.pressure);
-    reg.register_var(so_overhead.pressure);
-    reg.register_var(so_bottom.pressure);
+    reg.AddVariable(si.pressure);
+    reg.AddVariable(so_overhead.pressure);
+    reg.AddVariable(so_bottom.pressure);
 
-    reg.register_var(si.molar_enthalpy);
-    reg.register_var(so_overhead.molar_enthalpy);
-    reg.register_var(so_bottom.molar_enthalpy);
+    reg.AddVariable(si.molar_enthalpy);
+    reg.AddVariable(so_overhead.molar_enthalpy);
+    reg.AddVariable(so_bottom.molar_enthalpy);
 
-    reg.register_var(si.temperature);
-    reg.register_var(so_overhead.temperature);
-    reg.register_var(so_bottom.temperature);
+    reg.AddVariable(si.temperature);
+    reg.AddVariable(so_overhead.temperature);
+    reg.AddVariable(so_bottom.temperature);
 
-    reg.register_var(Q);
+    reg.AddVariable(Q);
 
     // Register split ratios (one per component)
     for (auto& ratio : overhead_split_ratios) {
-      reg.register_var(ratio);
+      reg.AddVariable(ratio);
     }
 
     // Register mole fractions for inlet and outlets
     for (auto& x : si.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
     for (auto& x : so_overhead.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
     for (auto& x : so_bottom.mole_fractions) {
-      reg.register_var(x);
+      reg.AddVariable(x);
     }
   }
 
@@ -610,44 +610,44 @@ namespace px {
     auto& so_bottom = fs.get<Stream>(bottom);
     
     // Mass balance: m_in = m_overhead + m_bottom
-    // sys.add(name + ": balance", [&](){ 
-    //   return si.molar_flow.value - so_overhead.molar_flow.value - so_bottom.molar_flow.value; 
+    // sys.AddEquation(name + ": balance", [&](){ 
+    //   return si.molar_flow.value_ - so_overhead.molar_flow.value_ - so_bottom.molar_flow.value_; 
     // });
 
-    sys.add(name + ": overhead_mass_balance", [&, self]() {
+    sys.AddEquation(name + ": overhead_mass_balance", [&, self]() {
       double Fi_in = 0.0;
       size_t num_components = si.mole_fractions.size();
       for (size_t i = 0; i < num_components; ++i) {
-        Fi_in += si.mole_fractions[i].value * si.molar_flow.value * self->overhead_split_ratios[i].value;
+        Fi_in += si.mole_fractions[i].value_ * si.molar_flow.value_ * self->overhead_split_ratios[i].value_;
       }
-      return Fi_in - so_overhead.molar_flow.value;
+      return Fi_in - so_overhead.molar_flow.value_;
     });
 
-    sys.add(name + ": bottom_mass_balance", [&, self]() {
+    sys.AddEquation(name + ": bottom_mass_balance", [&, self]() {
       double Fi_in = 0.0;
       size_t num_components = si.mole_fractions.size();
       for (size_t i = 0; i < num_components; ++i) {
-        Fi_in += si.mole_fractions[i].value * si.molar_flow.value * (1.0 - self->overhead_split_ratios[i].value);
+        Fi_in += si.mole_fractions[i].value_ * si.molar_flow.value_ * (1.0 - self->overhead_split_ratios[i].value_);
       }
-      return Fi_in - so_bottom.molar_flow.value;
+      return Fi_in - so_bottom.molar_flow.value_;
     });
     
     // Energy balance: Q = m_overhead * h_overhead + m_bottom * h_bottom - m_in * h_in
-    sys.add(name + ": energy", [&, self](){ 
-      return self->Q.value 
-        - so_overhead.molar_flow.value * so_overhead.molar_enthalpy.value
-        - so_bottom.molar_flow.value * so_bottom.molar_enthalpy.value
-        + si.molar_flow.value * si.molar_enthalpy.value; 
+    sys.AddEquation(name + ": energy", [&, self](){ 
+      return self->Q.value_ 
+        - so_overhead.molar_flow.value_ * so_overhead.molar_enthalpy.value_
+        - so_bottom.molar_flow.value_ * so_bottom.molar_enthalpy.value_
+        + si.molar_flow.value_ * si.molar_enthalpy.value_; 
     });
     
     // Pressure drop: P_overhead = P_bottom
-    sys.add(name + ": overhead_pressure_drop", [&](){ 
-      return so_overhead.pressure.value - so_bottom.pressure.value; 
+    sys.AddEquation(name + ": overhead_pressure_drop", [&](){ 
+      return so_overhead.pressure.value_ - so_bottom.pressure.value_; 
     });
 
     // Pressure drop: P_bottom = P_in
-    sys.add(name + ": bottom_pressure_drop", [&](){ 
-      return so_bottom.pressure.value - si.pressure.value; 
+    sys.AddEquation(name + ": bottom_pressure_drop", [&](){ 
+      return so_bottom.pressure.value_ - si.pressure.value_; 
     });
 
     // Component mass balances: split ratios determine how each component is distributed
@@ -671,14 +671,14 @@ namespace px {
     }
     
     for (size_t i = 0; i < num_components; ++i) {
-      sys.add(name + ": overhead_comp_balance[" + std::to_string(i) + "]", [&, i, self]() {
-        return si.mole_fractions[i].value * si.molar_flow.value * self->overhead_split_ratios[i].value 
-          - so_overhead.mole_fractions[i].value * so_overhead.molar_flow.value;
+      sys.AddEquation(name + ": overhead_comp_balance[" + std::to_string(i) + "]", [&, i, self]() {
+        return si.mole_fractions[i].value_ * si.molar_flow.value_ * self->overhead_split_ratios[i].value_ 
+          - so_overhead.mole_fractions[i].value_ * so_overhead.molar_flow.value_;
       });
 
-      sys.add(name + ": bottom_comp_balance[" + std::to_string(i) + "]", [&, i, self]() {
-        return si.mole_fractions[i].value * si.molar_flow.value * (1.0 - self->overhead_split_ratios[i].value) 
-          - so_bottom.mole_fractions[i].value * so_bottom.molar_flow.value;
+      sys.AddEquation(name + ": bottom_comp_balance[" + std::to_string(i) + "]", [&, i, self]() {
+        return si.mole_fractions[i].value_ * si.molar_flow.value_ * (1.0 - self->overhead_split_ratios[i].value_) 
+          - so_bottom.mole_fractions[i].value_ * so_bottom.molar_flow.value_;
       });
     
     }

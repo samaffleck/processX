@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 # Enable CXX and optionally OBJCXX for macOS Metal support
+# Also enable C for external libraries that have C source files
 if(APPLE)
-  project(processX VERSION 1.0.0 LANGUAGES CXX OBJCXX)
+  project(processX VERSION 1.0.0 LANGUAGES C CXX OBJCXX)
 else()
-  project(processX VERSION 1.0.0 LANGUAGES CXX)
+  project(processX VERSION 1.0.0 LANGUAGES C CXX)
 endif()
 
 # ---- Global settings ----
@@ -119,6 +120,9 @@ if(PROCESSX_USE_SUNDIALS)
   set(SUNDIALS_BUILD_SHARED   OFF CACHE BOOL "" FORCE)
   set(SUNDIALS_INDEX_SIZE     32  CACHE STRING "" FORCE)
 
+  # Enable KINSOL for nonlinear equation solving
+  set(BUILD_KINSOL ON CACHE BOOL "" FORCE)
+
   set(SUNDIALS_ENABLE_ERROR_CHECKS OFF CACHE BOOL "" FORCE)
   set(ENABLE_OPENMP OFF CACHE BOOL "" FORCE)
   set(ENABLE_PTHREAD OFF CACHE BOOL "" FORCE)
@@ -128,7 +132,7 @@ if(PROCESSX_USE_SUNDIALS)
   set(ENABLE_LAPACK OFF CACHE BOOL "" FORCE)
 
   add_subdirectory(external/sundials EXCLUDE_FROM_ALL)
-  # Usual targets: sundials_cvode, sundials_ida, sundials_arkode, sundials_nvecserial, ...
+  # Usual targets: sundials_cvode, sundials_ida, sundials_arkode, sundials_nvecserial, sundials_kinsol, ...
 endif()
 
 # ---- hello_imgui (for apps/UI) ----
@@ -147,12 +151,23 @@ if(PROCESSX_BUILD_APPS)
   set(HELLOIMGUI_WITH_METAL OFF CACHE BOOL "" FORCE)
 
   add_subdirectory(external/hello_imgui EXCLUDE_FROM_ALL)
-  # after: add_subdirectory(external/hello_imgui EXCLUDE_FROM_ALL)
 
-  # Exclude the pure-C whereami TU so it won't be compiled with ObjC++ flags
-  set(HI_WAI "${CMAKE_SOURCE_DIR}/external/hello_imgui/src/hello_imgui/internal/whereami/whereami.c")
-  if(EXISTS "${HI_WAI}")
-    set_source_files_properties("${HI_WAI}" PROPERTIES HEADER_FILE_ONLY TRUE)
+  # Fix for newer Clang versions (20.1+) on macOS: explicitly set C files in hello_imgui 
+  # to use C compiler instead of Objective-C++.
+  # Newer Clang is stricter about mixing -x objective-c++ with C files that use -std=gnu99.
+  if(APPLE AND TARGET hello_imgui)
+    # Remove the -x objective-c++ flag from C files using generator expressions
+    # This overrides the target-level compile options for C language files
+    target_compile_options(hello_imgui PRIVATE
+        $<$<COMPILE_LANGUAGE:C>:-xc>
+    )
+    # Also explicitly set C files to use C language
+    file(GLOB_RECURSE hello_imgui_c_files 
+        "${CMAKE_CURRENT_SOURCE_DIR}/external/hello_imgui/src/hello_imgui/*.c"
+    )
+    foreach(c_file ${hello_imgui_c_files})
+        set_source_files_properties(${c_file} PROPERTIES LANGUAGE C)
+    endforeach()
   endif()
 
   if(TARGET hello_imgui AND NOT TARGET hello_imgui::hello_imgui)
@@ -185,8 +200,26 @@ if(PROCESSX_USE_COOLPROP)
 endif()
 
 if(PROCESSX_USE_SUNDIALS)
-  # Adjust components to what you actually use
-  target_link_libraries(${PROJECT_NAME} PUBLIC sundials_cvode sundials_nvecserial)
+  # Link KINSOL for nonlinear equation solving
+  # KINSOL already links to sundials_core and uses object libraries for matrix/linear solver
+  # We need to link to the actual library targets for the components we use
+  if(TARGET sundials_kinsol)
+    target_link_libraries(${PROJECT_NAME} PUBLIC sundials_kinsol)
+  else()
+    message(WARNING "sundials_kinsol target not found. KINSOL may not be enabled in SUNDIALS build.")
+  endif()
+  
+  # Also link to nvecserial, sunmatrixdense, and sunlinsoldense explicitly
+  # (KINSOL uses object libraries internally, but we need the actual libraries for linking)
+  if(TARGET sundials_nvecserial)
+    target_link_libraries(${PROJECT_NAME} PUBLIC sundials_nvecserial)
+  endif()
+  if(TARGET sundials_sunmatrixdense)
+    target_link_libraries(${PROJECT_NAME} PUBLIC sundials_sunmatrixdense)
+  endif()
+  if(TARGET sundials_sunlinsoldense)
+    target_link_libraries(${PROJECT_NAME} PUBLIC sundials_sunlinsoldense)
+  endif()
 endif()
 
 # ---- Apps (optional) ----

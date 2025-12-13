@@ -12,7 +12,9 @@
 #include "units.h"
 
 // Forward declaration for Var
-namespace px { struct Var; }
+namespace px { 
+  class Var; 
+}
 
 
 // Declare flags; implemented in .cpp file

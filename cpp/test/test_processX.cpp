@@ -60,7 +60,7 @@ namespace px {
         return false; 
       }
 
-      std::cout<<"Unknowns: "<<fs.reg.unknowns_list()<<"\n";
+      std::cout<<"Unknowns: "<<fs.reg.GetFeeVariableNames()<<"\n";
 
       auto rep = fs.solve(NewtonOptions{50,1e-12,1e-14,1e-6,1e-8,true});
       
@@ -93,8 +93,8 @@ namespace px {
         // For N2/O2 mixture, set to 79% N2, 21% O2
         stream.initialize_composition(components.size(), components);
         if (stream.mole_fractions.size() == 2) {
-          stream.mole_fractions[0].set_val(0.79, fix_composition); // N2
-          stream.mole_fractions[1].set_val(0.21, fix_composition); // O2
+          stream.mole_fractions[0].SetValue(0.79, fix_composition); // N2
+          stream.mole_fractions[1].SetValue(0.21, fix_composition); // O2
         }
       } else {
         // For other mixtures, use equal fractions
@@ -102,7 +102,7 @@ namespace px {
         if (fix_composition) {
           // Fix all mole fractions if requested
           for (auto& x : stream.mole_fractions) {
-            x.fixed = true;
+            x.is_fixed_ = true;
           }
         }
       }
@@ -142,34 +142,34 @@ namespace px {
     fs.connect_in<Valve>(v2, s_mid);
     fs.connect_out<Valve>(v2, s_out);
 
-    val_1.Cv.set_val(1.0e-4, true);
-    val_2.Cv.set_val(3.0e-4, true);
+    val_1.Cv.SetValue(1.0e-4, true);
+    val_2.Cv.SetValue(3.0e-4, true);
 
-    in.pressure.set_val(2e5, true);
-    out.pressure.set_val(2e5, true);
-    mid.pressure.set_val(1e5, false);
+    in.pressure.SetValue(2e5, true);
+    out.pressure.SetValue(2e5, true);
+    mid.pressure.SetValue(1e5, false);
     
-    in.molar_flow.set_val(1, false);
-    out.molar_flow.set_val(1, false);
-    mid.molar_flow.set_val(1, false);
-    
-    in.temperature.set_val(300.0, true);
+    in.molar_flow.SetValue(1, false);
+    out.molar_flow.SetValue(1, false);
+    mid.molar_flow.SetValue(1, false);
+
+    in.temperature.SetValue(300.0, true);
 
     run();
 
-    EXPECT_NEAR(in.molar_flow.value,  0.0, 1e-12);
-    EXPECT_NEAR(mid.molar_flow.value, 0.0, 1e-12);
-    EXPECT_NEAR(out.molar_flow.value, 0.0, 1e-12);
-    EXPECT_NEAR(mid.pressure.value,   2.0e5, 1e-8);
+    EXPECT_NEAR(in.molar_flow.value_,  0.0, 1e-12);
+    EXPECT_NEAR(mid.molar_flow.value_, 0.0, 1e-12);
+    EXPECT_NEAR(out.molar_flow.value_, 0.0, 1e-12);
+    EXPECT_NEAR(mid.pressure.value_,   2.0e5, 1e-8);
     
     // Verify mole fractions are preserved (composition unchanged through valves)
     if (in.mole_fractions.size() == 2 && mid.mole_fractions.size() == 2 && out.mole_fractions.size() == 2) {
-      EXPECT_NEAR(in.mole_fractions[0].value, mid.mole_fractions[0].value, 1e-10);
-      EXPECT_NEAR(mid.mole_fractions[0].value, out.mole_fractions[0].value, 1e-10);
+      EXPECT_NEAR(in.mole_fractions[0].value_, mid.mole_fractions[0].value_, 1e-10);
+      EXPECT_NEAR(mid.mole_fractions[0].value_, out.mole_fractions[0].value_, 1e-10);
       // Verify sum constraint
-      expect_prob_vector({in.mole_fractions[0].value, in.mole_fractions[1].value}, 1e-6);
-      expect_prob_vector({mid.mole_fractions[0].value, mid.mole_fractions[1].value}, 1e-6);
-      expect_prob_vector({out.mole_fractions[0].value, out.mole_fractions[1].value}, 1e-6);
+      expect_prob_vector({in.mole_fractions[0].value_, in.mole_fractions[1].value_}, 1e-6);
+      expect_prob_vector({mid.mole_fractions[0].value_, mid.mole_fractions[1].value_}, 1e-6);
+      expect_prob_vector({out.mole_fractions[0].value_, out.mole_fractions[1].value_}, 1e-6);
     }
 
     SaveTest("multi_valve_zero_flow_test", fs);
@@ -211,19 +211,19 @@ namespace px {
     const double Cv1  = 1.0e-4;
     const double Cv2  = 3.0e-4;
 
-    val1.Cv.set_val(Cv1, true);
-    val2.Cv.set_val(Cv2, true);
-    in.pressure.set_val(Pin,  true);
-    out.pressure.set_val(Pout, true);
+    val1.Cv.SetValue(Cv1, true);
+    val2.Cv.SetValue(Cv2, true);
+    in.pressure.SetValue(Pin,  true);
+    out.pressure.SetValue(Pout, true);
 
-    in.molar_flow.set_val(0.0, false);
-    mid.molar_flow.set_val(0.0, false);
-    out.molar_flow.set_val(0.0, false);
-    mid.pressure.set_val((Pin + Pout) * 0.5, false);
+    in.molar_flow.SetValue(0.0, false);
+    mid.molar_flow.SetValue(0.0, false);
+    out.molar_flow.SetValue(0.0, false);
+    mid.pressure.SetValue((Pin + Pout) * 0.5, false);
     
-    in.temperature.set_val(300.0, true);
-    mid.temperature.set_val(300.0, false);
-    out.temperature.set_val(300.0, false);
+    in.temperature.SetValue(300.0, true);
+    mid.temperature.SetValue(300.0, false);
+    out.temperature.SetValue(300.0, false);
 
     // Enthalpy will be automatically initialized from T and P in assemble()
     // No need to manually set it anymore
@@ -234,23 +234,23 @@ namespace px {
     const double Pmid = (Cv1*Pin + Cv2*Pout) / (Cv1 + Cv2);
     const double F = (Cv1*Cv2/(Cv1+Cv2)) * (Pin - Pout);
 
-    EXPECT_NEAR(mid.pressure.value,   Pmid, 1e-6);
-    EXPECT_NEAR(in.molar_flow.value,  F,    1e-10);
-    EXPECT_NEAR(mid.molar_flow.value, F,    1e-10);
-    EXPECT_NEAR(out.molar_flow.value, F,    1e-10);
+    EXPECT_NEAR(mid.pressure.value_,   Pmid, 1e-6);
+    EXPECT_NEAR(in.molar_flow.value_,  F,    1e-10);
+    EXPECT_NEAR(mid.molar_flow.value_, F,    1e-10);
+    EXPECT_NEAR(out.molar_flow.value_, F,    1e-10);
 
     // Check each valve equation too
-    EXPECT_NEAR(mid.molar_flow.value, val1.Cv.value * (in.pressure.value  - mid.pressure.value),  1e-10);
-    EXPECT_NEAR(out.molar_flow.value, val2.Cv.value * (mid.pressure.value - out.pressure.value),  1e-10);
+    EXPECT_NEAR(mid.molar_flow.value_, val1.Cv.value_ * (in.pressure.value_  - mid.pressure.value_),  1e-10);
+    EXPECT_NEAR(out.molar_flow.value_, val2.Cv.value_ * (mid.pressure.value_ - out.pressure.value_),  1e-10);
     
     // Verify mole fractions are preserved (composition unchanged through valves)
     if (in.mole_fractions.size() == 2 && mid.mole_fractions.size() == 2 && out.mole_fractions.size() == 2) {
-      EXPECT_NEAR(in.mole_fractions[0].value, mid.mole_fractions[0].value, 1e-10);
-      EXPECT_NEAR(mid.mole_fractions[0].value, out.mole_fractions[0].value, 1e-10);
+      EXPECT_NEAR(in.mole_fractions[0].value_, mid.mole_fractions[0].value_, 1e-10);
+      EXPECT_NEAR(mid.mole_fractions[0].value_, out.mole_fractions[0].value_, 1e-10);
       // Verify sum constraint
-      expect_prob_vector({in.mole_fractions[0].value, in.mole_fractions[1].value}, 1e-6);
-      expect_prob_vector({mid.mole_fractions[0].value, mid.mole_fractions[1].value}, 1e-6);
-      expect_prob_vector({out.mole_fractions[0].value, out.mole_fractions[1].value}, 1e-6);
+      expect_prob_vector({in.mole_fractions[0].value_, in.mole_fractions[1].value_ }, 1e-6);
+      expect_prob_vector({mid.mole_fractions[0].value_, mid.mole_fractions[1].value_}, 1e-6);
+      expect_prob_vector({out.mole_fractions[0].value_, out.mole_fractions[1].value_ }, 1e-6);
     }
 
     SaveTest("multi_valve_test", fs);
@@ -289,44 +289,44 @@ namespace px {
     const double F1  = 1.5;
     const double F2  = 0.2;
 
-    in1.pressure.set_val(P, false);
-    in2.pressure.set_val(P, false);
-    out.pressure.set_val(P, true);
-    in1.molar_flow.set_val(F1, true);
-    in2.molar_flow.set_val(F2, true);
+    in1.pressure.SetValue(P, false);
+    in2.pressure.SetValue(P, false);
+    out.pressure.SetValue(P, true);
+    in1.molar_flow.SetValue(F1, true);
+    in2.molar_flow.SetValue(F2, true);
 
-    out.molar_flow.set_val(0.8, false);
+    out.molar_flow.SetValue(0.8, false);
     
     // Fix inlet temperatures and pressures - state equations will calculate H_in1 and H_in2 from T,P
     // Energy balance will determine H_out from inlets
     // State equation will then calculate T_out from H_out, P_out
-    in1.temperature.set_val(300.0, true);
-    in2.temperature.set_val(300.0, true);
+    in1.temperature.SetValue(300.0, true);
+    in2.temperature.SetValue(300.0, true);
     
     run();
 
     const double F = F1 + F2;
-    EXPECT_NEAR(out.molar_flow.value, F, 1e-10);
+    EXPECT_NEAR(out.molar_flow.value_, F, 1e-10);
     // Verify pressure equality equations
-    EXPECT_NEAR(in1.pressure.value, out.pressure.value, 1e-10);
-    EXPECT_NEAR(in2.pressure.value, out.pressure.value, 1e-10);
+    EXPECT_NEAR(in1.pressure.value_, out.pressure.value_, 1e-10);
+    EXPECT_NEAR(in2.pressure.value_, out.pressure.value_, 1e-10);
     
     // Verify component mass balances: Σ(n_in * x_in,i) = n_out * x_out,i
     if (in1.mole_fractions.size() == 2 && in2.mole_fractions.size() == 2 && out.mole_fractions.size() == 2) {
       // Component 0 (N2)
-      double comp0_in = in1.molar_flow.value * in1.mole_fractions[0].value + 
-                        in2.molar_flow.value * in2.mole_fractions[0].value;
-      double comp0_out = out.molar_flow.value * out.mole_fractions[0].value;
+      double comp0_in = in1.molar_flow.value_ * in1.mole_fractions[0].value_ + 
+                        in2.molar_flow.value_ * in2.mole_fractions[0].value_;
+      double comp0_out = out.molar_flow.value_ * out.mole_fractions[0].value_;
       EXPECT_NEAR(comp0_in, comp0_out, 1e-10);
       
       // Component 1 (O2)
-      double comp1_in = in1.molar_flow.value * in1.mole_fractions[1].value + 
-                        in2.molar_flow.value * in2.mole_fractions[1].value;
-      double comp1_out = out.molar_flow.value * out.mole_fractions[1].value;
+      double comp1_in = in1.molar_flow.value_ * in1.mole_fractions[1].value_ + 
+                        in2.molar_flow.value_ * in2.mole_fractions[1].value_;
+      double comp1_out = out.molar_flow.value_ * out.mole_fractions[1].value_;
       EXPECT_NEAR(comp1_in, comp1_out, 1e-10);
       
       // Verify sum constraint
-      expect_prob_vector({out.mole_fractions[0].value, out.mole_fractions[1].value}, 1e-6);
+      expect_prob_vector({out.mole_fractions[0].value_, out.mole_fractions[1].value_}, 1e-6);
     }
 
     SaveTest("mixer_test", fs);
@@ -366,34 +366,34 @@ namespace px {
     const double F1 = 1.2;
     const double F2 = 0.0;
 
-    in.pressure.set_val(P, true);
-    out1.pressure.set_val(P, false);
-    out2.pressure.set_val(P, false);
-    in.molar_flow.set_val(F, true);
-    out1.molar_flow.set_val(F1, true);
-    out2.molar_flow.set_val(F2, false);  // Unknown - should equal F - F1
+    in.pressure.SetValue(P, true);
+    out1.pressure.SetValue(P, false);
+    out2.pressure.SetValue(P, false);
+    in.molar_flow.SetValue(F, true);
+    out1.molar_flow.SetValue(F1, true);
+    out2.molar_flow.SetValue(F2, false);  // Unknown - should equal F - F1
     
-    in.temperature.set_val(300.0, true);
+    in.temperature.SetValue(300.0, true);
     
     run();
 
-    EXPECT_NEAR(in.molar_flow.value, out1.molar_flow.value + out2.molar_flow.value, 1e-10);
-    EXPECT_NEAR(in.pressure.value, out1.pressure.value, 1e-10);
-    EXPECT_NEAR(in.pressure.value, out2.pressure.value, 1e-10);
+    EXPECT_NEAR(in.molar_flow.value_, out1.molar_flow.value_ + out2.molar_flow.value_, 1e-10);
+    EXPECT_NEAR(in.pressure.value_, out1.pressure.value_, 1e-10);
+    EXPECT_NEAR(in.pressure.value_, out2.pressure.value_, 1e-10);
     
     // Verify mole fractions are preserved (composition unchanged through splitter)
     if (in.mole_fractions.size() == 2 && out1.mole_fractions.size() == 2 && out2.mole_fractions.size() == 2) {
-      EXPECT_NEAR(in.mole_fractions[0].value, out1.mole_fractions[0].value, 1e-10);
-      EXPECT_NEAR(in.mole_fractions[0].value, out2.mole_fractions[0].value, 1e-10);
+      EXPECT_NEAR(in.mole_fractions[0].value_, out1.mole_fractions[0].value_, 1e-10);
+      EXPECT_NEAR(in.mole_fractions[0].value_, out2.mole_fractions[0].value_, 1e-10);
       // Verify component mass balances: n_in * x_in,i = Σ(n_out * x_out,i)
-      double comp0_in = in.molar_flow.value * in.mole_fractions[0].value;
-      double comp0_out = out1.molar_flow.value * out1.mole_fractions[0].value + 
-                         out2.molar_flow.value * out2.mole_fractions[0].value;
+      double comp0_in = in.molar_flow.value_ * in.mole_fractions[0].value_;
+      double comp0_out = out1.molar_flow.value_ * out1.mole_fractions[0].value_ + 
+                         out2.molar_flow.value_ * out2.mole_fractions[0].value_;
       EXPECT_NEAR(comp0_in, comp0_out, 1e-10);
       // Verify sum constraint
-      expect_prob_vector({in.mole_fractions[0].value, in.mole_fractions[1].value}, 1e-6);
-      expect_prob_vector({out1.mole_fractions[0].value, out1.mole_fractions[1].value}, 1e-6);
-      expect_prob_vector({out2.mole_fractions[0].value, out2.mole_fractions[1].value}, 1e-6);
+      expect_prob_vector({in.mole_fractions[0].value_, in.mole_fractions[1].value_}, 1e-6);
+      expect_prob_vector({out1.mole_fractions[0].value_, out1.mole_fractions[1].value_}, 1e-6);
+      expect_prob_vector({out2.mole_fractions[0].value_, out2.mole_fractions[1].value_}, 1e-6);
     }
 
     SaveTest("splitter_test", fs);
@@ -423,16 +423,16 @@ namespace px {
     const double Pout = 4.0e5;
     const double Fin  = 10.0;
 
-    in.molar_flow.set_val(Fin,  true);
-    in.pressure.set_val(Pin,  true);
-    out.pressure.set_val(Pout, true);
+    in.molar_flow.SetValue(Fin,  true);
+    in.pressure.SetValue(Pin,  true);
+    out.pressure.SetValue(Pout, true);
 
     // Unknowns
-    out.molar_flow.set_val(0.0,   false);  // F_out
-    val.Cv.set_val(1.0,   false);  // Cv
+    out.molar_flow.SetValue(0.0,   false);  // F_out
+    val.Cv.SetValue(1.0,   false);  // Cv
     
-    in.temperature.set_val(300.0, true);
-    out.temperature.set_val(300.0, false);
+    in.temperature.SetValue(300.0, true);
+    out.temperature.SetValue(300.0, false);
 
     run();
 
@@ -440,10 +440,10 @@ namespace px {
     const double Fexp  = Fin;
     const double Cvexp = Fexp / (Pin - Pout);
 
-    EXPECT_NEAR(out.molar_flow.value, Fexp,  1e-10);
-    EXPECT_NEAR(in.molar_flow.value,  Fexp,  1e-10);
-    EXPECT_NEAR(val.Cv.value,         Cvexp, 1e-12);
-    EXPECT_NEAR(out.molar_flow.value, val.Cv.value * (in.pressure.value - out.pressure.value), 1e-10);
+    EXPECT_NEAR(out.molar_flow.value_, Fexp,  1e-10);
+    EXPECT_NEAR(in.molar_flow.value_,  Fexp,  1e-10);
+    EXPECT_NEAR(val.Cv.value_,         Cvexp, 1e-12);
+    EXPECT_NEAR(out.molar_flow.value_, val.Cv.value_ * (in.pressure.value_ - out.pressure.value_), 1e-10);
 
     SaveTest("single_valve_unknown_fout_and_cv_test", fs);
   }
@@ -472,16 +472,16 @@ namespace px {
     const double Fin = 8.0;
     const double Cv  = 2.0e-4;
 
-    in.molar_flow.set_val(Fin, true);
-    in.pressure.set_val(Pin, true);
-    val.Cv.set_val(Cv,  true);
+    in.molar_flow.SetValue(Fin, true);
+    in.pressure.SetValue(Pin, true);
+    val.Cv.SetValue(Cv,  true);
 
     // Unknowns
-    out.molar_flow.set_val(0.0,  false); // F_out
-    out.pressure.set_val(1.0e5, false); // P_out
+    out.molar_flow.SetValue(0.0,  false); // F_out
+    out.pressure.SetValue(1.0e5, false); // P_out
     
-    in.temperature.set_val(300.0, true);
-    out.temperature.set_val(300.0, false);
+    in.temperature.SetValue(300.0, true);
+    out.temperature.SetValue(300.0, false);
 
     run();
 
@@ -489,10 +489,10 @@ namespace px {
     const double Fexp  = Fin;
     const double Poutexp = Pin - Fexp / Cv; // = 2.6e5
 
-    EXPECT_NEAR(out.molar_flow.value, Fexp,    1e-10);
-    EXPECT_NEAR(in.molar_flow.value,  Fexp,    1e-10);
-    EXPECT_NEAR(out.pressure.value,   Poutexp, 1e-6);
-    EXPECT_NEAR(out.molar_flow.value, val.Cv.value * (in.pressure.value - out.pressure.value), 1e-10);
+    EXPECT_NEAR(out.molar_flow.value_, Fexp,    1e-10);
+    EXPECT_NEAR(in.molar_flow.value_,  Fexp,    1e-10);
+    EXPECT_NEAR(out.pressure.value_,   Poutexp, 1e-6);
+    EXPECT_NEAR(out.molar_flow.value_, val.Cv.value_ * (in.pressure.value_ - out.pressure.value_), 1e-10);
 
     SaveTest("single_valve_unknown_pout_and_fout_test", fs);
   }
@@ -520,23 +520,23 @@ namespace px {
     const double Pout = 1.0e5;
     const double Cv = 2.0e-4;
 
-    in.pressure.set_val(Pin,  true);
-    out.pressure.set_val(Pout, true);
-    val.Cv.set_val(Cv,   true);
+    in.pressure.SetValue(Pin,  true);
+    out.pressure.SetValue(Pout, true);
+    val.Cv.SetValue(Cv,   true);
 
     // Unknowns
-    in.molar_flow .set_val(0.0, false); // F_in
-    out.molar_flow.set_val(0.0, false); // F_out
+    in.molar_flow .SetValue(0.0, false); // F_in
+    out.molar_flow.SetValue(0.0, false); // F_out
     
-    in.temperature.set_val(300.0, true);
+    in.temperature.SetValue(300.0, true);
 
     run();
 
     // Expected
     const double Fexp = Cv * (Pin - Pout); // = 40
-    EXPECT_NEAR(in.molar_flow.value,  Fexp, 1e-10);
-    EXPECT_NEAR(out.molar_flow.value, Fexp, 1e-10);
-    EXPECT_NEAR(out.molar_flow.value, val.Cv.value * (in.pressure.value - out.pressure.value), 1e-10);
+    EXPECT_NEAR(in.molar_flow.value_,  Fexp, 1e-10);
+    EXPECT_NEAR(out.molar_flow.value_, Fexp, 1e-10);
+    EXPECT_NEAR(out.molar_flow.value_, val.Cv.value_ * (in.pressure.value_ - out.pressure.value_), 1e-10);
 
     SaveTest("single_valve_unknown_fin_and_fout_test", fs);
   }
@@ -564,18 +564,18 @@ namespace px {
     const double Pout = 1.2e5;
     const double F = 12.0;
 
-    in.molar_flow .set_val(F, true);
-    out.molar_flow.set_val(F, true);
-    out.pressure.set_val(Pout, true);
+    in.molar_flow .SetValue(F, true);
+    out.molar_flow.SetValue(F, true);
+    out.pressure.SetValue(Pout, true);
 
     // Unknowns (under-determined without an extra condition; we assert consistency)
-    in.pressure.set_val(2.0e5,  false); // P_in (free)
-    val.Cv.set_val(1.0e-5, false); // Cv (free)
+    in.pressure.SetValue(2.0e5,  false); // P_in (free)
+    val.Cv.SetValue(1.0e-5, false); // Cv (free)
     
     // Fix inlet temperature and pressure - state equation will calculate H_in from T_in, P_in
     // Energy balance: H_in = H_out (valve preserves enthalpy)
     // State equation will then calculate T_out from H_out, P_out
-    in.temperature.set_val(300.0, true);
+    in.temperature.SetValue(300.0, true);
 
     auto converged = run();
     
@@ -628,23 +628,23 @@ namespace px {
     const double P = 1.0e5;
     
     // Fix inlet and recycle flow rates
-    in.molar_flow.set_val(F_in, true);
-    recycle.molar_flow.set_val(F_recycle, true);
+    in.molar_flow.SetValue(F_in, true);
+    recycle.molar_flow.SetValue(F_recycle, true);
     
     // Fix all pressures to same value
-    in.pressure.set_val(P, true);
-    middle.pressure.set_val(P, false);
-    out.pressure.set_val(P, false);
-    recycle.pressure.set_val(P, false);
+    in.pressure.SetValue(P, true);
+    middle.pressure.SetValue(P, false);
+    out.pressure.SetValue(P, false);
+    recycle.pressure.SetValue(P, false);
     
     // Set initial guesses for unknowns
-    middle.molar_flow.set_val(15.0, false);  // Should be F_in + F_recycle = 15
-    out.molar_flow.set_val(10.0, false);    // Should be F_in = 10
+    middle.molar_flow.SetValue(15.0, false);  // Should be F_in + F_recycle = 15
+    out.molar_flow.SetValue(10.0, false);    // Should be F_in = 10
     
-    in.temperature.set_val(300.0, true);
-    middle.temperature.set_val(300.0, false);
-    out.temperature.set_val(300.0, false);
-    recycle.temperature.set_val(300.0, false);
+    in.temperature.SetValue(300.0, true);
+    middle.temperature.SetValue(300.0, false);
+    out.temperature.SetValue(300.0, false);
+    recycle.temperature.SetValue(300.0, false);
     
     std::cout << "\n=== Recycle Loop Test ===" << std::endl;
 
@@ -652,15 +652,15 @@ namespace px {
     
     if (converged) {
       std::cout << "\nResults:" << std::endl;
-      std::cout << "F_in = " << in.molar_flow.value << std::endl;
-      std::cout << "F_middle = " << middle.molar_flow.value << std::endl;
-      std::cout << "F_out = " << out.molar_flow.value << std::endl;
-      std::cout << "F_recycle = " << recycle.molar_flow.value << std::endl;
+      std::cout << "F_in = " << in.molar_flow.value_ << std::endl;
+      std::cout << "F_middle = " << middle.molar_flow.value_ << std::endl;
+      std::cout << "F_out = " << out.molar_flow.value_ << std::endl;
+      std::cout << "F_recycle = " << recycle.molar_flow.value_ << std::endl;
       
       // Verify balances
-      EXPECT_NEAR(middle.molar_flow.value, F_in + F_recycle, 1e-10);
-      EXPECT_NEAR(out.molar_flow.value, F_in, 1e-10);
-      EXPECT_NEAR(middle.molar_flow.value, out.molar_flow.value + recycle.molar_flow.value, 1e-10);
+      EXPECT_NEAR(middle.molar_flow.value_, F_in + F_recycle, 1e-10);
+      EXPECT_NEAR(out.molar_flow.value_, F_in, 1e-10);
+      EXPECT_NEAR(middle.molar_flow.value_, out.molar_flow.value_ + recycle.molar_flow.value_, 1e-10);
     } else {
       std::cout << "\nSOLUTION FAILED: DOF mismatch detected before rank analysis" << std::endl;
       std::cout << "The system correctly identifies that we have more equations than unknowns," << std::endl;
@@ -730,29 +730,29 @@ namespace px {
     const double Q = 1.0e5;    // W (heat duty - positive means heat added)
 
     // Set fixed values
-    in.pressure.set_val(Pin, true);
-    in.temperature.set_val(Tin, true);
-    in.molar_flow.set_val(Fin, true);
-    hex.dP.set_val(dP, true);
-    hex.Q.set_val(Q, true);
+    in.pressure.SetValue(Pin, true);
+    in.temperature.SetValue(Tin, true);
+    in.molar_flow.SetValue(Fin, true);
+    hex.dP.SetValue(dP, true);
+    hex.Q.SetValue(Q, true);
 
     // Unknowns
-    out.pressure.set_val(1.9e5, false);
-    out.molar_flow.set_val(4.9, false);
-    out.temperature.set_val(310.0, false);
+    out.pressure.SetValue(1.9e5, false);
+    out.molar_flow.SetValue(4.9, false);
+    out.temperature.SetValue(310.0, false);
 
     run();
 
     // Verify mass balance
-    EXPECT_NEAR(in.molar_flow.value, out.molar_flow.value, 1e-10);
+    EXPECT_NEAR(in.molar_flow.value_, out.molar_flow.value_, 1e-10);
     
     // Verify pressure drop
-    EXPECT_NEAR(out.pressure.value, Pin - dP, 1e-6);
+    EXPECT_NEAR(out.pressure.value_, Pin - dP, 1e-6);
     
     // Verify energy balance: Q = m * (h_out - h_in)
     // We can't directly verify enthalpy without CoolProp, but we can verify the equation
-    double h_diff = out.molar_enthalpy.value - in.molar_enthalpy.value;
-    EXPECT_NEAR(hex.Q.value, out.molar_flow.value * h_diff, 1e-6);
+    double h_diff = out.molar_enthalpy.value_ - in.molar_enthalpy.value_;
+    EXPECT_NEAR(hex.Q.value_, out.molar_flow.value_ * h_diff, 1e-6);
 
     SaveTest("simple_heat_exchanger_test", fs);
   }
@@ -802,45 +802,45 @@ namespace px {
     const double Q = 0.0;          // W
 
     // Set fixed values
-    hot_in.pressure.set_val(P_hot_in, true);
-    hot_in.temperature.set_val(T_hot_in, true);
-    hot_in.molar_flow.set_val(F_hot, true);
+    hot_in.pressure.SetValue(P_hot_in, true);
+    hot_in.temperature.SetValue(T_hot_in, true);
+    hot_in.molar_flow.SetValue(F_hot, true);
     
-    cold_in.pressure.set_val(P_cold_in, true);
-    cold_in.temperature.set_val(T_cold_in, true);
-    cold_in.molar_flow.set_val(F_cold, true);
+    cold_in.pressure.SetValue(P_cold_in, true);
+    cold_in.temperature.SetValue(T_cold_in, true);
+    cold_in.molar_flow.SetValue(F_cold, true);
     
-    hex.dP_hot.set_val(dP_hot, true);
-    hex.dP_cold.set_val(dP_cold, true);
-    hex.Q.set_val(Q, true);
+    hex.dP_hot.SetValue(dP_hot, true);
+    hex.dP_cold.SetValue(dP_cold, true);
+    hex.Q.SetValue(Q, true);
 
     // Unknowns
-    hot_out.pressure.set_val(2.95e5, false);
-    hot_out.molar_flow.set_val(9.9, false);
-    hot_out.temperature.set_val(390.0, false);
+    hot_out.pressure.SetValue(2.95e5, false);
+    hot_out.molar_flow.SetValue(9.9, false);
+    hot_out.temperature.SetValue(390.0, false);
     
-    cold_out.pressure.set_val(1.97e5, false);
-    cold_out.molar_flow.set_val(7.9, false);
-    cold_out.temperature.set_val(310.0, false);
+    cold_out.pressure.SetValue(1.97e5, false);
+    cold_out.molar_flow.SetValue(7.9, false);
+    cold_out.temperature.SetValue(310.0, false);
 
     run();
 
     // Verify mass balances
-    EXPECT_NEAR(hot_in.molar_flow.value, hot_out.molar_flow.value, 1e-10);
-    EXPECT_NEAR(cold_in.molar_flow.value, cold_out.molar_flow.value, 1e-10);
+    EXPECT_NEAR(hot_in.molar_flow.value_, hot_out.molar_flow.value_, 1e-10);
+    EXPECT_NEAR(cold_in.molar_flow.value_, cold_out.molar_flow.value_, 1e-10);
     
     // Verify pressure drops
-    EXPECT_NEAR(hot_out.pressure.value, P_hot_in - dP_hot, 1e-6);
-    EXPECT_NEAR(cold_out.pressure.value, P_cold_in - dP_cold, 1e-6);
+    EXPECT_NEAR(hot_out.pressure.value_, P_hot_in - dP_hot, 1e-6);
+    EXPECT_NEAR(cold_out.pressure.value_, P_cold_in - dP_cold, 1e-6);
     
     // Verify energy balances
     // Hot side: Q = m_hot * (h_hot_in - h_hot_out)
-    double h_hot_diff = hot_in.molar_enthalpy.value - hot_out.molar_enthalpy.value;
-    EXPECT_NEAR(hex.Q.value, hot_in.molar_flow.value * h_hot_diff, 1e-6);
+    double h_hot_diff = hot_in.molar_enthalpy.value_ - hot_out.molar_enthalpy.value_;
+    EXPECT_NEAR(hex.Q.value_, hot_in.molar_flow.value_ * h_hot_diff, 1e-6);
     
     // Cold side: Q = m_cold * (h_cold_out - h_cold_in)
-    double h_cold_diff = cold_out.molar_enthalpy.value - cold_in.molar_enthalpy.value;
-    EXPECT_NEAR(hex.Q.value, cold_out.molar_flow.value * h_cold_diff, 1e-6);
+    double h_cold_diff = cold_out.molar_enthalpy.value_ - cold_in.molar_enthalpy.value_;
+    EXPECT_NEAR(hex.Q.value_, cold_out.molar_flow.value_ * h_cold_diff, 1e-6);
 
     SaveTest("heat_exchanger_test", fs);
   }
@@ -878,30 +878,30 @@ namespace px {
     const double eta = 0.8;     // Efficiency
 
     // Set fixed values
-    in.pressure.set_val(Pin, true);
-    in.temperature.set_val(Tin, true);
-    in.molar_flow.set_val(Fin, true);
-    pump.dP.set_val(dP, true);
-    pump.eta.set_val(eta, true);
+    in.pressure.SetValue(Pin, true);
+    in.temperature.SetValue(Tin, true);
+    in.molar_flow.SetValue(Fin, true);
+    pump.dP.SetValue(dP, true);
+    pump.eta.SetValue(eta, true);
 
     // Unknowns
-    out.pressure.set_val(1.9e5, false);  // Should be Pin + dP = 2.0e5
-    out.molar_flow.set_val(9.9, false);  // Should equal Fin
-    out.temperature.set_val(300.0, false);  // Will be calculated from state equation
-    pump.W.set_val(1000.0, false);  // Work will be calculated from isentropic work equation (based on dP)
+    out.pressure.SetValue(1.9e5, false);  // Should be Pin + dP = 2.0e5
+    out.molar_flow.SetValue(9.9, false);  // Should equal Fin
+    out.temperature.SetValue(300.0, false);  // Will be calculated from state equation
+    pump.W.SetValue(1000.0, false);  // Work will be calculated from isentropic work equation (based on dP)
 
     run();
 
     // Verify mass balance
-    EXPECT_NEAR(in.molar_flow.value, out.molar_flow.value, 1e-10);
+    EXPECT_NEAR(in.molar_flow.value_, out.molar_flow.value_, 1e-10);
     
     // Verify pressure rise: P_out = P_in + dP
-    EXPECT_NEAR(out.pressure.value, Pin + dP, 1e-6);
+    EXPECT_NEAR(out.pressure.value_, Pin + dP, 1e-6);
     
     // Verify energy balance: W * eta = m * (h_out - h_in)
-    double delta_h = out.molar_enthalpy.value - in.molar_enthalpy.value;
+    double delta_h = out.molar_enthalpy.value_ - in.molar_enthalpy.value_;
     // Use inlet flow for consistency with equation (mass balance ensures they're equal)
-    EXPECT_NEAR(pump.W.value * pump.eta.value, in.molar_flow.value * delta_h, 1e-6);
+    EXPECT_NEAR(pump.W.value_ * pump.eta.value_, in.molar_flow.value_ * delta_h, 1e-6);
 
     SaveTest("pump_test", fs);
   }
@@ -953,75 +953,75 @@ namespace px {
     const double Q = 0.0;       // W (heat duty - zero for adiabatic)
 
     // Set fixed values
-    in.pressure.set_val(Pin, true);
-    in.temperature.set_val(Tin, true);
-    in.molar_flow.set_val(Fin, true);
-    splitter.Q.set_val(Q, false);
+    in.pressure.SetValue(Pin, true);
+    in.temperature.SetValue(Tin, true);
+    in.molar_flow.SetValue(Fin, true);
+    splitter.Q.SetValue(Q, false);
 
     // Unknowns
-    overhead.pressure.set_val(0.95e5, false);  // Should equal bottom pressure
-    bottom.pressure.set_val(0.95e5, false);    // Should equal Pin
-    overhead.temperature.set_val(300.0, true);
-    bottom.temperature.set_val(300.0, true);
+    overhead.pressure.SetValue(0.95e5, false);  // Should equal bottom pressure
+    bottom.pressure.SetValue(0.95e5, false);    // Should equal Pin
+    overhead.temperature.SetValue(300.0, true);
+    bottom.temperature.SetValue(300.0, true);
     
-    overhead.molar_flow.set_val(0.5 * Fin, false);  // Fix overhead flow
-    bottom.molar_flow.set_val(0.5 * Fin, false);  // Will be determined by mass balance
+    overhead.molar_flow.SetValue(0.5 * Fin, false);  // Fix overhead flow
+    bottom.molar_flow.SetValue(0.5 * Fin, false);  // Will be determined by mass balance
     
     run();
 
     // Verify mass balance: m_in = m_overhead + m_bottom
-    EXPECT_NEAR(in.molar_flow.value, overhead.molar_flow.value + bottom.molar_flow.value, 1e-10);
+    EXPECT_NEAR(in.molar_flow.value_, overhead.molar_flow.value_ + bottom.molar_flow.value_, 1e-10);
     
     // Verify pressure relationships
-    EXPECT_NEAR(bottom.pressure.value, Pin, 1e-6);  // P_bottom = P_in
-    EXPECT_NEAR(overhead.pressure.value, bottom.pressure.value, 1e-6);  // P_overhead = P_bottom
+    EXPECT_NEAR(bottom.pressure.value_, Pin, 1e-6);  // P_bottom = P_in
+    EXPECT_NEAR(overhead.pressure.value_, bottom.pressure.value_, 1e-6);  // P_overhead = P_bottom
     
     // Verify component balances for each component
     if (in.mole_fractions.size() == 2 && overhead.mole_fractions.size() == 2 && bottom.mole_fractions.size() == 2) {
       // Component 0 (N2): n_in * x_in,0 * split_ratio_0 = n_overhead * x_overhead,0
-      double comp0_in_overhead = in.molar_flow.value * in.mole_fractions[0].value * splitter.overhead_split_ratios[0].value;
-      double comp0_overhead = overhead.molar_flow.value * overhead.mole_fractions[0].value;
+      double comp0_in_overhead = in.molar_flow.value_ * in.mole_fractions[0].value_ * splitter.overhead_split_ratios[0].value_;
+      double comp0_overhead = overhead.molar_flow.value_ * overhead.mole_fractions[0].value_;
       EXPECT_NEAR(comp0_in_overhead, comp0_overhead, 1e-10);
       
       // Component 0 (N2): n_in * x_in,0 * (1 - split_ratio_0) = n_bottom * x_bottom,0
-      double comp0_in_bottom = in.molar_flow.value * in.mole_fractions[0].value * (1.0 - splitter.overhead_split_ratios[0].value);
-      double comp0_bottom = bottom.molar_flow.value * bottom.mole_fractions[0].value;
+      double comp0_in_bottom = in.molar_flow.value_ * in.mole_fractions[0].value_ * (1.0 - splitter.overhead_split_ratios[0].value_);
+      double comp0_bottom = bottom.molar_flow.value_ * bottom.mole_fractions[0].value_;
       EXPECT_NEAR(comp0_in_bottom, comp0_bottom, 1e-10);
       
       // Component 1 (O2): n_in * x_in,1 * split_ratio_1 = n_overhead * x_overhead,1
-      double comp1_in_overhead = in.molar_flow.value * in.mole_fractions[1].value * splitter.overhead_split_ratios[1].value;
-      double comp1_overhead = overhead.molar_flow.value * overhead.mole_fractions[1].value;
+      double comp1_in_overhead = in.molar_flow.value_ * in.mole_fractions[1].value_ * splitter.overhead_split_ratios[1].value_;
+      double comp1_overhead = overhead.molar_flow.value_ * overhead.mole_fractions[1].value_;
       EXPECT_NEAR(comp1_in_overhead, comp1_overhead, 1e-10);
       
       // Component 1 (O2): n_in * x_in,1 * (1 - split_ratio_1) = n_bottom * x_bottom,1
-      double comp1_in_bottom = in.molar_flow.value * in.mole_fractions[1].value * (1.0 - splitter.overhead_split_ratios[1].value);
-      double comp1_bottom = bottom.molar_flow.value * bottom.mole_fractions[1].value;
+      double comp1_in_bottom = in.molar_flow.value_ * in.mole_fractions[1].value_ * (1.0 - splitter.overhead_split_ratios[1].value_);
+      double comp1_bottom = bottom.molar_flow.value_ * bottom.mole_fractions[1].value_;
       EXPECT_NEAR(comp1_in_bottom, comp1_bottom, 1e-10);
       
       // Verify general component balance: n_in * x_in,i = n_overhead * x_overhead,i + n_bottom * x_bottom,i
       for (size_t i = 0; i < 2; ++i) {
-        double comp_in = in.molar_flow.value * in.mole_fractions[i].value;
-        double comp_out = overhead.molar_flow.value * overhead.mole_fractions[i].value + 
-                         bottom.molar_flow.value * bottom.mole_fractions[i].value;
+        double comp_in = in.molar_flow.value_ * in.mole_fractions[i].value_;
+        double comp_out = overhead.molar_flow.value_ * overhead.mole_fractions[i].value_ + 
+                         bottom.molar_flow.value_ * bottom.mole_fractions[i].value_;
         EXPECT_NEAR(comp_in, comp_out, 1e-10);
       }
       
       // Verify sum constraints
-      expect_prob_vector({in.mole_fractions[0].value, in.mole_fractions[1].value}, 1e-6);
-      expect_prob_vector({overhead.mole_fractions[0].value, overhead.mole_fractions[1].value}, 1e-6);
-      expect_prob_vector({bottom.mole_fractions[0].value, bottom.mole_fractions[1].value}, 1e-6);
+      expect_prob_vector({in.mole_fractions[0].value_, in.mole_fractions[1].value_}, 1e-6);
+      expect_prob_vector({overhead.mole_fractions[0].value_, overhead.mole_fractions[1].value_}, 1e-6);
+      expect_prob_vector({bottom.mole_fractions[0].value_, bottom.mole_fractions[1].value_}, 1e-6);
       
       // Verify that compositions are different (splitter changes composition)
       // Overhead should have more N2 (higher split ratio), bottom should have more O2
-      EXPECT_GT(overhead.mole_fractions[0].value, in.mole_fractions[0].value);  // More N2 in overhead
-      EXPECT_LT(bottom.mole_fractions[0].value, in.mole_fractions[0].value);   // Less N2 in bottom
+      EXPECT_GT(overhead.mole_fractions[0].value_, in.mole_fractions[0].value_);  // More N2 in overhead
+      EXPECT_LT(bottom.mole_fractions[0].value_, in.mole_fractions[0].value_);   // Less N2 in bottom
     }
     
     // Verify energy balance: Q = m_overhead * h_overhead + m_bottom * h_bottom - m_in * h_in
-    double energy_out = overhead.molar_flow.value * overhead.molar_enthalpy.value + 
-                       bottom.molar_flow.value * bottom.molar_enthalpy.value;
-    double energy_in = in.molar_flow.value * in.molar_enthalpy.value;
-    EXPECT_NEAR(splitter.Q.value, energy_out - energy_in, 1e-6);
+    double energy_out = overhead.molar_flow.value_ * overhead.molar_enthalpy.value_ + 
+                       bottom.molar_flow.value_ * bottom.molar_enthalpy.value_;
+    double energy_in = in.molar_flow.value_ * in.molar_enthalpy.value_;
+    EXPECT_NEAR(splitter.Q.value_, energy_out - energy_in, 1e-6);
 
     SaveTest("component_splitter_test", fs);
   }

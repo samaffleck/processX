@@ -15,7 +15,7 @@
 
 // px includes
 #include "processX/core.h"
-#include "processX/solver.h"
+#include "processX/kinsol_solver.h"
 #include "processX/stream.h"
 #include "processX/unitop.h"
 #include "processX/registry.h"

@@ -23,7 +23,7 @@
 
         "PROCESSX_BUILD_APPS": "ON",
         "PROCESSX_BUILD_TESTS": "ON",
-        "PROCESSX_USE_SUNDIALS": "OFF",
+        "PROCESSX_USE_SUNDIALS": "ON",
         "PROCESSX_USE_COOLPROP": "ON"
       }
     },
@@ -40,7 +40,7 @@
 
         "PROCESSX_BUILD_APPS": "ON",
         "PROCESSX_BUILD_TESTS": "ON",
-        "PROCESSX_USE_SUNDIALS": "OFF",
+        "PROCESSX_USE_SUNDIALS": "ON",
         "PROCESSX_USE_COOLPROP": "ON"
       }
     }

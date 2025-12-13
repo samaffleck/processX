@@ -47,7 +47,7 @@
                         },
                         "Stream_Temperature": {
                             "Variable_Name": "Temperature",
-                            "Variable_Value": 299.5526550789785,
+                            "Variable_Value": 299.52139713739526,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Fluid_Package_ID": 1,

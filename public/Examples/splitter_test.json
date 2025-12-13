@@ -84,7 +84,7 @@
                         "Stream_Name": "stream-3",
                         "Stream_Molar_Flowrate": {
                             "Variable_Name": "Molar Flowrate",
-                            "Variable_Value": 0.8,
+                            "Variable_Value": 1e-12,
                             "Variable_Is_Fixed": false
                         },
                         "Stream_Pressure": {
