@@ -6,7 +6,7 @@ import { UserProfile, OrganizationProfile } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import { User, Building2, FileJson, Download, Trash2, Clock, History, Play, User as UserIcon, Folder, ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { User, Building2, FileJson, Download, Trash2, Clock, History, Play, User as UserIcon, Folder, ChevronDown, ChevronRight, Plus, Copy } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -69,6 +69,9 @@ export default function DashboardPage() {
   const [selectedFlowsheet, setSelectedFlowsheet] = useState<FlowsheetMetadata | null>(null);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [versionHistory, setVersionHistory] = useState<FlowsheetVersion[]>([]);
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [duplicateCommitMessage, setDuplicateCommitMessage] = useState('');
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   const isLoading = !userLoaded || !orgLoaded;
 
@@ -310,6 +313,71 @@ export default function DashboardPage() {
     router.push(`/Copilot?load=${flowsheetId}`);
   };
 
+  const handleDuplicateFlowsheet = (flowsheet: FlowsheetMetadata) => {
+    setSelectedFlowsheet(flowsheet);
+    setDuplicateCommitMessage('');
+    setShowDuplicateDialog(true);
+  };
+
+  const handleConfirmDuplicate = async () => {
+    if (!selectedFlowsheet) return;
+
+    setIsDuplicating(true);
+    try {
+      // Fetch the full flowsheet data
+      const response = await fetch(`/api/flowsheets/${selectedFlowsheet.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch flowsheet data');
+      }
+
+      const result = await response.json();
+      const originalFlowsheet = result.flowsheet;
+
+      // Create duplicate name
+      const duplicateName = `Copy of ${selectedFlowsheet.name}`;
+
+      // Prepare data - handle both string and object formats
+      let flowsheetData = originalFlowsheet.data;
+      if (typeof flowsheetData === 'string') {
+        // Already a JSON string
+        flowsheetData = flowsheetData;
+      } else {
+        // Convert object to JSON string
+        flowsheetData = JSON.stringify(flowsheetData);
+      }
+
+      // Create new flowsheet with duplicated data
+      const createResponse = await fetch('/api/flowsheets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: duplicateName,
+          description: selectedFlowsheet.description ? `Copy of: ${selectedFlowsheet.description}` : undefined,
+          data: flowsheetData,
+          dataFormat: 'json_string',
+          project_id: selectedFlowsheet.project_id,
+          changeDescription: duplicateCommitMessage.trim() || 'Duplicated flowsheet',
+        }),
+      });
+
+      if (!createResponse.ok) {
+        const error = await createResponse.json();
+        throw new Error(error.error || 'Failed to duplicate flowsheet');
+      }
+
+      alert('Flowsheet duplicated successfully!');
+      setShowDuplicateDialog(false);
+      setSelectedFlowsheet(null);
+      setDuplicateCommitMessage('');
+      loadFlowsheets();
+    } catch (error) {
+      console.error('Error duplicating flowsheet:', error);
+      alert('Failed to duplicate flowsheet: ' + (error as Error).message);
+    } finally {
+      setIsDuplicating(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
@@ -544,6 +612,13 @@ export default function DashboardPage() {
                                             <History className="w-4 h-4" />
                                           </button>
                                           <button
+                                            onClick={() => handleDuplicateFlowsheet(flowsheet)}
+                                            className="p-2 rounded bg-white/5 hover:bg-white/10 transition-colors"
+                                            title="Duplicate"
+                                          >
+                                            <Copy className="w-4 h-4" />
+                                          </button>
+                                          <button
                                             onClick={() => handleDownloadFlowsheet(flowsheet)}
                                             className="p-2 rounded bg-white/5 hover:bg-white/10 transition-colors"
                                             title="Download"
@@ -765,6 +840,62 @@ export default function DashboardPage() {
                 className="px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Confirmation Dialog */}
+      {showDuplicateDialog && selectedFlowsheet && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="bg-zinc-900 p-6 rounded-lg max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold text-white mb-4">
+              Duplicate Flowsheet
+            </h2>
+
+            <div className="mb-4">
+              <p className="text-white/80 mb-2">
+                Are you sure you want to duplicate <span className="font-semibold text-white">{selectedFlowsheet.name}</span>?
+              </p>
+              <p className="text-sm text-white/60">
+                A new copy will be created in the same project folder.
+              </p>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="text-white/80 text-sm mb-1 block">
+                  Initial Commit Message *
+                </label>
+                <textarea
+                  value={duplicateCommitMessage}
+                  onChange={(e) => setDuplicateCommitMessage(e.target.value)}
+                  className="w-full bg-black/50 text-white px-3 py-2 rounded border border-white/20 focus:border-white/40 outline-none resize-none"
+                  placeholder="Enter a message describing this duplicate..."
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  setShowDuplicateDialog(false);
+                  setSelectedFlowsheet(null);
+                  setDuplicateCommitMessage('');
+                }}
+                className="px-4 py-2 rounded bg-white/10 hover:bg-white/20 text-white transition-colors"
+                disabled={isDuplicating}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDuplicate}
+                className="px-4 py-2 rounded bg-white text-black hover:bg-white/90 transition-colors disabled:opacity-50"
+                disabled={isDuplicating || !duplicateCommitMessage.trim()}
+              >
+                {isDuplicating ? 'Duplicating...' : 'Duplicate'}
               </button>
             </div>
           </div>

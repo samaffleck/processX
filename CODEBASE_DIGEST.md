@@ -1,6 +1,6 @@
 # ProcessX (Fugasity) Codebase Digest
 
-*Last Updated: December 13, 2025*
+*Last Updated: January 2025*
 
 ## Overview
 
@@ -532,6 +532,37 @@ b966e36c Redeploy
    - Added preview logging of JSON before passing to WASM for debugging
    - Added defensive check for `_json_string` wrapper in case API doesn't unwrap properly
 
+## Code Statistics
+
+- **C++ Core**: ~6,300 lines across `cpp/src/` and `cpp/app/`
+- **Next.js Frontend**: ~2,000+ lines of TypeScript/React
+- **Database Layer**: ~500 lines of TypeScript (Supabase operations)
+- **Unit Operations**: 7 types (Valve, Pump, Mixer, Splitter, HeatExchanger, SimpleHeatExchanger, ComponentSplitter)
+- **Example Flowsheets**: 15+ test cases in `public/Examples/`
+
+## Code Quality & Patterns
+
+### C++ Architecture
+- **Template-based Registry System**: Type-safe registry pattern using C++17 templates
+- **Handle-based References**: All entities use handle types for memory safety
+- **Cereal Serialization**: JSON serialization with versioning support
+- **CoolProp Integration**: Wrapper around CoolProp for thermodynamic calculations
+- **Iterative Solvers**: Bisection and Newton-Raphson methods for temperature/enthalpy calculations
+
+### TypeScript/React Patterns
+- **Server Components**: Next.js App Router with server/client component separation
+- **API Route Handlers**: RESTful API with Next.js route handlers
+- **PostMessage Communication**: Secure iframe communication for WASM integration
+- **Lazy Loading**: Conditional WASM loading with status tracking
+- **Error Boundaries**: Defensive error handling in flowsheet loading
+
+### Database Patterns
+- **Multi-Tenant Isolation**: `org_id` based row-level isolation
+- **Immutable Versions**: Append-only version history
+- **Lazy Sync**: Auto-create users/orgs on first access (webhook fallback)
+- **JSONB Storage**: Flexible schema for flowsheet data
+- **Cascade Deletes**: Referential integrity via foreign keys
+
 ## Notes
 
 - The codebase migrated from in-memory storage to Supabase (see [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md))
@@ -544,4 +575,7 @@ b966e36c Redeploy
 - Brand name changed from "ProcessX" to "Fugasity" (recent commit)
 - CMake presets available for easy configuration: `mac-debug`, `mac-release`
 - Total C++ codebase: ~6,300 lines across src/ and app/ directories
+- React components use Suspense for async loading
+- Clerk middleware protects `/Copilot` and `/dashboard` routes
+- Auto-unlock on page navigation via `beforeunload` event handler
 
