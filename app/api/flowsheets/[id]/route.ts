@@ -66,7 +66,7 @@ export async function GET(
       dataType: typeof file.data,
       isObject: typeof file.data === 'object',
       hasJsonString: file.data && typeof file.data === 'object' && '_json_string' in file.data,
-      preview: typeof file.data === 'string' ? file.data.substring(0, 100) : JSON.stringify(file.data)?.substring(0, 100)
+      preview: (JSON.stringify(file.data) ?? '').substring(0, 100)
     });
 
     const responseData = (typeof file.data === 'object' && file.data !== null && '_json_string' in file.data)
@@ -76,7 +76,7 @@ export async function GET(
     console.log('[API GET flowsheet] Response data:', {
       dataType: typeof responseData,
       isString: typeof responseData === 'string',
-      preview: typeof responseData === 'string' ? responseData.substring(0, 100) : JSON.stringify(responseData)?.substring(0, 100)
+      preview: typeof responseData === 'string' ? responseData.substring(0, 100) : (JSON.stringify(responseData) ?? '').substring(0, 100)
     });
 
     // Check lock status
