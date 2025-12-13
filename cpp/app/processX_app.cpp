@@ -11,6 +11,7 @@
 
 #include "gui_docking.h"
 #include "gui_common.h"
+#include "gui_menu.h"
 #include "themes.h"
 #include "gui_log.h"
 #include "gui_palette.h"
@@ -336,79 +337,6 @@ void PostInit() {
   #endif
 }
 
-void ShowMenus(HelloImGui::RunnerParams& params) {
-  // File menu
-  if (ImGui::BeginMenu("File")) {
-    if (ImGui::MenuItem("New", "Ctrl+N")) {
-      // TODO: Implement new file functionality
-    }
-    if (ImGui::MenuItem("Open", "Ctrl+O")) {
-      // TODO: Implement open file functionality
-    }
-    if (ImGui::MenuItem("Save", "Ctrl+S")) {
-      // TODO: Implement save file functionality
-    }
-    ImGui::Separator();
-    if (ImGui::MenuItem("Exit", "Ctrl+Q")) {
-      params.appShallExit = true;
-    }
-    ImGui::EndMenu();
-  }
-
-  // Edit menu
-  if (ImGui::BeginMenu("Edit")) {
-    if (ImGui::MenuItem("Undo", "Ctrl+Z")) {
-      // TODO: Implement undo functionality
-    }
-    if (ImGui::MenuItem("Redo", "Ctrl+Y")) {
-      // TODO: Implement redo functionality
-    }
-    ImGui::Separator();
-    if (ImGui::MenuItem("Cut", "Ctrl+X")) {
-      // Cut selected text from active input field
-      // This works automatically with ImGui's InputText widgets via keyboard shortcuts
-      // Menu item is provided for discoverability
-    }
-    if (ImGui::MenuItem("Copy", "Ctrl+C")) {
-      // Copy selected text to clipboard
-      // This works automatically with ImGui's InputText widgets via keyboard shortcuts
-      // Menu item is provided for discoverability
-    }
-    if (ImGui::MenuItem("Paste", "Ctrl+V")) {
-      // Paste from clipboard to active input field
-      // This works automatically with ImGui's InputText widgets via keyboard shortcuts
-      // Menu item is provided for discoverability
-    }
-    ImGui::EndMenu();
-  }
-
-  // View menu
-  if (ImGui::BeginMenu("View")) {
-    // Themes submenu
-    if (ImGui::BeginMenu("Themes")) {
-      if (ImGui::MenuItem("Dark Theme")) {
-        Themes::SetDarkTheme();
-      }
-      if (ImGui::MenuItem("Light Theme")) {
-        Themes::SetLightTheme();
-      }
-      if (ImGui::MenuItem("Bess Dark")) {
-        Themes::SetBessDarkColors();
-      }
-      if (ImGui::MenuItem("Fluent UI")) {
-        Themes::SetFluentUIColors();
-      }
-      if (ImGui::MenuItem("Fluent Light")) {
-        Themes::SetFluentLight();
-      }
-      if (ImGui::MenuItem("Catppuccin Mocha")) {
-        Themes::SetCatpuccinMochaColors();
-      }
-      ImGui::EndMenu();
-    }
-    ImGui::EndMenu();
-  }
-}
 
 int main(int, char**) {
   // Set assets folder first, before configuring callbacks that might need assets
