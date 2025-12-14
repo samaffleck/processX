@@ -15,6 +15,8 @@
 
 // ProcessX includes
 #include <processX/flowsheet.h>
+#include <processX/user_data.h>
+#include <processX/kinsol_solver.h>
 
 
 namespace px {
@@ -51,18 +53,20 @@ namespace px {
 
   class ProcessTest : public ::testing::Test {
     protected:
-      Flowsheet fs;
+      UserData data;
 
     bool run() {
       std::string err;
-      if(!fs.assemble(&err)){ 
+      if(!data.fs.assemble(&err)){ 
         std::cerr<<"Assemble error: "<<err<<"\n"; 
         return false; 
       }
 
-      std::cout<<"Unknowns: "<<fs.reg.GetFeeVariableNames()<<"\n";
+      std::cout<<"Unknowns: "<<data.fs.reg.GetFeeVariableNames()<<"\n";
 
-      auto rep = fs.solve(NewtonOptions{50,1e-12,1e-14,1e-6,1e-8,true});
+      // Set solver options
+      data.newton_options = NewtonOptions{50,1e-12,1e-14,1e-6,1e-8,true};
+      auto rep = newton_solve(data);
       
       std::cout<<(rep.converged?"Converged":"Not converged")<<" in "<<rep.iters<<" iters, |r|_inf="<<rep.final_res<<" : "<<rep.msg<<"\n";    
       
@@ -71,8 +75,8 @@ namespace px {
 
     // Helper function to initialize N2/O2 fluid package (79% N2, 21% O2)
     size_t init_air_fluid() {
-      size_t fluid_id = fs.fluids.AddFluidPackage({"N2", "O2"}, "HEOS");
-      auto fluid = fs.fluids.GetFluidPackage(fluid_id);
+      size_t fluid_id = data.fs.fluids.AddFluidPackage({"N2", "O2"}, "HEOS");
+      auto fluid = data.fs.fluids.GetFluidPackage(fluid_id);
       if (fluid) {
         fluid->set_mole_fractions({0.79, 0.21}); // 79% N2, 21% O2
         // Build phase envelope after setting mole fractions (required for mixtures)
@@ -88,7 +92,7 @@ namespace px {
     // Helper function to initialize stream mole fractions to match fluid package composition
     // If fix_composition is true, the mole fractions will be fixed (not solved for)
     void init_stream_composition(Stream& stream, size_t fluid_id, bool fix_composition = false) {
-      auto components = fs.fluids.GetComponents(fluid_id);
+      auto components = data.fs.fluids.GetComponents(fluid_id);
       if (components.size() == 2) {
         // For N2/O2 mixture, set to 79% N2, 21% O2
         stream.initialize_composition(components.size(), components);
@@ -114,17 +118,17 @@ namespace px {
     // Initialize fluid package
     size_t fluid_id = init_air_fluid();
     
-    auto s_in = fs.add<Stream>();
-    auto s_out = fs.add<Stream>();
-    auto s_mid = fs.add<Stream>();
-    auto v1 = fs.add<Valve>();
-    auto v2 = fs.add<Valve>();
+    auto s_in = data.fs.add<Stream>();
+    auto s_out = data.fs.add<Stream>();
+    auto s_mid = data.fs.add<Stream>();
+    auto v1 = data.fs.add<Valve>();
+    auto v2 = data.fs.add<Valve>();
 
-    auto& in = fs.get<Stream>(s_in);
-    auto& out = fs.get<Stream>(s_out);
-    auto& mid = fs.get<Stream>(s_mid);
-    auto& val_1 = fs.get<Valve>(v1);
-    auto& val_2 = fs.get<Valve>(v2);
+    auto& in = data.fs.get<Stream>(s_in);
+    auto& out = data.fs.get<Stream>(s_out);
+    auto& mid = data.fs.get<Stream>(s_mid);
+    auto& val_1 = data.fs.get<Valve>(v1);
+    auto& val_2 = data.fs.get<Valve>(v2);
 
     // Assign fluid package to all streams
     in.fluid_package_id = fluid_id;
@@ -136,11 +140,11 @@ namespace px {
     init_stream_composition(mid, fluid_id, false);
     init_stream_composition(out, fluid_id, false);
 
-    fs.connect_in<Valve>(v1, s_in);
-    fs.connect_out<Valve>(v1, s_mid);
+    data.fs.connect_in<Valve>(v1, s_in);
+    data.fs.connect_out<Valve>(v1, s_mid);
 
-    fs.connect_in<Valve>(v2, s_mid);
-    fs.connect_out<Valve>(v2, s_out);
+    data.fs.connect_in<Valve>(v2, s_mid);
+    data.fs.connect_out<Valve>(v2, s_out);
 
     val_1.Cv.SetValue(1.0e-4, true);
     val_2.Cv.SetValue(3.0e-4, true);
@@ -172,12 +176,13 @@ namespace px {
       expect_prob_vector({out.mole_fractions[0].value_, out.mole_fractions[1].value_}, 1e-6);
     }
 
-    SaveTest("multi_valve_zero_flow_test", fs);
+    SaveTest("multi_valve_zero_flow_test", data.fs);
   }
 
   TEST_F(ProcessTest, MultiValveTest) {
     // Initialize fluid package
     size_t fluid_id = init_air_fluid();
+    auto& fs = data.fs;
     
     auto s_in  = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
@@ -253,13 +258,14 @@ namespace px {
       expect_prob_vector({out.mole_fractions[0].value_, out.mole_fractions[1].value_ }, 1e-6);
     }
 
-    SaveTest("multi_valve_test", fs);
+    SaveTest("multi_valve_test", data.fs);
   }
 
   TEST_F(ProcessTest, MixerTest) {
     // Initialize fluid package
     size_t fluid_id = init_air_fluid();
-    
+    auto& fs = data.fs;
+
     auto s_in1  = fs.add<Stream>();
     auto s_in2 = fs.add<Stream>();
     auto s_end = fs.add<Stream>();
@@ -329,13 +335,14 @@ namespace px {
       expect_prob_vector({out.mole_fractions[0].value_, out.mole_fractions[1].value_}, 1e-6);
     }
 
-    SaveTest("mixer_test", fs);
+    SaveTest("mixer_test", data.fs);
   }
 
   TEST_F(ProcessTest, SplitterTest) {
     // Initialize fluid package
     size_t fluid_id = init_air_fluid();
-    
+    auto& fs = data.fs;
+
     auto s_in = fs.add<Stream>();
     auto s_out1 = fs.add<Stream>();
     auto s_out2 = fs.add<Stream>();
@@ -396,13 +403,14 @@ namespace px {
       expect_prob_vector({out2.mole_fractions[0].value_, out2.mole_fractions[1].value_}, 1e-6);
     }
 
-    SaveTest("splitter_test", fs);
+    SaveTest("splitter_test", data.fs);
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Fout_and_Cv) {
     // Initialize fluid package
     size_t fluid_id = init_air_fluid();
-    
+    auto& fs = data.fs; 
+
     auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
     auto v = fs.add<Valve>();
@@ -445,13 +453,14 @@ namespace px {
     EXPECT_NEAR(val.Cv.value_,         Cvexp, 1e-12);
     EXPECT_NEAR(out.molar_flow.value_, val.Cv.value_ * (in.pressure.value_ - out.pressure.value_), 1e-10);
 
-    SaveTest("single_valve_unknown_fout_and_cv_test", fs);
+    SaveTest("single_valve_unknown_fout_and_cv_test", data.fs);
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Pout_and_Fout) {
     // Initialize fluid package
     size_t fluid_id = init_air_fluid();
-    
+    auto& fs = data.fs; 
+
     auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
     auto v = fs.add<Valve>();
@@ -494,13 +503,14 @@ namespace px {
     EXPECT_NEAR(out.pressure.value_,   Poutexp, 1e-6);
     EXPECT_NEAR(out.molar_flow.value_, val.Cv.value_ * (in.pressure.value_ - out.pressure.value_), 1e-10);
 
-    SaveTest("single_valve_unknown_pout_and_fout_test", fs);
+    SaveTest("single_valve_unknown_pout_and_fout_test", data.fs);
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Fin_and_Fout) {
     // Initialize fluid package
     size_t fluid_id = init_air_fluid();
-    
+    auto& fs = data.fs; 
+
     auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
     auto v = fs.add<Valve>();
@@ -538,13 +548,14 @@ namespace px {
     EXPECT_NEAR(out.molar_flow.value_, Fexp, 1e-10);
     EXPECT_NEAR(out.molar_flow.value_, val.Cv.value_ * (in.pressure.value_ - out.pressure.value_), 1e-10);
 
-    SaveTest("single_valve_unknown_fin_and_fout_test", fs);
+    SaveTest("single_valve_unknown_fin_and_fout_test", data.fs);
   }
 
   TEST_F(ProcessTest, SingleValve_Unknown_Pin_and_Cv) {
     // Initialize fluid package
     size_t fluid_id = init_air_fluid();
-    
+    auto& fs = data.fs; 
+
     auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
     auto v = fs.add<Valve>();
@@ -579,7 +590,7 @@ namespace px {
 
     auto converged = run();
     
-    SaveTest("single_valve_unknown_pin_and_cv_test", fs);
+    SaveTest("single_valve_unknown_pin_and_cv_test", data.fs);
     
     ASSERT_FALSE(converged); // We expect it to FAIL!
   }
@@ -587,7 +598,8 @@ namespace px {
   TEST_F(ProcessTest, RecycleLoopTest) {
     // Initialize fluid package
     size_t fluid_id = init_air_fluid();
-    
+    auto& fs = data.fs; 
+
     // Create streams: in, middle, out, recycle
     auto s_in = fs.add<Stream>();
     auto s_middle = fs.add<Stream>();
@@ -668,7 +680,7 @@ namespace px {
       std::cout << "be detected by rank analysis, not blocked by the DOF check." << std::endl;
     }
     
-    SaveTest("recycle_loop_test", fs);
+    SaveTest("recycle_loop_test", data.fs);
     
     // Don't assert convergence - we want to analyze why it fails
   }
@@ -706,7 +718,8 @@ namespace px {
   TEST_F(ProcessTest, SimpleHeatExchangerTest) {
     // Initialize fluid package
     size_t fluid_id = init_air_fluid();
-    
+    auto& fs = data.fs; 
+
     auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
     auto hx = fs.add<SimpleHeatExchanger>();
@@ -754,13 +767,14 @@ namespace px {
     double h_diff = out.molar_enthalpy.value_ - in.molar_enthalpy.value_;
     EXPECT_NEAR(hex.Q.value_, out.molar_flow.value_ * h_diff, 1e-6);
 
-    SaveTest("simple_heat_exchanger_test", fs);
+    SaveTest("simple_heat_exchanger_test", data.fs);
   }
 
   TEST_F(ProcessTest, HeatExchangerTest) {
     // Initialize fluid package (same for both hot and cold sides in this test)
     size_t fluid_id = init_air_fluid();
-    
+    auto& fs = data.fs; 
+
     // Create streams for hot and cold sides
     auto s_hot_in = fs.add<Stream>();
     auto s_hot_out = fs.add<Stream>();
@@ -842,13 +856,13 @@ namespace px {
     double h_cold_diff = cold_out.molar_enthalpy.value_ - cold_in.molar_enthalpy.value_;
     EXPECT_NEAR(hex.Q.value_, cold_out.molar_flow.value_ * h_cold_diff, 1e-6);
 
-    SaveTest("heat_exchanger_test", fs);
+    SaveTest("heat_exchanger_test", data.fs);
   }
 
   TEST_F(ProcessTest, PumpTest) {
     // Initialize fluid package
     size_t fluid_id = init_air_fluid();
-    
+    auto& fs = data.fs; 
     // Create streams
     auto s_in = fs.add<Stream>();
     auto s_out = fs.add<Stream>();
@@ -903,13 +917,14 @@ namespace px {
     // Use inlet flow for consistency with equation (mass balance ensures they're equal)
     EXPECT_NEAR(pump.W.value_ * pump.eta.value_, in.molar_flow.value_ * delta_h, 1e-6);
 
-    SaveTest("pump_test", fs);
+    SaveTest("pump_test", data.fs);
   }
 
   TEST_F(ProcessTest, ComponentSplitterTest) {
     // Initialize fluid package
     size_t fluid_id = init_air_fluid();
-    
+    auto& fs = data.fs; 
+
     // Create streams
     auto s_in = fs.add<Stream>();
     auto s_overhead = fs.add<Stream>();
@@ -1023,7 +1038,7 @@ namespace px {
     double energy_in = in.molar_flow.value_ * in.molar_enthalpy.value_;
     EXPECT_NEAR(splitter.Q.value_, energy_out - energy_in, 1e-6);
 
-    SaveTest("component_splitter_test", fs);
+    SaveTest("component_splitter_test", data.fs);
   }
 
 } // end processX namespace

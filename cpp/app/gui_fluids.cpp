@@ -19,6 +19,7 @@ using namespace px;
 
 static void ShowFluidPackage(size_t pkg_id) {
   ImGui::PushID(static_cast<int>(pkg_id));
+  auto& flowsheet = user_data.fs;
 
   std::string package_name = flowsheet.fluids.GetPackageName(pkg_id);
   
@@ -93,6 +94,8 @@ static void ShowFluidPackage(size_t pkg_id) {
 }
 
 void ShowFluidPackagesWindow() {  
+  auto& flowsheet = user_data.fs;
+
   std::vector<size_t> package_ids = flowsheet.fluids.GetAllPackageIds();
   
   if (ImGui::Button("Create New Package")) {
@@ -180,7 +183,9 @@ void FluidSelectorListBox::MoveSelected(int src, int dst, size_t pkg_id) {
   for (int idx : SelectedItems) {
     new_components.push_back(px::component_names[idx]);
   }
-  
+
+  auto& flowsheet = user_data.fs;
+
   std::string pkg_name = flowsheet.fluids.GetPackageName(pkg_id);
   
   if (new_components.empty()) {

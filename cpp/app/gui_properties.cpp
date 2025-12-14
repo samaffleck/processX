@@ -126,6 +126,8 @@ void ShowStreamProperties(px::Stream& stream) {
   ImGui::Separator();
   ImGui::Spacing();
   
+  auto& flowsheet = user_data.fs;
+
   // Get all available fluid package IDs
   std::vector<size_t> package_ids = flowsheet.fluids.GetAllPackageIds();
   
@@ -456,6 +458,8 @@ void ShowComponentSplitterProperties(px::ComponentSplitter& cs) {
   ImGui::Separator();
   ImGui::Spacing();
 
+  auto& flowsheet = user_data.fs;
+
   // Split ratios - need to get components from inlet stream's fluid package
   if (cs.in.valid()) {
     auto& inlet_stream = flowsheet.get<px::Stream>(cs.in);
@@ -513,6 +517,8 @@ void ShowSelectedUnitProperties() {
     ImGui::Text("Select a unit from the flowsheet list to view/edit its properties.");
     return;
   }
+  
+  auto& flowsheet = user_data.fs;
 
   // Get the selected unit based on type and index
   bool found = false;

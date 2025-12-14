@@ -7,6 +7,7 @@
 void ShowUnitOperationsPalette() {
   // Fixed square button size
   ImVec2 button_dim(60.0f, 60.0f);
+  auto& flowsheet = user_data.fs;
 
   if (ImGui::Button((std::string(ICON_FA_CUBES) + "\nMixer").c_str(), button_dim)) {
     flowsheet.add<px::Mixer>();

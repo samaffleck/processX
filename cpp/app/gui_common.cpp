@@ -1,6 +1,9 @@
 #include "gui_common.h"
 #include "gui_log.h"
 #include "gui_util.h"
+
+#include "processX/user_data.h"
+
 #include <cereal/archives/json.hpp>
 #include <sstream>
 #include <imgui.h>
@@ -163,8 +166,8 @@ void SetupLoadFlowsheetJSON() {
 }
 #endif
 
-// Global flowsheet instance
-px::Flowsheet flowsheet{};
+// Global user data instance (contains flowsheet and solver settings)
+px::UserData user_data{};
 
 // Global selection state
 Selection selected_unit{};
@@ -172,12 +175,12 @@ Selection selected_unit{};
 // Flag to show data loaded modal
 static bool show_data_loaded_modal = false;
 
-// Function to serialize flowsheet to JSON string
+// Function to serialize user data to JSON string
 std::string GetFlowsheetJSONString() {
   std::ostringstream oss;
   {
     cereal::JSONOutputArchive archive(oss);
-    archive(cereal::make_nvp("Flowsheet_Data", flowsheet));
+    archive(cereal::make_nvp("UserData", user_data));
   }
   return oss.str();
 }
@@ -203,14 +206,14 @@ bool LoadFlowsheetFromJSONString(const std::string& json_string) {
     std::cerr << "[LoadFlowsheetFromJSONString] Creating JSON archive..." << std::endl;
     cereal::JSONInputArchive archive(iss);
     
-    std::cerr << "[LoadFlowsheetFromJSONString] Deserializing flowsheet..." << std::endl;
-    archive(flowsheet);
+    std::cerr << "[LoadFlowsheetFromJSONString] Deserializing user data..." << std::endl;
+    archive(user_data);
 
     std::cerr << "[LoadFlowsheetFromJSONString] Deserialization successful!" << std::endl;
 
     // Rebuild name counters from loaded data to prevent duplicate names
     std::cerr << "[LoadFlowsheetFromJSONString] Rebuilding name counters..." << std::endl;
-    flowsheet.rebuild_name_counters();
+    user_data.fs.rebuild_name_counters();
     std::cerr << "[LoadFlowsheetFromJSONString] Name counters rebuilt" << std::endl;
 
     // Clear selection when loading new data
@@ -277,7 +280,7 @@ std::vector<StreamItem> GetStreamList() {
   std::vector<StreamItem> streams;
   streams.push_back({px::Handle<px::Stream>{}, "(None)"}); // Option to disconnect
   
-  flowsheet.streams_.for_each_with_handle([&](px::Stream& stream, px::Handle<px::Stream> handle) {
+  user_data.fs.streams_.for_each_with_handle([&](px::Stream& stream, px::Handle<px::Stream> handle) {
     std::string display_name = stream.name.empty() ? "(Unnamed Stream)" : stream.name;
     streams.push_back({handle, display_name});
   });

@@ -1,14 +1,15 @@
 #pragma once
 
 #include "processX/flowsheet.h"
+#include "processX/user_data.h"
 #include <vector>
 #include <string>
 #include <functional>
 
 #include <imgui.h>
 
-// Global flowsheet instance
-extern px::Flowsheet flowsheet;
+// Global user data instance (contains flowsheet and solver settings)
+extern px::UserData user_data;
 
 // Selection state - tracks which unit is currently selected
 enum class SelectionType { None, Valve, Mixer, Splitter, Stream, HeatExchanger, SimpleHeatExchanger, Pump, ComponentSplitter };

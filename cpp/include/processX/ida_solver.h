@@ -9,7 +9,7 @@
 #include <iostream>
 
 #include "processX/core.h"
-#include "processX/flowsheet.h"
+#include "processX/user_data.h"
 
 // SUNDIALS includes
 #include <ida/ida.h>
@@ -23,6 +23,8 @@
 
 namespace px {
 	
+  class UserData;
+
   struct IntegrationStats {
     long int num_steps = 0;
     long int num_res_evals = 0;
@@ -58,22 +60,6 @@ namespace px {
         cereal::make_nvp("Maximum_Nonlinear_Itterations_Per_Step", max_nonlin_iters),
         cereal::make_nvp("Maximum_Nonlinear_Convergence_Failures", max_conv_fails),
         cereal::make_nvp("Maximum_Error_Test_Failures", max_err_test_fails)
-      );
-    }
-  };
-
-  class UserData {
-  public:
-    Flowsheet fs;
-    IDASettings settings;
-
-  private:
-    friend class ::cereal::access;
-    template<class Archive>
-    void serialize(Archive& ar, std::uint32_t const version) {
-      ar(
-        cereal::make_nvp("Flowsheet_Data", fs),
-        cereal::make_nvp("Solver_Settings", settings)
       );
     }
   };

@@ -47,7 +47,8 @@ namespace px {
 
   int IDASolverData::Initialise(UserData& user_data, std::string& error_message) {
     auto& fs = user_data.fs;
-    auto& settings = user_data.settings;
+    // auto& settings = user_data.ida_settings;
+    IDASettings settings;
 
     int sys_size = 0; // TODO: remove when I implement the this time-dependent solver 
     // int sys_size = fs.GetSystemSize(); 

@@ -1,43 +1,130 @@
 // src/kinsol_solver.cpp
 
 #include "processX/kinsol_solver.h"
+#include "processX/user_data.h"
+#include "processX/core.h"
+
+// SUNDIALS includes
+#include <sundials/sundials_core.h>
+#include <kinsol/kinsol.h>
+#include <iostream>
 
 
 namespace px {
 
   // KINSOL residual function
-  int KINSOLResidual(N_Vector u, N_Vector f, void* user_data) {
-    KINSOLUserData* udata = static_cast<KINSOLUserData*>(user_data);
-    UnknownsRegistry* reg = udata->reg;
-    ResidualSystem* sys = udata->sys;
+  int ResidualUpdate(N_Vector u, N_Vector f, void* user_data) {
     
-    // Unpack KINSOL vector to variables
+    // static cast into my user_data object
+    UserData* udata = static_cast<UserData*>(user_data);
+    
+    auto& fs = udata->fs;
+    auto& reg = fs.reg;
+    auto& sys = fs.sys;
+    
+    // Unpack KINSOL vector to variables (direct, no copy)
     sunrealtype* u_data = N_VGetArrayPointer(u);
-    size_t n = reg->GetNumberOfUnknowns();
-    reg->UnpackVariables(std::vector<double>(u_data, u_data + n));
+    size_t n = reg.GetNumberOfUnknowns();
+    reg.UnpackVariables(u_data, n);
     
-    // Evaluate residuals
-    auto residuals = sys->EvaluateResiduals();
+    // Evaluate residuals directly into f (no intermediate vector)
     sunrealtype* f_data = N_VGetArrayPointer(f);
-    
-    size_t m = sys->GetNumberOfEquations();
+    size_t m = sys.GetNumberOfEquations();
     
     // KINSOL requires f to have the same size as u (n)
     // For overdetermined systems (m > n), we use the first n residuals
     // For underdetermined systems (m < n), we pad with zeros (shouldn't happen)
-    for (size_t i = 0; i < n; ++i) {
-      if (i < m) {
-        f_data[i] = residuals[i];
-      } else {
-        f_data[i] = 0.0; // Pad with zeros if m < n (shouldn't happen)
+    if (m >= n) {
+      // Overdetermined or square: evaluate first n residuals directly into f
+      sys.EvaluateResiduals(f_data, n);
+    } else {
+      // Underdetermined: evaluate all m residuals, then pad with zeros
+      sys.EvaluateResiduals(f_data, m);
+      for (size_t i = m; i < n; ++i) {
+        f_data[i] = 0.0;
       }
     }
     
     return KIN_SUCCESS;
   }
+  
+  KINSOLSolverData::KINSOLSolverData() 
+    : sunctx(nullptr), kin_mem(nullptr), u(nullptr), scale(nullptr), 
+      A(nullptr), LS(nullptr), initialized_(false), n_unknowns_(0) 
+  {
+    SUNErrCode err = SUNContext_Create(SUN_COMM_NULL, &sunctx);
+    if (err != SUN_SUCCESS || sunctx == nullptr) {
+      sunctx = nullptr; // Mark as failed
+    }
+  }
 
-  NewtonReport newton_solve(UnknownsRegistry& reg, ResidualSystem& sys, const NewtonOptions& opt){
+  KINSOLSolverData::~KINSOLSolverData() {
+    Cleanup();
+  }
+
+  void KINSOLSolverData::Cleanup() {
+    if (LS) {
+      SUNLinSolFree(LS);
+      LS = nullptr;
+    }
+    if (A) {
+      SUNMatDestroy(A);
+      A = nullptr;
+    }
+    if (u) {
+      N_VDestroy_Serial(u);
+      u = nullptr;
+    }
+    if (scale) {
+      N_VDestroy_Serial(scale);
+      scale = nullptr;
+    }
+    if (kin_mem) {
+      KINFree(&kin_mem);
+      kin_mem = nullptr;
+    }
+    if (sunctx) {
+      SUNContext_Free(&sunctx);
+      sunctx = nullptr;
+    }
+    initialized_ = false;
+  }
+
+  std::string KINSOLSolverData::ApplySettings(const NewtonOptions& opt) {
+    // Set tolerances
+    sunrealtype fnormtol = opt.tol_res;
+    sunrealtype scsteptol = opt.tol_step;
+    int flag = KINSetFuncNormTol(kin_mem, fnormtol);
+    if (flag != KIN_SUCCESS) {
+      return "KINSetFuncNormTol failed";
+    }
+
+    flag = KINSetScaledStepTol(kin_mem, scsteptol);
+    if (flag != KIN_SUCCESS) {
+      return "KINSetScaledStepTol failed";
+    }
+
+    // Set maximum iterations
+    flag = KINSetMaxSetupCalls(kin_mem, opt.max_iters);
+    if (flag != KIN_SUCCESS) {
+      return "KINSetMaxSetupCalls failed";
+    }
+
+    flag = KINSetNumMaxIters(kin_mem, opt.max_iters);
+    if (flag != KIN_SUCCESS) {
+      return "KINSetNumMaxIters failed";
+    }
+
+    return ""; // Success
+  }
+
+  NewtonReport KINSOLSolverData::Initialise(UserData& user_data) {
     NewtonReport rep;
+    auto& fs = user_data.fs;
+    auto& reg = fs.reg;
+    auto& sys = fs.sys;
+    auto& opt = user_data.newton_options;
+
     size_t n = reg.GetNumberOfUnknowns();
     size_t m = sys.GetNumberOfEquations();
     
@@ -56,134 +143,68 @@ namespace px {
       return rep; 
     }
 
-    // Create SUNDIALS context
-    SUNContext sunctx;
-    int flag = SUNContext_Create(SUN_COMM_NULL, &sunctx);
-    if (flag != SUN_SUCCESS) {
-      rep.msg = "Failed to create SUNDIALS context";
+    // Check if context was created successfully
+    if (sunctx == nullptr) {
+      rep.msg = "Failed to create SUNContext";
       return rep;
     }
 
     // Create KINSOL memory
-    void* kin_mem = KINCreate(sunctx);
+    kin_mem = KINCreate(sunctx);
     if (kin_mem == nullptr) {
       rep.msg = "Failed to create KINSOL memory";
-      SUNContext_Free(&sunctx);
       return rep;
     }
 
     // Create vectors
-    N_Vector u = N_VNew_Serial(n, sunctx);
-    N_Vector scale = N_VNew_Serial(n, sunctx);
+    u = N_VNew_Serial(n, sunctx);
+    scale = N_VNew_Serial(n, sunctx);
+    
     if (u == nullptr || scale == nullptr) {
       rep.msg = "Failed to create N_Vector";
-      if (u) N_VDestroy_Serial(u);
-      if (scale) N_VDestroy_Serial(scale);
-      KINFree(&kin_mem);
-      SUNContext_Free(&sunctx);
+      Cleanup();
       return rep;
     }
 
-    // Initialize solution vector from current variable values
+    // Initialize solution vector from current variable values (direct, no copy)
     sunrealtype* u_data = N_VGetArrayPointer(u);
-    auto x0 = reg.PackVariables();
-    for (size_t i = 0; i < n; ++i) {
-      u_data[i] = x0[i];
-      N_VConst(1.0, scale); // Unit scaling
-    }
+    reg.PackVariables(u_data, n);
+    N_VConst(1.0, scale);
 
-    // Set user data
-    KINSOLUserData user_data;
-    user_data.reg = &reg;
-    user_data.sys = &sys;
-    user_data.opt = &opt;
-    user_data.verbose = opt.verbose;
-
-    flag = KINSetUserData(kin_mem, &user_data);
+    int flag = KINSetUserData(kin_mem, &user_data);
     if (flag != KIN_SUCCESS) {
       rep.msg = "KINSetUserData failed";
-      N_VDestroy_Serial(u);
-      N_VDestroy_Serial(scale);
-      KINFree(&kin_mem);
-      SUNContext_Free(&sunctx);
+      Cleanup();
       return rep;
     }
 
     // Initialize KINSOL
-    flag = KINInit(kin_mem, KINSOLResidual, u);
+    flag = KINInit(kin_mem, ResidualUpdate, u);
     if (flag != KIN_SUCCESS) {
       rep.msg = "KINInit failed with code: " + std::to_string(flag);
-      N_VDestroy_Serial(u);
-      N_VDestroy_Serial(scale);
-      KINFree(&kin_mem);
-      SUNContext_Free(&sunctx);
+      Cleanup();
       return rep;
     }
 
-    // Set tolerances
-    sunrealtype fnormtol = opt.tol_res;
-    sunrealtype scsteptol = opt.tol_step;
-    flag = KINSetFuncNormTol(kin_mem, fnormtol);
-    if (flag != KIN_SUCCESS) {
-      rep.msg = "KINSetFuncNormTol failed";
-      N_VDestroy_Serial(u);
-      N_VDestroy_Serial(scale);
-      KINFree(&kin_mem);
-      SUNContext_Free(&sunctx);
-      return rep;
-    }
-
-    flag = KINSetScaledStepTol(kin_mem, scsteptol);
-    if (flag != KIN_SUCCESS) {
-      rep.msg = "KINSetScaledStepTol failed";
-      N_VDestroy_Serial(u);
-      N_VDestroy_Serial(scale);
-      KINFree(&kin_mem);
-      SUNContext_Free(&sunctx);
-      return rep;
-    }
-
-    // Set maximum iterations
-    flag = KINSetMaxSetupCalls(kin_mem, opt.max_iters);
-    if (flag != KIN_SUCCESS) {
-      rep.msg = "KINSetMaxSetupCalls failed";
-      N_VDestroy_Serial(u);
-      N_VDestroy_Serial(scale);
-      KINFree(&kin_mem);
-      SUNContext_Free(&sunctx);
-      return rep;
-    }
-
-    // Set finite difference parameters for Jacobian
-    flag = KINSetNumMaxIters(kin_mem, opt.max_iters);
-    if (flag != KIN_SUCCESS) {
-      rep.msg = "KINSetNumMaxIters failed";
-      N_VDestroy_Serial(u);
-      N_VDestroy_Serial(scale);
-      KINFree(&kin_mem);
-      SUNContext_Free(&sunctx);
+    // Apply solver settings
+    rep.msg = ApplySettings(opt);
+    if (!rep.msg.empty()) {
+      Cleanup();
       return rep;
     }
 
     // Create dense matrix and linear solver for Newton iteration
-    SUNMatrix A = SUNDenseMatrix(n, n, sunctx);
+    A = SUNDenseMatrix(n, n, sunctx);
     if (A == nullptr) {
       rep.msg = "Failed to create SUNMatrix";
-      N_VDestroy_Serial(u);
-      N_VDestroy_Serial(scale);
-      KINFree(&kin_mem);
-      SUNContext_Free(&sunctx);
+      Cleanup();
       return rep;
     }
 
-    SUNLinearSolver LS = SUNLinSol_Dense(u, A, sunctx);
+    LS = SUNLinSol_Dense(u, A, sunctx);
     if (LS == nullptr) {
       rep.msg = "Failed to create SUNLinearSolver";
-      SUNMatDestroy(A);
-      N_VDestroy_Serial(u);
-      N_VDestroy_Serial(scale);
-      KINFree(&kin_mem);
-      SUNContext_Free(&sunctx);
+      Cleanup();
       return rep;
     }
 
@@ -191,45 +212,56 @@ namespace px {
     flag = KINSetLinearSolver(kin_mem, LS, A);
     if (flag != KIN_SUCCESS) {
       rep.msg = "KINSetLinearSolver failed with code: " + std::to_string(flag);
-      SUNLinSolFree(LS);
-      SUNMatDestroy(A);
-      N_VDestroy_Serial(u);
-      N_VDestroy_Serial(scale);
-      KINFree(&kin_mem);
-      SUNContext_Free(&sunctx);
+      Cleanup();
       return rep;
     }
 
-    // Set scaling
-    N_VConst(1.0, scale);
+    // Initialization successful
+    initialized_ = true;
+    n_unknowns_ = n;
+    return rep;
+  }
+
+  NewtonReport KINSOLSolverData::Solve(UserData& user_data) {
+    NewtonReport rep;
+    
+    if (!initialized_) {
+      rep.msg = "Solver not initialized. Call Initialise() first.";
+      return rep;
+    }
+
+    auto& fs = user_data.fs;
+    auto& reg = fs.reg;
+    auto& opt = user_data.newton_options;
 
     // Solve
-    flag = KINSol(kin_mem, u, KIN_NONE, scale, scale);
+    int flag = KINSol(kin_mem, u, KIN_NONE, scale, scale);
     
-    // Get statistics
+    // Get statistics (save the solve flag before overwriting)
+    int solve_flag = flag;
     long int nni, nfe;
-    flag = KINGetNumNonlinSolvIters(kin_mem, &nni);
-    flag = KINGetNumFuncEvals(kin_mem, &nfe);
+    KINGetNumNonlinSolvIters(kin_mem, &nni);
+    KINGetNumFuncEvals(kin_mem, &nfe);
     
     // Get final residual norm
     sunrealtype fnorm;
-    flag = KINGetFuncNorm(kin_mem, &fnorm);
+    KINGetFuncNorm(kin_mem, &fnorm);
     rep.final_res = fnorm;
     rep.iters = static_cast<int>(nni);
 
-    // Check convergence
-    if (flag == KIN_SUCCESS) {
+    // Check convergence using the solve flag
+    if (solve_flag == KIN_SUCCESS) {
       rep.converged = true;
       rep.msg = "Converged.";
-    } else if (flag == KIN_INITIAL_GUESS_OK) {
+    } else if (solve_flag == KIN_INITIAL_GUESS_OK) {
       rep.converged = true;
       rep.msg = "Initial guess satisfied tolerance.";
-    } else if (flag == KIN_STEP_LT_STPTOL) {
+    } else if (solve_flag == KIN_STEP_LT_STPTOL) {
       rep.converged = true;
       rep.msg = "Converged by step tolerance.";
     } else {
       rep.converged = false;
-      rep.msg = "KINSOL failed with code: " + std::to_string(flag);
+      rep.msg = "KINSOL failed with code: " + std::to_string(solve_flag);
     }
 
     if (opt.verbose) {
@@ -237,18 +269,25 @@ namespace px {
                 << ", |r|=" << rep.final_res << ")\n";
     }
 
-    // Unpack solution back to variables
-    u_data = N_VGetArrayPointer(u);
-    reg.UnpackVariables(std::vector<double>(u_data, u_data + n));
+    // Unpack solution back to variables (direct, no copy)
+    sunrealtype* u_data = N_VGetArrayPointer(u);
+    reg.UnpackVariables(u_data, n_unknowns_);
+    
+    return rep;
+  }
 
-    // Cleanup
-    SUNLinSolFree(LS);
-    SUNMatDestroy(A);
-    N_VDestroy_Serial(u);
-    N_VDestroy_Serial(scale);
-    KINFree(&kin_mem);
-    SUNContext_Free(&sunctx);
+  NewtonReport newton_solve(UserData& user_data){
+    KINSOLSolverData solver_data;
 
+    NewtonReport rep = solver_data.Initialise(user_data);
+    
+    // If initialization failed (error message present) or nothing to solve, return early
+    if (!rep.msg.empty()) {
+      return rep;
+    }
+
+    // Initialization successful - proceed to solve
+    rep = solver_data.Solve(user_data);
     return rep;
   }
 
@@ -284,11 +323,13 @@ namespace px {
     return r;
   }
 
-  SystemAnalysis analyze_system(const UnknownsRegistry& reg,
-                                      const ResidualSystem& sys,
-                                      double fd_rel, double fd_abs,
-                                      double tiny_row,
-                                      double tiny_res) {
+  SystemAnalysis analyze_system(
+    const UnknownsRegistry& reg,
+    const ResidualSystem& sys,
+    double fd_rel, double fd_abs,
+    double tiny_row,
+    double tiny_res
+  ) {
     SystemAnalysis a;
     const size_t m = sys.GetNumberOfEquations();
     const size_t n = reg.GetNumberOfUnknowns();
@@ -303,12 +344,11 @@ namespace px {
     const auto x0 = reg.PackVariables();
 
     for (size_t j = 0; j < n; ++j) {
-      Var* vj = reg_nc.vars_[j];
-      double base = vj->value_;
+      double base = reg_nc.GetVariableValue(j);
       double h = std::max(fd_abs, std::abs(base) * fd_rel);
-      vj->value_ = base + h;
+      reg_nc.SetVariableValue(j, base + h);
       auto r_ph = sys.EvaluateResiduals();
-      vj->value_ = base;
+      reg_nc.SetVariableValue(j, base);
       for (size_t i = 0; i < m; ++i) {
         double Jij = (r_ph[i] - a.r[i]) / h;
         a.J[i][j] = Jij;

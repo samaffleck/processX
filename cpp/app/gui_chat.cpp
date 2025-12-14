@@ -2,6 +2,9 @@
 #include "gui_common.h"
 #include "gui_log.h"
 #include "gui_window_titles.h"
+
+#include "processX/kinsol_solver.h"
+
 #include <imgui.h>
 #include <chrono>
 #include <sstream>
@@ -322,28 +325,27 @@ void ShowChatWindow() {
       AddLogToChat("Starting solve (triggered by LLM)...", ChatMessage::LogInfo);
       
       // Set up logging callback
-      flowsheet.set_log_callback([](const std::string& message, bool is_error) {
+      user_data.fs.set_log_callback([](const std::string& message, bool is_error) {
         AddLogToChat(message, is_error ? ChatMessage::LogError : ChatMessage::LogInfo);
       });
       
       // Assemble the system
       std::string assemble_error;
-      if (!flowsheet.assemble(&assemble_error)) {
+      if (!user_data.fs.assemble(&assemble_error)) {
         AddLogToChat("Assembly failed: " + assemble_error, ChatMessage::LogError);
       } else {
         AddLogToChat("System assembled successfully", ChatMessage::LogInfo);
         
         // Configure solver options
-        px::NewtonOptions options;
-        options.max_iters = 50;
-        options.tol_res = 1e-10;
-        options.tol_step = 1e-12;
-        options.fd_rel = 1e-6;
-        options.fd_abs = 1e-8;
-        options.verbose = false;
+        user_data.newton_options.max_iters = 50;
+        user_data.newton_options.tol_res = 1e-10;
+        user_data.newton_options.tol_step = 1e-12;
+        user_data.newton_options.fd_rel = 1e-6;
+        user_data.newton_options.fd_abs = 1e-8;
+        user_data.newton_options.verbose = false;
         
         // Run solver
-        px::NewtonReport report = flowsheet.solve(options);
+        px::NewtonReport report = px::newton_solve(user_data);
         
         if (report.converged) {
           std::string success_msg = "Solve converged! Iterations: " + std::to_string(report.iters) 
@@ -363,7 +365,7 @@ void ShowChatWindow() {
       }
       
       // Clear the logging callback
-      flowsheet.clear_log_callback();
+      user_data.fs.clear_log_callback();
     }
     
     // Reset flags
@@ -384,28 +386,27 @@ void ShowChatWindow() {
     AddLogToChat("Starting solve...", ChatMessage::LogInfo);
     
     // Set up logging callback to capture CoolProp exceptions
-    flowsheet.set_log_callback([](const std::string& message, bool is_error) {
+    user_data.fs.set_log_callback([](const std::string& message, bool is_error) {
       AddLogToChat(message, is_error ? ChatMessage::LogError : ChatMessage::LogInfo);
     });
     
     // First, assemble the system
     std::string assemble_error;
-    if (!flowsheet.assemble(&assemble_error)) {
+    if (!user_data.fs.assemble(&assemble_error)) {
       AddLogToChat("Assembly failed: " + assemble_error, ChatMessage::LogError);
     } else {
       AddLogToChat("System assembled successfully", ChatMessage::LogInfo);
       
       // Configure solver options
-      px::NewtonOptions options;
-      options.max_iters = 50;
-      options.tol_res = 1e-10;
-      options.tol_step = 1e-12;
-      options.fd_rel = 1e-6;
-      options.fd_abs = 1e-8;
-      options.verbose = false; // We'll log ourselves
-      
+      user_data.newton_options.max_iters = 50;
+      user_data.newton_options.tol_res = 1e-10;
+      user_data.newton_options.tol_step = 1e-12;
+      user_data.newton_options.fd_rel = 1e-6;
+      user_data.newton_options.fd_abs = 1e-8;
+      user_data.newton_options.verbose = false; // We'll log ourselves
+
       // Run solver
-      px::NewtonReport report = flowsheet.solve(options);
+      px::NewtonReport report = px::newton_solve(user_data);
       
       if (report.converged) {
         std::string success_msg = "Solve converged! Iterations: " + std::to_string(report.iters) 
@@ -425,7 +426,7 @@ void ShowChatWindow() {
     }
     
     // Clear the logging callback after solve completes
-    flowsheet.clear_log_callback();
+    user_data.fs.clear_log_callback();
   }
   ImGui::SameLine();
   if (ImGui::Button("Clear")) {
