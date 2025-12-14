@@ -459,7 +459,35 @@ void ShowMenus(HelloImGui::RunnerParams& params) {
     }
     ImGui::EndMenu();
   }
-  
+
+  #ifdef EMSCRIPTEN
+  // Show flowsheet info centered in menu bar (if a flowsheet is loaded)
+  if (!js_flowsheet_name.empty()) {
+    // Calculate the text we want to display
+    std::string status_text = std::string(ICON_FA_FILE_PEN) + " Currently Editing: " + js_flowsheet_name;
+
+    // Calculate text width
+    float text_width = ImGui::CalcTextSize(status_text.c_str()).x;
+
+    // Get menu bar width
+    float menu_bar_width = ImGui::GetWindowContentRegionMax().x - ImGui::GetWindowContentRegionMin().x;
+
+    // Calculate spacing to center the text
+    // We need to account for the space already used by menus on the left
+    float current_x = ImGui::GetCursorPosX();
+    float spacing = (menu_bar_width - current_x - text_width) * 0.5f;
+
+    if (spacing > 0) {
+      ImGui::SetCursorPosX(current_x + spacing);
+    }
+
+    // Display the status text with a subtle style
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.85f, 1.0f, 1.0f)); // Light blue tint
+    ImGui::TextUnformatted(status_text.c_str());
+    ImGui::PopStyleColor();
+  }
+  #endif
+
   #ifdef EMSCRIPTEN
   // Show save dialog if needed
   ShowSaveDialog();
