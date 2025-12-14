@@ -61,6 +61,9 @@ export default function DashboardPage() {
   // Flowsheets state
   const [flowsheets, setFlowsheets] = useState<FlowsheetMetadata[]>([]);
   const [isLoadingFlowsheets, setIsLoadingFlowsheets] = useState(false);
+  const [recentFlowsheets, setRecentFlowsheets] = useState<FlowsheetMetadata[]>([]);
+  const [isLoadingRecentFlowsheets, setIsLoadingRecentFlowsheets] = useState(false);
+  const [isRecentExpanded, setIsRecentExpanded] = useState(true);
   const [showCreateFileDialog, setShowCreateFileDialog] = useState(false);
   const [createFileName, setCreateFileName] = useState('');
   const [createFileDescription, setCreateFileDescription] = useState('');
@@ -112,14 +115,31 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // Load recent flowsheets
+  const loadRecentFlowsheets = useCallback(async () => {
+    try {
+      setIsLoadingRecentFlowsheets(true);
+      const response = await fetch('/api/flowsheets/recent?limit=5');
+      if (response.ok) {
+        const data = await response.json();
+        setRecentFlowsheets(data.flowsheets);
+      }
+    } catch (error) {
+      console.error('Error loading recent flowsheets:', error);
+    } finally {
+      setIsLoadingRecentFlowsheets(false);
+    }
+  }, []);
+
   // Load projects and flowsheets when projects tab is active
   // IMPORTANT: This hook must be called before any early returns
   useEffect(() => {
     if (activeTab === 'projects' && orgLoaded && organization) {
       loadProjects();
       loadFlowsheets();
+      loadRecentFlowsheets();
     }
-  }, [activeTab, orgLoaded, organization, loadProjects, loadFlowsheets]);
+  }, [activeTab, orgLoaded, organization, loadProjects, loadFlowsheets, loadRecentFlowsheets]);
 
   if (isLoading) {
     return (
@@ -478,6 +498,54 @@ export default function DashboardPage() {
             {activeTab === 'projects' && organization && (
               <div className="w-full">
                 <div className="w-full">
+                  {/* Recent Flowsheets Section */}
+                  {!isLoadingRecentFlowsheets && recentFlowsheets.length > 0 && (
+                    <div className="mb-8">
+                      <button
+                        onClick={() => setIsRecentExpanded(!isRecentExpanded)}
+                        className="flex items-center gap-2 text-xl font-bold mb-4 hover:text-white/80 transition-colors"
+                      >
+                        {isRecentExpanded ? (
+                          <ChevronDown className="w-5 h-5" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5" />
+                        )}
+                        📌 Recently Accessed
+                      </button>
+                      {isRecentExpanded && (
+                        <div className="bg-white/5 border border-white/10 rounded-lg divide-y divide-white/10">
+                          {recentFlowsheets.map((flowsheet) => (
+                            <div
+                              key={flowsheet.id}
+                              className="p-3 hover:bg-white/5 transition-colors flex items-center justify-between"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-semibold truncate">{flowsheet.name}</h4>
+                                <div className="flex items-center gap-3 text-xs text-white/60 mt-1">
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    <span>{formatDate((flowsheet as any).lastAccessedAt || flowsheet.updatedAt)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <History className="w-3 h-3" />
+                                    <span>v{flowsheet.version}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleLoadInCopilot(flowsheet.id)}
+                                className="ml-3 flex items-center justify-center gap-1.5 bg-white text-black px-3 py-1.5 rounded text-xs font-medium hover:bg-white/90 transition-colors flex-shrink-0"
+                              >
+                                <Play className="w-3 h-3" />
+                                Launch
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="mb-6 flex justify-between items-center gap-2">
                     <h2 className="text-2xl font-bold">Project Folders</h2>
                     <button

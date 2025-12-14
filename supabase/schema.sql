@@ -63,11 +63,13 @@ CREATE TABLE simulation_files (
   created_by UUID REFERENCES users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  current_version INTEGER NOT NULL DEFAULT 1
+  current_version INTEGER NOT NULL DEFAULT 1,
+  last_accessed_at TIMESTAMPTZ
 );
 
 CREATE INDEX simulation_files_project_id_idx ON simulation_files (project_id);
 CREATE INDEX simulation_files_created_at_idx ON simulation_files (created_at DESC);
+CREATE INDEX simulation_files_last_accessed_at_idx ON simulation_files (last_accessed_at DESC NULLS LAST);
 
 -- Individual versions for each file
 CREATE TABLE simulation_file_versions (
@@ -199,15 +201,22 @@ SELECT
   sf.created_at,
   sf.updated_at,
   sf.current_version,
+  sf.last_accessed_at,
+  sf.locked_by,
+  sf.locked_at,
+  sf.lock_expires_at,
   sfv.data,
   sfv.change_description,
   sfv.created_at as version_created_at,
   u.full_name as created_by_name,
-  u.email as created_by_email
+  u.email as created_by_email,
+  lu.full_name as locked_by_name,
+  lu.email as locked_by_email
 FROM simulation_files sf
 JOIN simulation_file_versions sfv
   ON sf.id = sfv.file_id AND sf.current_version = sfv.version
-LEFT JOIN users u ON sf.created_by = u.id;
+LEFT JOIN users u ON sf.created_by = u.id
+LEFT JOIN users lu ON sf.locked_by = lu.id;
 
 -- View to get projects with org info
 CREATE VIEW projects_with_org AS

@@ -472,3 +472,49 @@ export async function checkFileLock(
     lockExpiresAt: file.lock_expires_at || undefined,
   };
 }
+
+/**
+ * Update the last_accessed_at timestamp for a file
+ */
+export async function updateFileAccessTime(fileId: string): Promise<void> {
+  await supabaseAdmin
+    .from('simulation_files')
+    .update({ last_accessed_at: new Date().toISOString() })
+    .eq('id', fileId);
+}
+
+/**
+ * Get recently accessed flowsheets for an organisation
+ */
+export async function getRecentlyAccessedFiles(
+  orgId: string,
+  userId: string,
+  limit: number = 10
+): Promise<SimulationFileWithCurrentVersion[]> {
+  // Verify user is a member of the organisation
+  const isMember = await isUserMemberOfOrg(userId, orgId);
+  if (!isMember) {
+    console.error('User is not a member of the organisation');
+    return [];
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('simulation_files_current')
+    .select(`
+      *,
+      projects!inner (
+        org_id
+      )
+    `)
+    .eq('projects.org_id', orgId)
+    .not('last_accessed_at', 'is', null)
+    .order('last_accessed_at', { ascending: false })
+    .limit(limit);
+
+  if (error || !data) {
+    console.error('Error getting recently accessed files:', error);
+    return [];
+  }
+
+  return data;
+}

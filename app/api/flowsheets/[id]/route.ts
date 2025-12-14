@@ -9,6 +9,7 @@ import {
   createSimulationFileVersion,
   deleteSimulationFile,
   checkFileLock,
+  updateFileAccessTime,
 } from '@/lib/db';
 import { getClerkUser, getUserDisplayInfo } from '@/lib/db/clerk-helpers';
 
@@ -81,6 +82,11 @@ export async function GET(
 
     // Check lock status
     const lockStatus = await checkFileLock(id, user.id);
+
+    // Update last_accessed_at timestamp (async, don't wait for it)
+    updateFileAccessTime(id).catch(err => {
+      console.error('Failed to update access time:', err);
+    });
 
     const transformedFlowsheet = {
       id: file.id,
