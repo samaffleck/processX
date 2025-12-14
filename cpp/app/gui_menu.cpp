@@ -231,7 +231,18 @@ void ShowSaveDialog() {
       } else {
         // Determine if this is an update or new file
         bool is_update = !current_flowsheet_id.empty();
-        
+
+        // Debug logging before save
+        EM_ASM({
+          console.log('💾 [C++ Save Button] About to call save_flowsheet_api_js with:', {
+            current_flowsheet_id: UTF8ToString($0),
+            current_flowsheet_name: UTF8ToString($1),
+            is_update: $2 !== 0,
+            id_empty: UTF8ToString($0).length === 0,
+            will_create_new: UTF8ToString($0).length === 0
+          });
+        }, current_flowsheet_id.c_str(), current_flowsheet_name.c_str(), is_update ? 1 : 0);
+
         // Call JS to save
         save_flowsheet_api_js(
           current_flowsheet_id.empty() ? nullptr : current_flowsheet_id.c_str(),
@@ -241,7 +252,7 @@ void ShowSaveDialog() {
           json_ptr,
           is_update ? 1 : 0
         );
-        
+
         // Close dialog
         show_save_dialog = false;
         change_message_buffer[0] = '\0';
@@ -278,10 +289,22 @@ void TriggerSaveDialog() {
   // Use global state set by JS
   current_flowsheet_id = js_flowsheet_id;
   current_flowsheet_name = js_flowsheet_name.empty() ? "Untitled Flowsheet" : js_flowsheet_name;
-  
+
+  // Debug logging
+  EM_ASM({
+    console.log('💾 [C++ TriggerSaveDialog] Opening save dialog with:', {
+      js_flowsheet_id: UTF8ToString($0),
+      js_flowsheet_name: UTF8ToString($1),
+      current_flowsheet_id: UTF8ToString($2),
+      current_flowsheet_name: UTF8ToString($3),
+      is_update: UTF8ToString($2).length > 0
+    });
+  }, js_flowsheet_id.c_str(), js_flowsheet_name.c_str(),
+     current_flowsheet_id.c_str(), current_flowsheet_name.c_str());
+
   // Reset change message buffer
   change_message_buffer[0] = '\0';
-  
+
   // Show dialog
   show_save_dialog = true;
   ImGui::OpenPopup("Save Flowsheet");
@@ -328,6 +351,16 @@ extern "C" {
   void SetCurrentFlowsheetInfo(const char* flowsheet_id, const char* flowsheet_name) {
     js_flowsheet_id = flowsheet_id ? std::string(flowsheet_id) : "";
     js_flowsheet_name = flowsheet_name ? std::string(flowsheet_name) : "";
+
+    // Debug logging
+    EM_ASM({
+      console.log('🔧 [C++ SetCurrentFlowsheetInfo] Called with:', {
+        id: UTF8ToString($0),
+        name: UTF8ToString($1),
+        id_empty: UTF8ToString($0).length === 0,
+        name_empty: UTF8ToString($1).length === 0
+      });
+    }, flowsheet_id ? flowsheet_id : "", flowsheet_name ? flowsheet_name : "");
   }
   
   EMSCRIPTEN_KEEPALIVE

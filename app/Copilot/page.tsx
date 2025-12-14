@@ -36,20 +36,51 @@ function CopilotPageContent() {
 
   // Sync flowsheet info and lock status to WASM module
   useEffect(() => {
+    console.log('🔄 [useEffect] Syncing flowsheet info to WASM:', {
+      currentFlowsheetId,
+      currentFlowsheetName,
+      lockStatus
+    });
+
     const iframe = document.querySelector('iframe[src*="processX_app.html"]') as HTMLIFrameElement;
-    if (!iframe || !iframe.contentWindow) return;
-    
+    if (!iframe || !iframe.contentWindow) {
+      console.warn('⚠️ [useEffect] WASM iframe not found or not accessible');
+      return;
+    }
+
     const wasmModule = (iframe.contentWindow as any).Module;
-    if (!wasmModule) return;
-    
+    if (!wasmModule) {
+      console.warn('⚠️ [useEffect] WASM Module not available');
+      return;
+    }
+
     // Set flowsheet info
-    if (typeof wasmModule._SetCurrentFlowsheetInfo === 'function') {
+    if (typeof wasmModule.ccall === 'function') {
+      // Use ccall for proper string marshaling
+      wasmModule.ccall(
+        'SetCurrentFlowsheetInfo',
+        null,
+        ['string', 'string'],
+        [currentFlowsheetId || '', currentFlowsheetName || '']
+      );
+      console.log('✅ [useEffect] Called SetCurrentFlowsheetInfo via ccall:', {
+        id: currentFlowsheetId || '',
+        name: currentFlowsheetName || ''
+      });
+    } else if (typeof wasmModule._SetCurrentFlowsheetInfo === 'function') {
+      // Fallback to direct call (may not work properly for strings)
       wasmModule._SetCurrentFlowsheetInfo(
         currentFlowsheetId || '',
         currentFlowsheetName || ''
       );
+      console.log('⚠️ [useEffect] Called _SetCurrentFlowsheetInfo (direct, may fail):', {
+        id: currentFlowsheetId || '',
+        name: currentFlowsheetName || ''
+      });
+    } else {
+      console.warn('⚠️ [useEffect] SetCurrentFlowsheetInfo function not available');
     }
-    
+
     // Set lock status (0 = not locked, 1 = locked by current user, 2 = locked by other user)
     if (typeof wasmModule._SetLockStatus === 'function') {
       let status = 0;
@@ -59,6 +90,7 @@ function CopilotPageContent() {
         status = 2;
       }
       wasmModule._SetLockStatus(status);
+      console.log('✅ [useEffect] Called _SetLockStatus:', status);
     }
   }, [currentFlowsheetId, currentFlowsheetName, lockStatus]);
 
@@ -332,6 +364,35 @@ function CopilotPageContent() {
       console.log(`🚀 [${callId}] Calling loadFlowsheetIntoWasm...`);
       await loadFlowsheetIntoWasm(result.flowsheet.data);
       console.log(`✅ [${callId}] loadFlowsheetIntoWasm completed`);
+
+      // IMPORTANT: Immediately set flowsheet info in WASM module after loading
+      // This ensures the info is available when user tries to save, without waiting for React's useEffect
+      const iframe = document.querySelector('iframe[src*="processX_app.html"]') as HTMLIFrameElement;
+      if (iframe && iframe.contentWindow) {
+        const wasmModule = (iframe.contentWindow as any).Module;
+        if (wasmModule) {
+          if (typeof wasmModule.ccall === 'function') {
+            // Use ccall for proper string marshaling
+            wasmModule.ccall(
+              'SetCurrentFlowsheetInfo',
+              null,
+              ['string', 'string'],
+              [flowsheetId, result.flowsheet.name]
+            );
+            console.log(`✅ [${callId}] Immediately set flowsheet info in WASM (via ccall):`, {
+              id: flowsheetId,
+              name: result.flowsheet.name
+            });
+          } else if (typeof wasmModule._SetCurrentFlowsheetInfo === 'function') {
+            // Fallback (may not work properly)
+            wasmModule._SetCurrentFlowsheetInfo(flowsheetId, result.flowsheet.name);
+            console.log(`⚠️ [${callId}] Immediately set flowsheet info in WASM (direct call):`, {
+              id: flowsheetId,
+              name: result.flowsheet.name
+            });
+          }
+        }
+      }
 
       if (!silent) {
         alert('Flowsheet loaded successfully!');
