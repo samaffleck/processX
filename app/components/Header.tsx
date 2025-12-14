@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser, SignInButton, SignOutButton } from '@clerk/nextjs';
-import { Atom, Bot } from 'lucide-react';
+import { Atom } from 'lucide-react';
 
 export default function Header() {
   const pathname = usePathname();
@@ -21,17 +21,14 @@ export default function Header() {
           <span className="text-2xl font-bold">Fugasity</span>
         </Link>
         <div className="flex items-center gap-3">
+          <Link 
+            href="/about"
+            className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40"
+          >
+            About
+          </Link>
           {isSignedIn ? (
             <>
-              {!isCopilotPage && (
-                <Link 
-                  href="/Copilot"
-                  className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40 flex items-center gap-2"
-                >
-                  <Bot className="w-4 h-4" />
-                  Launch Simulation
-                </Link>
-              )}
               <Link 
                 href="/dashboard"
                 className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40"
@@ -54,12 +51,6 @@ export default function Header() {
                   Sign In
                 </Link>
               )}
-              <Link 
-                href="/waitlist"
-                className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40"
-              >
-                Join Waitlist
-              </Link>
             </>
           )}
         </div>

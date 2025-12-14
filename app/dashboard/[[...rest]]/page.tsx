@@ -4,9 +4,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useUser, useOrganization } from '@clerk/nextjs';
 import { UserProfile, OrganizationProfile } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import { User, Building2, FileJson, Download, Trash2, Clock, History, Play, User as UserIcon, Folder, ChevronDown, ChevronRight, Plus, Copy } from 'lucide-react';
+import { User, Building2, FileJson, Download, Trash2, Clock, History, Play, User as UserIcon, Folder, ChevronDown, ChevronRight, Plus, Copy, ArrowLeft } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -409,6 +410,15 @@ export default function DashboardPage() {
       
       <main className="flex-1 px-2 py-12 md:py-16 overflow-x-hidden">
         <div className="max-w-5xl mx-auto w-full overflow-x-hidden">
+          {/* Back Button */}
+          <Link 
+            href="/"
+            className="inline-flex items-center gap-2 text-white/60 hover:text-white transition-colors mb-8"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Home
+          </Link>
+
           <div className="mb-8 text-center">
             <h1 className="text-4xl font-bold mb-2">Dashboard</h1>
             <p className="text-white/60">Manage your account and launch simulations</p>
