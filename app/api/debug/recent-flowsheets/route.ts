@@ -5,7 +5,7 @@ import {
   getOrganisationByClerkId,
 } from '@/lib/db';
 import { getClerkUser, getUserDisplayInfo } from '@/lib/db/clerk-helpers';
-import { supabaseAdmin } from '@/lib/db/supabase-admin';
+import { supabaseAdmin } from '@/lib/db/supabase';
 
 // DEBUG endpoint - GET /api/debug/recent-flowsheets
 export async function GET(request: NextRequest) {
@@ -23,6 +23,11 @@ export async function GET(request: NextRequest) {
     // Get user and org
     const clerkUser = await getClerkUser(userId);
     const { email, fullName } = getUserDisplayInfo(clerkUser);
+    
+    if (!email) {
+      return NextResponse.json({ error: 'User email not found' }, { status: 400 });
+    }
+    
     const user = await getOrCreateUser(userId, email, fullName || undefined);
     const organisation = await getOrganisationByClerkId(orgId);
 
