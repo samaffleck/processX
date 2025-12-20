@@ -12,16 +12,16 @@
 // Cereal includes
 #include <cereal/cereal.hpp>
 
+// SUNDIALS includes
+#include <sundials/sundials_core.h>
+
 
 namespace px {
 
   // Forward declarations
-  struct SystemAnalysis;
+  class SystemAnalysis;
   class ResidualSystem;
   
-  // Forward declaration for SUNDIALS types (to avoid including SUNDIALS headers here)
-  // sunrealtype is typically double, but we use a template approach for flexibility
-
   class Var {
   public:
     Var() = default;
@@ -55,40 +55,17 @@ namespace px {
   // in the system. 
   class UnknownsRegistry {
   public:    
-    // Removes all variables
     void Clear() { vars_.clear(); }
-
-    // Returns the number of unknowns/free variables in the registry
-    std::size_t GetNumberOfUnknowns() const { return vars_.size(); }
-    
-    // Adds a variable to the registry
+    std::size_t GetNumberOfUnknowns() const { return vars_.size(); }    
     void AddVariable(Var& v);
     
     // Loops through free variables and returns a vector of values
     std::vector<double> PackVariables() const;
-    
-    // Pack variables directly into a buffer (avoids std::vector copy)
-    // dest must have space for at least GetNumberOfUnknowns() elements
-    template<typename T>
-    void PackVariables(T* dest, size_t n) const {
-      assert(n >= vars_.size());
-      for (size_t i = 0; i < vars_.size(); ++i) {
-        dest[i] = static_cast<T>(vars_[i]->value_);
-      }
-    }
+    void PackVariables(sunrealtype* x, size_t n) const;
     
     // Assigns all of the free variables with updates values
     void UnpackVariables(const std::vector<double>& x);
-    
-    // Unpack variables directly from a buffer (avoids std::vector copy)
-    // src must have at least GetNumberOfUnknowns() elements
-    template<typename T>
-    void UnpackVariables(const T* src, size_t n) {
-      assert(n >= vars_.size());
-      for (size_t i = 0; i < vars_.size(); ++i) {
-        vars_[i]->value_ = static_cast<double>(src[i]);
-      }
-    }
+    void UnpackVariables(const sunrealtype* x, size_t n);
     
     // Returns string of all free variable names
     std::string GetFeeVariableNames() const;
@@ -124,12 +101,7 @@ namespace px {
     // Add an equation that calculates the residual 
     void AddEquation(std::string eq_name, std::function<double()> res_equation);
     
-    // Loops through all residual equations and returns a vector of the residuals
-    std::vector<double> EvaluateResiduals() const;
-    
-    // Evaluate residuals directly into a buffer (avoids std::vector copy)
-    // dest must have space for at least n elements
-    // n can be less than GetNumberOfEquations() to write only the first n residuals
+    // Evaluate residuals in buffer
     template<typename T>
     void EvaluateResiduals(T* dest, size_t n) const {
       assert(n > 0);
@@ -138,15 +110,6 @@ namespace px {
         dest[i] = static_cast<T>(res_equations_[i]());
       }
     }
-    
-    // TODO: check if this is used anywhere...
-    static double norm_inf(const std::vector<double>& r) { 
-      double m = 0; 
-      for(double v : r) {
-        m = std::max(m, std::abs(v)); 
-      }
-      return m; 
-    }
 
   private:
     std::vector<std::function<double()>> res_equations_;
@@ -154,4 +117,4 @@ namespace px {
   
   };
 
-}
+} // end px namespace

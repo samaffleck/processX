@@ -81,7 +81,8 @@ namespace px {
   };
 
   // --- Helper: builds FD Jacobian once and analyzes structure ---
-  struct SystemAnalysis {
+  class SystemAnalysis {
+  public:
     std::vector<std::vector<double>> J;
     std::vector<double> r;
     std::vector<double> row_max;  // per-equation max |J_ij|

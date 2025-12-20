@@ -25,6 +25,7 @@ namespace px {
     // Unpack KINSOL vector to variables (direct, no copy)
     sunrealtype* u_data = N_VGetArrayPointer(u);
     size_t n = reg.GetNumberOfUnknowns();
+    // reg.UnpackVariables(u_data, n);
     reg.UnpackVariables(u_data, n);
     
     // Evaluate residuals directly into f (no intermediate vector)
@@ -166,7 +167,7 @@ namespace px {
       return rep;
     }
 
-    // Initialize solution vector from current variable values (direct, no copy)
+    // Initialize solution vector
     sunrealtype* u_data = N_VGetArrayPointer(u);
     reg.PackVariables(u_data, n);
     N_VConst(1.0, scale);
@@ -334,7 +335,8 @@ namespace px {
     const size_t m = sys.GetNumberOfEquations();
     const size_t n = reg.GetNumberOfUnknowns();
     a.J.assign(m, std::vector<double>(n, 0.0));
-    a.r = sys.EvaluateResiduals();
+    a.r.resize(m, 0.0);  
+    sys.EvaluateResiduals(a.r.data(), m);
     a.row_max.assign(m, 0.0);
     a.col_max.assign(n, 0.0);
 
@@ -347,7 +349,8 @@ namespace px {
       double base = reg_nc.GetVariableValue(j);
       double h = std::max(fd_abs, std::abs(base) * fd_rel);
       reg_nc.SetVariableValue(j, base + h);
-      auto r_ph = sys.EvaluateResiduals();
+      std::vector<double> r_ph(m);
+      sys.EvaluateResiduals(r_ph.data(), m);
       reg_nc.SetVariableValue(j, base);
       for (size_t i = 0; i < m; ++i) {
         double Jij = (r_ph[i] - a.r[i]) / h;

@@ -25,11 +25,29 @@ namespace px {
     return x; 
   }
 
+  void UnknownsRegistry::PackVariables(sunrealtype* x, size_t n) const {
+    assert(x);
+    assert(n >= vars_.size());
+
+    for (size_t i = 0; i < vars_.size(); ++i) {
+      x[i] = vars_[i]->value_;
+    }
+  }
+
   void UnknownsRegistry::UnpackVariables(const std::vector<double>& x) { 
     assert(x.size() == vars_.size()); 
 
     for (size_t i = 0; i < vars_.size(); ++i) {
       vars_[i]->value_ = x[i]; 
+    }
+  }
+
+  void UnknownsRegistry::UnpackVariables(const sunrealtype* x, size_t n) {
+    assert(x);
+    assert(n >= vars_.size());
+
+    for (size_t i = 0; i < vars_.size(); ++i) {
+      vars_[i]->value_ = static_cast<double>(x[i]); 
     }
   }
   
@@ -45,22 +63,9 @@ namespace px {
     return s.empty() ? "(none)" : s; // Return (none) if empty 
   }
 
-
   void ResidualSystem::AddEquation(std::string eq_name, std::function<double()> res_equation){ 
     eq_names_.push_back(std::move(eq_name)); 
     res_equations_.push_back(std::move(res_equation)); 
-  }
-    
-  std::vector<double> ResidualSystem::EvaluateResiduals() const { 
-    std::vector<double> residuals; 
-    residuals.reserve(res_equations_.size()); 
-
-    for (auto& f: res_equations_) {
-      // Calls the residual equation and adds the result to the vector
-      residuals.push_back( f() );
-    }
-
-    return residuals; 
   }
   
 }
