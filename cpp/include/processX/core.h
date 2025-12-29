@@ -94,26 +94,55 @@ namespace px {
   // vector of unknowns
   class ResidualSystem {
   public:
-    void Clear(){ res_equations_.clear(); eq_names_.clear(); }
+    void Clear(){ 
+      res_equations_.clear(); 
+      eq_names_.clear(); 
+      selected_eq_indices_.clear();
+    }
     std::size_t GetNumberOfEquations() const { return res_equations_.size(); }
     std::vector<std::string> GetEquationNames() const { return eq_names_; }
 
     // Add an equation that calculates the residual 
     void AddEquation(std::string eq_name, std::function<double()> res_equation);
     
+    // Set which equations to use (for overdetermined systems)
+    void SetSelectedEquations(const std::vector<int>& indices) {
+      selected_eq_indices_ = indices;
+    }
+    
     // Evaluate residuals in buffer
+    // If selected_eq_indices_ is set and has at least n elements, evaluates those equations
+    // Otherwise evaluates first n equations
     template<typename T>
     void EvaluateResiduals(T* dest, size_t n) const {
       assert(n > 0);
-      size_t count = std::min(n, res_equations_.size());
-      for (size_t i = 0; i < count; ++i) {
-        dest[i] = static_cast<T>(res_equations_[i]());
+      if (!selected_eq_indices_.empty() && selected_eq_indices_.size() >= n) {
+        // Use selected equations (for overdetermined systems - pivots give linearly independent set)
+        for (size_t i = 0; i < n; ++i) {
+          int eq_idx = selected_eq_indices_[i];
+          if (eq_idx >= 0 && eq_idx < (int)res_equations_.size()) {
+            dest[i] = static_cast<T>(res_equations_[eq_idx]());
+          } else {
+            dest[i] = static_cast<T>(0.0);
+          }
+        }
+      } else {
+        // Default: evaluate first n equations (for square or underdetermined systems)
+        size_t count = std::min(n, res_equations_.size());
+        for (size_t i = 0; i < count; ++i) {
+          dest[i] = static_cast<T>(res_equations_[i]());
+        }
+        // Pad with zeros if needed (shouldn't happen for well-posed systems)
+        for (size_t i = count; i < n; ++i) {
+          dest[i] = static_cast<T>(0.0);
+        }
       }
     }
 
   private:
     std::vector<std::function<double()>> res_equations_;
     std::vector<std::string> eq_names_;
+    std::vector<int> selected_eq_indices_;  // Indices of equations to use (from pivot analysis)
   
   };
 

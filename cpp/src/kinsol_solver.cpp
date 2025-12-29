@@ -33,10 +33,11 @@ namespace px {
     size_t m = sys.GetNumberOfEquations();
     
     // KINSOL requires f to have the same size as u (n)
-    // For overdetermined systems (m > n), we use the first n residuals
+    // For overdetermined systems (m > n), EvaluateResiduals uses selected equations
+    // (set by assemble() based on pivot analysis) to ensure linear independence
     // For underdetermined systems (m < n), we pad with zeros (shouldn't happen)
     if (m >= n) {
-      // Overdetermined or square: evaluate first n residuals directly into f
+      // Overdetermined or square: EvaluateResiduals handles equation selection
       sys.EvaluateResiduals(f_data, n);
     } else {
       // Underdetermined: evaluate all m residuals, then pad with zeros
@@ -293,12 +294,18 @@ namespace px {
   }
 
   // numeric rank via Gaussian elim with threshold
+  // Returns pivot row indices (original equation indices after tracking permutation)
   int numeric_rank(std::vector<std::vector<double>> A, double pivot_tol,
                           std::vector<int>* pivots_out) {
     int m = (int)A.size();
     int n = m ? (int)A[0].size() : 0;
     int r = 0;
     std::vector<int> piv;
+    
+    // Track permutation: perm[i] = original row index currently at position i
+    std::vector<int> perm(m);
+    for (int i = 0; i < m; ++i) perm[i] = i;
+    
     for (int k = 0; k < std::min(m,n); ++k) {
       // find pivot in col k from row k..m-1
       int piv_row = -1;
@@ -308,7 +315,13 @@ namespace px {
         if (val > best) { best = val; piv_row = i; }
       }
       if (best <= pivot_tol) continue; // no pivot in this column
-      if (piv_row != k) std::swap(A[piv_row], A[k]);
+      
+      // Swap rows and update permutation
+      if (piv_row != k) {
+        std::swap(A[piv_row], A[k]);
+        std::swap(perm[piv_row], perm[k]);
+      }
+      
       double d = A[k][k];
       for (int j = k; j < n; ++j) A[k][j] /= d;
       // eliminate below
@@ -318,7 +331,8 @@ namespace px {
         for (int j = k; j < n; ++j) A[i][j] -= f * A[k][j];
       }
       ++r;
-      piv.push_back(k);
+      // Store original equation index (before permutation)
+      piv.push_back(perm[k]);
     }
     if (pivots_out) *pivots_out = std::move(piv);
     return r;

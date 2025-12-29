@@ -642,6 +642,19 @@ namespace px {
     // Structural analysis (same helpers we built earlier)
     // Use default values for tiny_row and tiny_res
     auto a = analyze_system(reg, sys, 1e-6, 1e-8, 1e-14, 1e-12);
+    
+    // For overdetermined systems, select linearly independent equations using pivots
+    // Pivots are row indices (equation indices) from Gaussian elimination
+    if (num_of_equations > num_of_unknowns && 
+        a.rank == num_of_unknowns && 
+        a.pivots.size() == static_cast<size_t>(num_of_unknowns)) {
+      // Use pivot rows to select independent equations for solving
+      sys.SetSelectedEquations(a.pivots);
+    } else {
+      // Clear selection for square or underdetermined systems (use first n equations)
+      sys.SetSelectedEquations({});
+    }
+    
     if (!a.inconsistent_eqs.empty()) {
       if (err) {
         *err = "Inconsistent equations:\n";

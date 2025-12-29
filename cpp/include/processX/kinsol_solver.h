@@ -88,7 +88,7 @@ namespace px {
     std::vector<double> row_max;  // per-equation max |J_ij|
     std::vector<double> col_max;  // per-unknown  max |J_ij|
     int rank{0};
-    std::vector<int> pivots;      // pivot column indices
+    std::vector<int> pivots;      // pivot row indices (original equation indices)
     std::vector<int> redundant_eqs;     // rows with tiny Jacobian and tiny residual
     std::vector<int> inconsistent_eqs;  // rows with tiny Jacobian but non-tiny residual
     std::vector<int> unconstrained_unknowns; // columns with tiny Jacobian
