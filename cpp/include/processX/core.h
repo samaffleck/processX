@@ -115,7 +115,11 @@ namespace px {
     // Otherwise evaluates first n equations
     template<typename T>
     void EvaluateResiduals(T* dest, size_t n) const {
-      assert(n > 0);
+      // Handle edge case: n=0 (no residuals to evaluate)
+      if (n == 0) {
+        return;
+      }
+      
       if (!selected_eq_indices_.empty() && selected_eq_indices_.size() >= n) {
         // Use selected equations (for overdetermined systems - pivots give linearly independent set)
         for (size_t i = 0; i < n; ++i) {

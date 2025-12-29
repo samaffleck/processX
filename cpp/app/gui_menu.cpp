@@ -405,21 +405,7 @@ void ShowMenus(HelloImGui::RunnerParams& params) {
   if (ImGui::BeginMenu("File")) {
     
     #ifdef EMSCRIPTEN
-    // Save menu item
-    if (ImGui::MenuItem((std::string(ICON_FA_FLOPPY_DISK) + " Save").c_str(), "Ctrl+S")) {
-      TriggerSaveDialog();
-    }
-    
-    // Lock/Unlock menu item
-    std::string lock_text = GetLockStatusText();
-    std::string lock_icon = (js_lock_status == 1) ? ICON_FA_UNLOCK : ICON_FA_LOCK;
-    if (ImGui::MenuItem((lock_icon + " " + lock_text).c_str())) {
-      ToggleLock();
-    }
-    
-    ImGui::Separator();
-    
-    // Exit menu item
+    // Exit menu item (only item shown in WASM build)
     if (ImGui::MenuItem((std::string(ICON_FA_RIGHT_FROM_BRACKET) + " Exit").c_str(), "Ctrl+Q")) {
       ShowExitConfirmation();
     }
