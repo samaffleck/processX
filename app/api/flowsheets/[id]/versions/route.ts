@@ -132,12 +132,16 @@ export async function POST(
     }
 
     // Get organisation to transform response
-    const { supabaseAdmin } = await import('@/lib/db/supabase');
-    const { data: project } = await supabaseAdmin
-      .from('projects')
-      .select('org_id, organisations(clerk_org_id)')
-      .eq('id', file.project_id)
-      .single();
+    const { supabaseAdmin, isSupabaseEnabled } = await import('@/lib/db/supabase');
+    let project: any = null;
+    if (isSupabaseEnabled() && supabaseAdmin) {
+      const result = await supabaseAdmin
+        .from('projects')
+        .select('org_id, organisations(clerk_org_id)')
+        .eq('id', file.project_id)
+        .single();
+      project = result.data;
+    }
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });

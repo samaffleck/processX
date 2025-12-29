@@ -1,5 +1,5 @@
 // Organisation database operations
-import { supabaseAdmin } from './supabase';
+import { supabaseAdmin, isSupabaseEnabled } from './supabase';
 import type { Organisation, OrganisationMember, OrganisationRole } from './types';
 
 /**
@@ -7,6 +7,10 @@ import type { Organisation, OrganisationMember, OrganisationRole } from './types
  * Used for lazy syncing when a user first accesses an org
  */
 export async function getOrCreateOrganisation(clerkOrgId: string, name: string): Promise<Organisation | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   // Try to get existing organisation
   const { data: existing, error: getError } = await supabaseAdmin
     .from('organisations')
@@ -40,6 +44,10 @@ export async function getOrCreateOrganisation(clerkOrgId: string, name: string):
  * Get organisation by Clerk org ID
  */
 export async function getOrganisationByClerkId(clerkOrgId: string): Promise<Organisation | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('organisations')
     .select('*')
@@ -58,6 +66,10 @@ export async function getOrganisationByClerkId(clerkOrgId: string): Promise<Orga
  * Get organisation by internal UUID
  */
 export async function getOrganisationById(id: string): Promise<Organisation | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('organisations')
     .select('*')
@@ -76,6 +88,10 @@ export async function getOrganisationById(id: string): Promise<Organisation | nu
  * Check if a user is a member of an organisation
  */
 export async function isUserMemberOfOrg(userId: string, orgId: string): Promise<boolean> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return false;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('organisation_members')
     .select('role')
@@ -90,6 +106,10 @@ export async function isUserMemberOfOrg(userId: string, orgId: string): Promise<
  * Get user's role in an organisation
  */
 export async function getUserRoleInOrg(userId: string, orgId: string): Promise<OrganisationRole | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('organisation_members')
     .select('role')
@@ -108,6 +128,10 @@ export async function getUserRoleInOrg(userId: string, orgId: string): Promise<O
  * Get all organisations a user is a member of
  */
 export async function getUserOrganisations(userId: string): Promise<Organisation[]> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return [];
+  }
+
   const { data, error } = await supabaseAdmin
     .from('organisation_members')
     .select('org_id, organisations(*)')
@@ -125,6 +149,10 @@ export async function getUserOrganisations(userId: string): Promise<Organisation
  * Get all members of an organisation
  */
 export async function getOrganisationMembers(orgId: string): Promise<OrganisationMember[]> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return [];
+  }
+
   const { data, error } = await supabaseAdmin
     .from('organisation_members')
     .select('*')
@@ -160,6 +188,10 @@ export async function addOrganisationMember(
   orgId: string,
   role: OrganisationRole = 'member'
 ): Promise<OrganisationMember | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('organisation_members')
     .upsert(

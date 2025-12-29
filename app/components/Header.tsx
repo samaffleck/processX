@@ -18,41 +18,15 @@ export default function Header() {
           <div className="w-10 h-10 bg-white text-black rounded-lg flex items-center justify-center">
             <Atom className="w-6 h-6" />
           </div>
-          <span className="text-2xl font-bold">Fugasity</span>
+          <span className="text-2xl font-bold">ProcessX</span>
         </Link>
         <div className="flex items-center gap-3">
           <Link 
-            href="/about"
+            href="/waitlist"
             className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40"
           >
-            About
+            Launch Simulation
           </Link>
-          {isSignedIn ? (
-            <>
-              <Link 
-                href="/dashboard"
-                className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40"
-              >
-                Dashboard
-              </Link>
-              <SignOutButton>
-                <button className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40">
-                  Sign Out
-                </button>
-              </SignOutButton>
-            </>
-          ) : (
-            <>
-              {!isCopilotPage && (
-                <Link 
-                  href="/sign-in"
-                  className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40 flex items-center gap-2"
-                >
-                  Sign In
-                </Link>
-              )}
-            </>
-          )}
         </div>
       </div>
     </nav>

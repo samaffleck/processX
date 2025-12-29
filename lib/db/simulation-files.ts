@@ -1,5 +1,5 @@
 // Simulation file database operations (flowsheets)
-import { supabaseAdmin } from './supabase';
+import { supabaseAdmin, isSupabaseEnabled } from './supabase';
 import type {
   SimulationFile,
   SimulationFileVersion,
@@ -19,6 +19,10 @@ export async function createSimulationFile(
   userId: string,
   changeDescription?: string
 ): Promise<SimulationFile | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   // Verify user has access to the project
   const project = await getProjectById(input.project_id, userId);
   if (!project) {
@@ -72,6 +76,10 @@ export async function getSimulationFileById(
   fileId: string,
   userId: string
 ): Promise<SimulationFileWithCurrentVersion | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('simulation_files_current')
     .select('*')
@@ -111,6 +119,10 @@ export async function getSimulationFilesByProject(
   projectId: string,
   userId: string
 ): Promise<SimulationFileWithCurrentVersion[]> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return [];
+  }
+
   // Verify user has access to the project
   const project = await getProjectById(projectId, userId);
   if (!project) {
@@ -139,6 +151,10 @@ export async function getSimulationFilesByOrg(
   orgId: string,
   userId: string
 ): Promise<SimulationFileWithCurrentVersion[]> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return [];
+  }
+
   // Verify user is a member of the organisation
   const isMember = await isUserMemberOfOrg(userId, orgId);
   if (!isMember) {
@@ -173,6 +189,10 @@ export async function updateSimulationFile(
   userId: string,
   updates: UpdateSimulationFileInput
 ): Promise<SimulationFile | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   // Verify access
   const file = await getSimulationFileById(fileId, userId);
   if (!file) {
@@ -201,6 +221,10 @@ export async function createSimulationFileVersion(
   input: CreateSimulationFileVersionInput,
   userId: string
 ): Promise<SimulationFileVersion | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   // Get the file to verify access and get current version
   const file = await getSimulationFileById(input.file_id, userId);
   if (!file) {
@@ -251,6 +275,10 @@ export async function getSimulationFileVersions(
   fileId: string,
   userId: string
 ): Promise<SimulationFileVersion[]> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return [];
+  }
+
   // Verify access
   const file = await getSimulationFileById(fileId, userId);
   if (!file) {
@@ -279,6 +307,10 @@ export async function getSimulationFileVersion(
   version: number,
   userId: string
 ): Promise<SimulationFileVersion | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   // Verify access
   const file = await getSimulationFileById(fileId, userId);
   if (!file) {
@@ -332,6 +364,10 @@ export async function restoreSimulationFileVersion(
  * Delete a simulation file (and all its versions)
  */
 export async function deleteSimulationFile(fileId: string, userId: string): Promise<boolean> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return false;
+  }
+
   // Verify access
   const file = await getSimulationFileById(fileId, userId);
   if (!file) {
@@ -360,6 +396,10 @@ export async function lockSimulationFile(
   userId: string,
   durationMinutes: number = 10
 ): Promise<{ success: boolean; error?: string }> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return { success: false, error: 'Supabase is disabled' };
+  }
+
   // Verify access
   const file = await getSimulationFileById(fileId, userId);
   if (!file) {
@@ -405,6 +445,10 @@ export async function unlockSimulationFile(
   userId: string,
   force: boolean = false
 ): Promise<{ success: boolean; error?: string }> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return { success: false, error: 'Supabase is disabled' };
+  }
+
   // Verify access
   const file = await getSimulationFileById(fileId, userId);
   if (!file) {
@@ -477,6 +521,10 @@ export async function checkFileLock(
  * Update the last_accessed_at timestamp for a file
  */
 export async function updateFileAccessTime(fileId: string): Promise<void> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return;
+  }
+
   await supabaseAdmin
     .from('simulation_files')
     .update({ last_accessed_at: new Date().toISOString() })
@@ -491,6 +539,10 @@ export async function getRecentlyAccessedFiles(
   userId: string,
   limit: number = 10
 ): Promise<SimulationFileWithCurrentVersion[]> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return [];
+  }
+
   // Verify user is a member of the organisation
   const isMember = await isUserMemberOfOrg(userId, orgId);
   if (!isMember) {

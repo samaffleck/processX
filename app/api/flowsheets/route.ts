@@ -52,15 +52,19 @@ export async function GET(request: NextRequest) {
     const flowsheets = await getSimulationFilesByOrg(org.id, user.id);
 
     // Get version creators for updated_by_name - batch fetch all version creators
-    const { supabaseAdmin } = await import('@/lib/db/supabase');
+    const { supabaseAdmin, isSupabaseEnabled } = await import('@/lib/db/supabase');
     const { getUserById } = await import('@/lib/db/users');
     
-    // Get all current version creators in one query
+    // Get all current version creators in one query (only if Supabase is enabled)
     const fileIds = flowsheets.map(f => f.id);
-    const { data: versions } = await supabaseAdmin
-      .from('simulation_file_versions')
-      .select('file_id, version, created_by')
-      .in('file_id', fileIds);
+    let versions: any[] | null = null;
+    if (isSupabaseEnabled() && supabaseAdmin) {
+      const result = await supabaseAdmin
+        .from('simulation_file_versions')
+        .select('file_id, version, created_by')
+        .in('file_id', fileIds);
+      versions = result.data;
+    }
     
     // Create a map of file_id -> version -> created_by
     const versionCreators = new Map<string, Map<number, string>>();

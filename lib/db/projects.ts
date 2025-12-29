@@ -1,5 +1,5 @@
 // Project database operations
-import { supabaseAdmin } from './supabase';
+import { supabaseAdmin, isSupabaseEnabled } from './supabase';
 import type { Project, ProjectWithOrg, CreateProjectInput, UpdateProjectInput } from './types';
 import { isUserMemberOfOrg } from './organisations';
 
@@ -7,6 +7,10 @@ import { isUserMemberOfOrg } from './organisations';
  * Create a new project
  */
 export async function createProject(input: CreateProjectInput, userId: string): Promise<Project | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   // Verify user is a member of the organisation
   const isMember = await isUserMemberOfOrg(userId, input.org_id);
   if (!isMember) {
@@ -37,6 +41,10 @@ export async function createProject(input: CreateProjectInput, userId: string): 
  * Get project by ID with authorization check
  */
 export async function getProjectById(projectId: string, userId: string): Promise<Project | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('projects')
     .select('*')
@@ -62,6 +70,10 @@ export async function getProjectById(projectId: string, userId: string): Promise
  * Get all projects for an organisation
  */
 export async function getProjectsByOrg(orgId: string, userId: string): Promise<ProjectWithOrg[]> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return [];
+  }
+
   // Verify user is a member of the organisation
   const isMember = await isUserMemberOfOrg(userId, orgId);
   if (!isMember) {
@@ -91,6 +103,10 @@ export async function updateProject(
   userId: string,
   updates: UpdateProjectInput
 ): Promise<Project | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   // Get project to check authorization
   const project = await getProjectById(projectId, userId);
   if (!project) {
@@ -117,6 +133,10 @@ export async function updateProject(
  * Only admins and owners can delete projects
  */
 export async function deleteProject(projectId: string, userId: string): Promise<boolean> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return false;
+  }
+
   // Get project to check authorization
   const project = await getProjectById(projectId, userId);
   if (!project) {
@@ -149,6 +169,9 @@ export async function deleteProject(projectId: string, userId: string): Promise<
  * Creates one if it doesn't exist
  */
 export async function getOrCreateDefaultProject(orgId: string, userId: string): Promise<Project | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
   // Try to find existing "Default" or first project
   const projects = await getProjectsByOrg(orgId, userId);
 

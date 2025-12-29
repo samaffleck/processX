@@ -51,11 +51,16 @@ export async function GET(
     }
 
     // Get organisation to transform response
-    const { data: project } = await (await import('@/lib/db/supabase')).supabaseAdmin
-      .from('projects')
-      .select('org_id, organisations(clerk_org_id)')
-      .eq('id', file.project_id)
-      .single();
+    const { supabaseAdmin, isSupabaseEnabled } = await import('@/lib/db/supabase');
+    let project: any = null;
+    if (isSupabaseEnabled() && supabaseAdmin) {
+      const result = await supabaseAdmin
+        .from('projects')
+        .select('org_id, organisations(clerk_org_id)')
+        .eq('id', file.project_id)
+        .single();
+      project = result.data;
+    }
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
@@ -215,11 +220,16 @@ export async function PATCH(
     }
 
     // Get organisation to transform response
-    const { data: project } = await (await import('@/lib/db/supabase')).supabaseAdmin
-      .from('projects')
-      .select('org_id, organisations(clerk_org_id)')
-      .eq('id', file.project_id)
-      .single();
+    const { supabaseAdmin, isSupabaseEnabled } = await import('@/lib/db/supabase');
+    let project: any = null;
+    if (isSupabaseEnabled() && supabaseAdmin) {
+      const result = await supabaseAdmin
+        .from('projects')
+        .select('org_id, organisations(clerk_org_id)')
+        .eq('id', file.project_id)
+        .single();
+      project = result.data;
+    }
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });

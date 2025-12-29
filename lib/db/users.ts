@@ -1,5 +1,5 @@
 // User database operations
-import { supabaseAdmin } from './supabase';
+import { supabaseAdmin, isSupabaseEnabled } from './supabase';
 import type { User, CreateUserInput } from './types';
 
 /**
@@ -7,6 +7,10 @@ import type { User, CreateUserInput } from './types';
  * Used for lazy syncing when a user first accesses the app
  */
 export async function getOrCreateUser(clerkUserId: string, email: string, fullName?: string): Promise<User | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   // Try to get existing user
   const { data: existing, error: getError } = await supabaseAdmin
     .from('users')
@@ -41,6 +45,10 @@ export async function getOrCreateUser(clerkUserId: string, email: string, fullNa
  * Get user by Clerk user ID
  */
 export async function getUserByClerkId(clerkUserId: string): Promise<User | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('users')
     .select('*')
@@ -59,6 +67,10 @@ export async function getUserByClerkId(clerkUserId: string): Promise<User | null
  * Get user by internal UUID
  */
 export async function getUserById(id: string): Promise<User | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('users')
     .select('*')
@@ -80,6 +92,10 @@ export async function updateUser(
   clerkUserId: string,
   updates: { email?: string; full_name?: string }
 ): Promise<User | null> {
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    return null;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('users')
     .update(updates)

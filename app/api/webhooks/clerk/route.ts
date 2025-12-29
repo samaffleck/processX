@@ -2,9 +2,15 @@
 import { headers } from 'next/headers';
 import { Webhook } from 'svix';
 import { WebhookEvent } from '@clerk/nextjs/server';
-import { supabaseAdmin } from '@/lib/db/supabase';
+import { supabaseAdmin, isSupabaseEnabled } from '@/lib/db/supabase';
 
 export async function POST(req: Request) {
+  // If Supabase is not enabled, return success (no-op)
+  if (!isSupabaseEnabled() || !supabaseAdmin) {
+    console.log('Supabase is disabled, skipping webhook sync');
+    return new Response('OK (Supabase disabled)', { status: 200 });
+  }
+
   // Check webhook secret (lazy check - only when handler is called)
   const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
   if (!webhookSecret) {

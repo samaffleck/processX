@@ -6,10 +6,15 @@ import {
   getRecentlyAccessedFiles,
 } from '@/lib/db';
 import { getClerkUser, getUserDisplayInfo } from '@/lib/db/clerk-helpers';
+import { isSupabaseEnabled } from '@/lib/db/supabase';
 
 // GET /api/flowsheets/recent - Get recently accessed flowsheets for the organization
 export async function GET(request: NextRequest) {
   try {
+    if (!isSupabaseEnabled()) {
+      return NextResponse.json({ flowsheets: [] }, { status: 200 });
+    }
+
     const { userId, orgId } = await auth();
 
     if (!userId) {

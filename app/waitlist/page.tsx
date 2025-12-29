@@ -17,7 +17,7 @@ export default function WaitlistPage() {
               <div className="w-10 h-10 bg-white text-black rounded-lg flex items-center justify-center">
                 <Cpu className="w-6 h-6" />
               </div>
-              <span className="text-2xl font-bold text-white">Fugasity</span>
+              <span className="text-2xl font-bold text-white">ProcessX</span>
             </div>
           </Link>
         </div>
@@ -35,12 +35,12 @@ export default function WaitlistPage() {
             </p>
           </div>
 
-          <div className="bg-black border border-white/20 rounded-2xl p-8">
+          <div className="flex justify-center">
             <Waitlist 
               appearance={{
                 elements: {
                   rootBox: "mx-auto",
-                  card: "bg-transparent shadow-none",
+                  card: "bg-transparent shadow-none border-none",
                   headerTitle: "text-white text-2xl font-bold",
                   headerSubtitle: "text-white/60",
                   formButtonPrimary: "border border-white/20 text-white hover:bg-white hover:text-black",
@@ -50,7 +50,7 @@ export default function WaitlistPage() {
                   dividerText: "text-white/50",
                 },
               }}
-              afterJoinWaitlistUrl="/"
+              afterJoinWaitlistUrl="/Copilot"
             />
           </div>
         </div>

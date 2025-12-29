@@ -5,11 +5,15 @@ import {
   getOrganisationByClerkId,
 } from '@/lib/db';
 import { getClerkUser, getUserDisplayInfo } from '@/lib/db/clerk-helpers';
-import { supabaseAdmin } from '@/lib/db/supabase';
+import { supabaseAdmin, isSupabaseEnabled } from '@/lib/db/supabase';
 
 // DEBUG endpoint - GET /api/debug/recent-flowsheets
 export async function GET(request: NextRequest) {
   try {
+    if (!isSupabaseEnabled()) {
+      return NextResponse.json({ error: 'Supabase is disabled' }, { status: 503 });
+    }
+
     const { userId, orgId } = await auth();
 
     if (!userId) {
@@ -37,6 +41,11 @@ export async function GET(request: NextRequest) {
         user: !!user,
         organisation: !!organisation
       }, { status: 404 });
+    }
+
+    // Ensure supabaseAdmin is available (TypeScript guard)
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Supabase is disabled' }, { status: 503 });
     }
 
     // Debug: Check raw database query
