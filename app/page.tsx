@@ -42,12 +42,21 @@ export default function ProcessXLanding() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-              <Link 
-                href="/waitlist"
-                className="px-8 py-4 border border-white/20 rounded-lg font-semibold text-lg text-white transition-all duration-200 hover:bg-white/10 hover:border-white/40 w-full sm:w-auto"
-              >
-                Launch Simulation
-              </Link>
+              {isSignedIn ? (
+                <Link 
+                  href="/Copilot"
+                  className="px-8 py-4 border border-white/20 rounded-lg font-semibold text-lg text-white transition-all duration-200 hover:bg-white/10 hover:border-white/40 w-full sm:w-auto"
+                >
+                  Launch Simulation
+                </Link>
+              ) : (
+                <Link 
+                  href="/waitlist"
+                  className="px-8 py-4 border border-white/20 rounded-lg font-semibold text-lg text-white transition-all duration-200 hover:bg-white/10 hover:border-white/40 w-full sm:w-auto"
+                >
+                  Request Access
+                </Link>
+              )}
             </div>
           </div>
 

@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useUser, SignInButton, SignOutButton } from '@clerk/nextjs';
+import { useUser } from '@clerk/nextjs';
 import { Atom } from 'lucide-react';
 
 export default function Header() {
@@ -21,12 +21,37 @@ export default function Header() {
           <span className="text-2xl font-bold">ProcessX</span>
         </Link>
         <div className="flex items-center gap-3">
-          <Link 
-            href="/waitlist"
-            className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40"
-          >
-            Launch Simulation
-          </Link>
+          {!isSignedIn ? (
+            <>
+              <Link 
+                href="/waitlist"
+                className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40"
+              >
+                Request Access
+              </Link>
+              <Link 
+                href="/sign-in"
+                className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40"
+              >
+                Sign In
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link 
+                href="/Copilot"
+                className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40"
+              >
+                Launch Simulation
+              </Link>
+              <Link 
+                href="/dashboard"
+                className="px-6 py-2.5 border border-white/20 rounded-lg font-semibold transition-all duration-200 hover:bg-white/10 hover:border-white/40"
+              >
+                Dashboard
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>

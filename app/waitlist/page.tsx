@@ -50,7 +50,7 @@ export default function WaitlistPage() {
                   dividerText: "text-white/50",
                 },
               }}
-              afterJoinWaitlistUrl="/Copilot"
+              afterJoinWaitlistUrl="/dashboard"
             />
           </div>
         </div>
