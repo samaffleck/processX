@@ -6,6 +6,8 @@ A comprehensive chemical process simulation platform built with C++ for core sim
 
 ProcessX enables chemical engineers to design, simulate, and optimize process flowsheets with the assistance of an AI copilot that understands process engineering principles.
 
+🌐 **Website**: [www.processx.co.uk](https://www.processx.co.uk)
+
 ## Features
 
 - 🧪 **Steady-State Process Simulation**: Solve complex chemical process flowsheets with multiple unit operations
