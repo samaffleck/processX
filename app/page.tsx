@@ -131,11 +131,11 @@ export default function ProcessXLanding() {
             <div>
               <h3 className="text-2xl font-semibold mb-4 text-white">The Proof-of-Concept</h3>
               <p className="mb-6">
-                ProcessX is a proof-of-concept that explores this idea—an AI copilot for ASPEN, built as a web-native steady-state process simulator. 
+                ProcessX is a proof-of-concept that explores this idea - an AI copilot for ASPEN, built as a web-native steady-state process simulator. 
                 <br></br>
                 <br></br>
 
-                This prototype includes basic unit operations—mixers, splitters, pumps, valves, and heat exchangers—using CoolProp for thermodynamic calculations. 
+                This prototype includes basic unit operations — mixers, splitters, pumps, valves, and heat exchangers — using CoolProp for thermodynamic calculations. 
                 <br></br>
                 <br></br>
 
@@ -206,7 +206,7 @@ export default function ProcessXLanding() {
                 <br></br>
                 <br></br>
 
-                We proved to ourselves that text-based serialization can automate process set-up, potentially removing the need for drag-and-drop GUI interfaces.
+                We proved to ourselves that text-based serialization can automate process set-up, potentially removing the need for drag-and-drop graphical user interfaces.
                 <br></br>
                 <br></br>
 
@@ -214,7 +214,7 @@ export default function ProcessXLanding() {
                 <br></br>
                 <br></br>
 
-                This would simulteneous parameter, and process configuration optimisation which currently requires manual oversight and expertise.
+                This would simulteneously handle parameter, and process configuration optimisation which currently requires manual oversight and expertise.
               </p>
             </div>
 
@@ -228,7 +228,7 @@ export default function ProcessXLanding() {
                 ProcessX serves as a proof-of-concept for how any simulation could provide context to language models by adopting text-based serialization, offering a glimpse of what the future of process engineering simulation software will look like.
               </p>
             </div>
-            
+
             <div className="my-12 text-center">
               <p className="text-lg text-white/80 mb-6">
                 If you want to try it for yourself, request access to ProcessX below.
