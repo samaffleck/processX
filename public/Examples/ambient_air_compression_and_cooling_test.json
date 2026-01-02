@@ -1,0 +1,268 @@
+{
+    "Flowsheet_Data": {
+        "cereal_class_version": 0,
+        "Flowsheet_Stream_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [
+                {
+                    "cereal_class_version": 0,
+                    "Slot_Value": {
+                        "cereal_class_version": 0,
+                        "Stream_Name": "stream-1",
+                        "Stream_Molar_Flowrate": {
+                            "cereal_class_version": 0,
+                            "Variable_Name": "Molar Flowrate",
+                            "Variable_Value": 10.0,
+                            "Variable_Is_Fixed": true
+                        },
+                        "Stream_Pressure": {
+                            "Variable_Name": "Pressure",
+                            "Variable_Value": 100000.0,
+                            "Variable_Is_Fixed": true
+                        },
+                        "Stream_Temperature": {
+                            "Variable_Name": "Temperature",
+                            "Variable_Value": 300.0,
+                            "Variable_Is_Fixed": true
+                        },
+                        "Stream_Fluid_Package_ID": 1,
+                        "Stream_Mole_Fractions": [
+                            {
+                                "Variable_Name": "Mole_Fraction[N2]",
+                                "Variable_Value": 0.79,
+                                "Variable_Is_Fixed": true
+                            },
+                            {
+                                "Variable_Name": "Mole_Fraction[O2]",
+                                "Variable_Value": 0.21,
+                                "Variable_Is_Fixed": true
+                            }
+                        ]
+                    },
+                    "Slot_Generation": 1,
+                    "Slot_Alive": true,
+                    "Slot_Next_Free": 4294967295
+                },
+                {
+                    "Slot_Value": {
+                        "Stream_Name": "stream-2",
+                        "Stream_Molar_Flowrate": {
+                            "Variable_Name": "Molar Flowrate",
+                            "Variable_Value": 10.0,
+                            "Variable_Is_Fixed": false
+                        },
+                        "Stream_Pressure": {
+                            "Variable_Name": "Pressure",
+                            "Variable_Value": 500000.0,
+                            "Variable_Is_Fixed": false
+                        },
+                        "Stream_Temperature": {
+                            "Variable_Name": "Temperature",
+                            "Variable_Value": 473.215115552519,
+                            "Variable_Is_Fixed": false
+                        },
+                        "Stream_Fluid_Package_ID": 1,
+                        "Stream_Mole_Fractions": [
+                            {
+                                "Variable_Name": "Mole_Fraction[N2]",
+                                "Variable_Value": 0.79,
+                                "Variable_Is_Fixed": false
+                            },
+                            {
+                                "Variable_Name": "Mole_Fraction[O2]",
+                                "Variable_Value": 0.21,
+                                "Variable_Is_Fixed": false
+                            }
+                        ]
+                    },
+                    "Slot_Generation": 1,
+                    "Slot_Alive": true,
+                    "Slot_Next_Free": 4294967295
+                },
+                {
+                    "Slot_Value": {
+                        "Stream_Name": "stream-3",
+                        "Stream_Molar_Flowrate": {
+                            "Variable_Name": "Molar Flowrate",
+                            "Variable_Value": 10.0,
+                            "Variable_Is_Fixed": false
+                        },
+                        "Stream_Pressure": {
+                            "Variable_Name": "Pressure",
+                            "Variable_Value": 490000.0,
+                            "Variable_Is_Fixed": false
+                        },
+                        "Stream_Temperature": {
+                            "Variable_Name": "Temperature",
+                            "Variable_Value": 300.0,
+                            "Variable_Is_Fixed": true
+                        },
+                        "Stream_Fluid_Package_ID": 1,
+                        "Stream_Mole_Fractions": [
+                            {
+                                "Variable_Name": "Mole_Fraction[N2]",
+                                "Variable_Value": 0.79,
+                                "Variable_Is_Fixed": false
+                            },
+                            {
+                                "Variable_Name": "Mole_Fraction[O2]",
+                                "Variable_Value": 0.21,
+                                "Variable_Is_Fixed": false
+                            }
+                        ]
+                    },
+                    "Slot_Generation": 1,
+                    "Slot_Alive": true,
+                    "Slot_Next_Free": 4294967295
+                }
+            ],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_Valve_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_Mixer_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_Splitter_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_HeatExchanger_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_SimpleHeatExchanger_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [
+                {
+                    "cereal_class_version": 0,
+                    "Slot_Value": {
+                        "cereal_class_version": 0,
+                        "value0": {
+                            "cereal_class_version": 0,
+                            "Unit_Operation_Name": "SimpleHeatExchanger-1",
+                            "Unit_Position_In_Flowsheet": {
+                                "cereal_class_version": 0,
+                                "x": 0.0,
+                                "y": 0.0
+                            },
+                            "Unit_Size": {
+                                "x": 0.0,
+                                "y": 0.0
+                            }
+                        },
+                        "SimpleHeatExchanger_Inlet": {
+                            "cereal_class_version": 0,
+                            "Handle_Index": 1,
+                            "Handle_Generation": 1
+                        },
+                        "SimpleHeatExchanger_Outlet": {
+                            "Handle_Index": 2,
+                            "Handle_Generation": 1
+                        },
+                        "SimpleHeatExchanger_Pressure_Drop": {
+                            "Variable_Name": "dP",
+                            "Variable_Value": 10000.0,
+                            "Variable_Is_Fixed": true
+                        },
+                        "SimpleHeatExchanger_Heat_Duty": {
+                            "Variable_Name": "Q",
+                            "Variable_Value": -51173.851282103875,
+                            "Variable_Is_Fixed": false
+                        }
+                    },
+                    "Slot_Generation": 1,
+                    "Slot_Alive": true,
+                    "Slot_Next_Free": 4294967295
+                }
+            ],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_Pump_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [
+                {
+                    "cereal_class_version": 0,
+                    "Slot_Value": {
+                        "cereal_class_version": 0,
+                        "value0": {
+                            "Unit_Operation_Name": "Pump-1",
+                            "Unit_Position_In_Flowsheet": {
+                                "x": 0.0,
+                                "y": 0.0
+                            },
+                            "Unit_Size": {
+                                "x": 0.0,
+                                "y": 0.0
+                            }
+                        },
+                        "Compressor_Inlet": {
+                            "Handle_Index": 0,
+                            "Handle_Generation": 1
+                        },
+                        "Compressor_Outlet": {
+                            "Handle_Index": 1,
+                            "Handle_Generation": 1
+                        },
+                        "Compressor_Pressure_Rise": {
+                            "Variable_Name": "dP",
+                            "Variable_Value": 400000.0,
+                            "Variable_Is_Fixed": true
+                        },
+                        "Compressor_Work": {
+                            "Variable_Name": "W",
+                            "Variable_Value": 67892.3559843652,
+                            "Variable_Is_Fixed": false
+                        },
+                        "Compressor_Efficiency": {
+                            "Variable_Name": "eta",
+                            "Variable_Value": 0.75,
+                            "Variable_Is_Fixed": true
+                        }
+                    },
+                    "Slot_Generation": 1,
+                    "Slot_Alive": true,
+                    "Slot_Next_Free": 4294967295
+                }
+            ],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_ComponentSplitter_Registry": {
+            "cereal_class_version": 0,
+            "Registry_Slots": [],
+            "Registry_Free_Head": 4294967295
+        },
+        "Flowsheet_FluidPackage_Registry": {
+            "cereal_class_version": 0,
+            "FluidPackage_Components": [
+                {
+                    "key": 1,
+                    "value": [
+                        "N2",
+                        "O2"
+                    ]
+                }
+            ],
+            "FluidPackage_Thermo": [
+                {
+                    "key": 1,
+                    "value": "HEOS"
+                }
+            ],
+            "FluidPackage_Names": [
+                {
+                    "key": 1,
+                    "value": "Package #1"
+                }
+            ],
+            "FluidPackage_NextID": 1
+        }
+    }
+}

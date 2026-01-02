@@ -127,26 +127,26 @@
                                 "y": 0.0
                             }
                         },
-                        "Pump_Inlet": {
+                        "Compressor_Inlet": {
                             "cereal_class_version": 0,
                             "Handle_Index": 0,
                             "Handle_Generation": 1
                         },
-                        "Pump_Outlet": {
+                        "Compressor_Outlet": {
                             "Handle_Index": 1,
                             "Handle_Generation": 1
                         },
-                        "Pump_Pressure_Rise": {
+                        "Compressor_Pressure_Rise": {
                             "Variable_Name": "dP",
                             "Variable_Value": 100000.0,
                             "Variable_Is_Fixed": true
                         },
-                        "Pump_Work": {
+                        "Compressor_Work": {
                             "Variable_Name": "W",
                             "Variable_Value": 23891.327101620343,
                             "Variable_Is_Fixed": false
                         },
-                        "Pump_Efficiency": {
+                        "Compressor_Efficiency": {
                             "Variable_Name": "eta",
                             "Variable_Value": 0.8,
                             "Variable_Is_Fixed": true

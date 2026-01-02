@@ -65,12 +65,12 @@
                         "Stream_Mole_Fractions": [
                             {
                                 "Variable_Name": "Mole_Fraction[N2]",
-                                "Variable_Value": 0.9999999999996884,
+                                "Variable_Value": 1.0,
                                 "Variable_Is_Fixed": false
                             },
                             {
                                 "Variable_Name": "Mole_Fraction[O2]",
-                                "Variable_Value": 3.1161544257053885e-13,
+                                "Variable_Value": 0.0,
                                 "Variable_Is_Fixed": false
                             }
                         ]
@@ -101,12 +101,12 @@
                         "Stream_Mole_Fractions": [
                             {
                                 "Variable_Name": "Mole_Fraction[N2]",
-                                "Variable_Value": 1.1722676170785752e-12,
+                                "Variable_Value": 0.0,
                                 "Variable_Is_Fixed": false
                             },
                             {
                                 "Variable_Name": "Mole_Fraction[O2]",
-                                "Variable_Value": 0.9999999999988277,
+                                "Variable_Value": 1.0,
                                 "Variable_Is_Fixed": false
                             }
                         ]
@@ -195,7 +195,7 @@
                         ],
                         "ComponentSplitter_Heat_Duty": {
                             "Variable_Name": "Q",
-                            "Variable_Value": 0.22119047279763205,
+                            "Variable_Value": 0.22119047278731567,
                             "Variable_Is_Fixed": false
                         }
                     },

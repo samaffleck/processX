@@ -280,11 +280,11 @@ namespace px {
 		void serialize(Archive& ar, std::uint32_t const version) {
 			ar(
 				cereal::virtual_base_class<IUnitOp>(this),
-				cereal::make_nvp("Pump_Inlet", in),
-				cereal::make_nvp("Pump_Outlet", out),
-				cereal::make_nvp("Pump_Pressure_Rise", dP),
-				cereal::make_nvp("Pump_Work", W),
-				cereal::make_nvp("Pump_Efficiency", eta)
+				cereal::make_nvp("Compressor_Inlet", in),
+				cereal::make_nvp("Compressor_Outlet", out),
+				cereal::make_nvp("Compressor_Pressure_Rise", dP),
+				cereal::make_nvp("Compressor_Work", W),
+				cereal::make_nvp("Compressor_Efficiency", eta)
 			);
 		}
   };

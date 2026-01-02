@@ -44,13 +44,13 @@ void ShowUnitOperationsPalette() {
     AddLogEntry(LogEntry::Info, "Added new HeatExchanger");
   }
   ImGui::SameLine();
-  if (ImGui::Button("Pump", button_dim)) {
+  if (ImGui::Button("Compressor", button_dim)) {
     flowsheet.add<px::Pump>();
     selected_unit.clear();
-    AddLogEntry(LogEntry::Info, "Added new Pump");
+    AddLogEntry(LogEntry::Info, "Added new Compressor");
   }
   ImGui::SameLine();
-  if (ImGui::Button("ComponentSplitter", button_dim)) {
+  if (ImGui::Button("C-Split", button_dim)) {
     flowsheet.add<px::ComponentSplitter>();
     selected_unit.clear();
     AddLogEntry(LogEntry::Info, "Added new ComponentSplitter");

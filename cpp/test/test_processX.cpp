@@ -65,7 +65,7 @@ namespace px {
       std::cout<<"Unknowns: "<<data.fs.reg.GetFeeVariableNames()<<"\n";
 
       // Set solver options
-      data.newton_options = NewtonOptions{50,1e-12,1e-14,1e-6,1e-8,true};
+      data.newton_options = NewtonOptions{200,1e-12,1e-14,1e-6,1e-8,true};
       auto rep = newton_solve(data);
       
       std::cout<<(rep.converged?"Converged":"Not converged")<<" in "<<rep.iters<<" iters, |r|_inf="<<rep.final_res<<" : "<<rep.msg<<"\n";    
@@ -1039,6 +1039,113 @@ namespace px {
     EXPECT_NEAR(splitter.Q.value_, energy_out - energy_in, 1e-6);
 
     SaveTest("component_splitter_test", data.fs);
+  }
+
+  TEST_F(ProcessTest, AmbientAirCompressionAndCoolingTest) {
+    // Initialize fluid package
+    size_t fluid_id = init_air_fluid();
+    auto& fs = data.fs; 
+
+    // Create streams: ambient inlet, after compression, final cooled outlet
+    auto s_ambient = fs.add<Stream>();
+    auto s_compressed = fs.add<Stream>();
+    auto s_cooled = fs.add<Stream>();
+    
+    // Create unit operations: pump and heat exchanger
+    auto pump = fs.add<Pump>();
+    auto hx = fs.add<SimpleHeatExchanger>();
+
+    // Connect pump: ambient -> compressed
+    fs.connect_in<Pump>(pump, s_ambient);
+    fs.connect_out<Pump>(pump, s_compressed);
+    
+    // Connect heat exchanger: compressed -> cooled
+    fs.connect_in<SimpleHeatExchanger>(hx, s_compressed);
+    fs.connect_out<SimpleHeatExchanger>(hx, s_cooled);
+
+    auto& ambient = fs.get<Stream>(s_ambient);
+    auto& compressed = fs.get<Stream>(s_compressed);
+    auto& cooled = fs.get<Stream>(s_cooled);
+    auto& p = fs.get<Pump>(pump);
+    auto& hex = fs.get<SimpleHeatExchanger>(hx);
+
+    // Assign fluid package to all streams
+    ambient.fluid_package_id = fluid_id;
+    compressed.fluid_package_id = fluid_id;
+    cooled.fluid_package_id = fluid_id;
+    
+    // Initialize mole fractions: fix ambient composition, others will be solved
+    init_stream_composition(ambient, fluid_id, true);  // Fix ambient composition
+    init_stream_composition(compressed, fluid_id, false);
+    init_stream_composition(cooled, fluid_id, false);
+
+    // Given: ambient conditions
+    const double P_ambient = 1.0e5;   // Pa (1 bar)
+    const double T_ambient = 300.0;  // K (room temperature)
+    const double F = 10.0;            // mol/s
+    
+    // Compression: from 1 bar to 5 bar
+    const double P_compressed = 5.0e5;  // Pa (5 bar)
+    const double dP_pump = P_compressed - P_ambient;  // 4.0e5 Pa
+    const double eta = 0.75;            // Pump efficiency
+    
+    // Heat exchanger: cool back to ambient temperature
+    const double T_cooled = 300.0;      // K (back to ambient)
+    const double dP_hx = 1.0e4;         // Pa (pressure drop in heat exchanger)
+
+    // Set fixed values for ambient inlet
+    ambient.pressure.SetValue(P_ambient, true);
+    ambient.temperature.SetValue(T_ambient, true);
+    ambient.molar_flow.SetValue(F, true);
+    
+    // Set pump parameters
+    p.dP.SetValue(dP_pump, true);
+    p.eta.SetValue(eta, true);
+    
+    // Set heat exchanger parameters
+    hex.dP.SetValue(dP_hx, true);
+    cooled.temperature.SetValue(T_cooled, true);  // Fix outlet temperature, solve for Q
+    
+    // Unknowns
+    compressed.pressure.SetValue(4.9e5, false);    // Should be P_ambient + dP_pump
+    compressed.molar_flow.SetValue(9.9, false);   // Should equal F
+    compressed.temperature.SetValue(350.0, false); // Will be calculated from compression
+    
+    cooled.pressure.SetValue(4.8e5, false);       // Should be P_compressed - dP_hx
+    cooled.molar_flow.SetValue(9.8, false);      // Should equal F
+    hex.Q.SetValue(0.0, false);                   // Will be calculated (negative for cooling)
+    p.W.SetValue(1000.0, false);                 // Work will be calculated
+
+    run();
+
+    // Verify mass balances
+    EXPECT_NEAR(ambient.molar_flow.value_, compressed.molar_flow.value_, 1e-10);
+    EXPECT_NEAR(compressed.molar_flow.value_, cooled.molar_flow.value_, 1e-10);
+    EXPECT_NEAR(ambient.molar_flow.value_, cooled.molar_flow.value_, 1e-10);
+    
+    // Verify compression: P_compressed = P_ambient + dP_pump
+    EXPECT_NEAR(compressed.pressure.value_, P_compressed, 1e-6);
+    
+    // Verify heat exchanger pressure drop: P_cooled = P_compressed - dP_hx
+    EXPECT_NEAR(cooled.pressure.value_, P_compressed - dP_hx, 1e-6);
+    
+    // Verify final temperature is back to ambient
+    EXPECT_NEAR(cooled.temperature.value_, T_ambient, 1e-6);
+    
+    // Verify compression increases temperature (adiabatic compression heats the gas)
+    EXPECT_GT(compressed.temperature.value_, T_ambient);
+    
+    // Verify pump energy balance: W * eta = m * (h_compressed - h_ambient)
+    double delta_h_pump = compressed.molar_enthalpy.value_ - ambient.molar_enthalpy.value_;
+    EXPECT_NEAR(p.W.value_ * p.eta.value_, ambient.molar_flow.value_ * delta_h_pump, 1e-6);
+    
+    // Verify heat exchanger energy balance: Q = m * (h_cooled - h_compressed)
+    // Q should be negative (heat removed) since we're cooling
+    double delta_h_hx = cooled.molar_enthalpy.value_ - compressed.molar_enthalpy.value_;
+    EXPECT_NEAR(hex.Q.value_, compressed.molar_flow.value_ * delta_h_hx, 1e-6);
+    EXPECT_LT(hex.Q.value_, 0.0);  // Negative Q means cooling
+    
+    SaveTest("ambient_air_compression_and_cooling_test", data.fs);
   }
 
 } // end processX namespace
