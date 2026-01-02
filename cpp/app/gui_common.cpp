@@ -195,19 +195,37 @@ bool LoadFlowsheetFromJSONString(const std::string& json_string) {
     return false;
   }
   
-  // Log first 200 characters for debugging
-  std::string preview = json_string.substr(0, std::min(200UL, json_string.length()));
-  std::cerr << "[LoadFlowsheetFromJSONString] JSON preview (first 200 chars): " << preview << std::endl;
+  // Log first 500 characters for debugging
+  std::string preview = json_string.substr(0, std::min(500UL, json_string.length()));
+  std::cerr << "[LoadFlowsheetFromJSONString] JSON preview (first 500 chars): " << preview << std::endl;
+
+  // For debugging: log full JSON if it's reasonably sized
+  if (json_string.length() < 5000) {
+    std::cerr << "[LoadFlowsheetFromJSONString] FULL JSON:\n" << json_string << std::endl;
+  }
   
   try {
     std::cerr << "[LoadFlowsheetFromJSONString] Creating input stream..." << std::endl;
     std::istringstream iss(json_string);
-    
+
     std::cerr << "[LoadFlowsheetFromJSONString] Creating JSON archive..." << std::endl;
     cereal::JSONInputArchive archive(iss);
-    
-    std::cerr << "[LoadFlowsheetFromJSONString] Deserializing user data..." << std::endl;
-    archive(user_data);
+
+    // Try to detect the JSON format by checking if it has "UserData" or "Flowsheet_Data" at the top level
+    // Old format: { "Flowsheet_Data": {...} }
+    // New format: { "UserData": { "Flowsheet_Data": {...}, "KINSOL_Solver_Settings": {...} } }
+    bool is_old_format = json_string.find("\"UserData\"") == std::string::npos &&
+                         json_string.find("\"Flowsheet_Data\"") != std::string::npos;
+
+    if (is_old_format) {
+      std::cerr << "[LoadFlowsheetFromJSONString] Detected OLD format (Flowsheet_Data at top level), deserializing flowsheet only..." << std::endl;
+      archive(cereal::make_nvp("Flowsheet_Data", user_data.fs));
+      // Initialize newton_options to default values
+      user_data.newton_options = px::NewtonOptions{};
+    } else {
+      std::cerr << "[LoadFlowsheetFromJSONString] Detected NEW format (UserData wrapper), deserializing user data..." << std::endl;
+      archive(cereal::make_nvp("UserData", user_data));
+    }
 
     std::cerr << "[LoadFlowsheetFromJSONString] Deserialization successful!" << std::endl;
 

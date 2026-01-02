@@ -339,17 +339,17 @@ namespace px {
 		friend class cereal::access;
 		template <class Archive>
 		void serialize(Archive& ar, std::uint32_t const /* version */) {
-			ar(
-				cereal::make_nvp("Flowsheet_Stream_Registry", streams_),
-				cereal::make_nvp("Flowsheet_Valve_Registry", valves_),
-				cereal::make_nvp("Flowsheet_Mixer_Registry", mixers_),
-				cereal::make_nvp("Flowsheet_Splitter_Registry", splitters_),
-				cereal::make_nvp("Flowsheet_HeatExchanger_Registry", heat_exchangers_),
-				cereal::make_nvp("Flowsheet_SimpleHeatExchanger_Registry", simple_heat_exchangers_),
-				cereal::make_nvp("Flowsheet_Pump_Registry", pumps_),
-				cereal::make_nvp("Flowsheet_ComponentSplitter_Registry", component_splitters_),
-				cereal::make_nvp("Flowsheet_FluidPackage_Registry", fluids)
-			);
+			std::cerr << "[Flowsheet::serialize] Starting..." << std::endl;
+			try { ar(cereal::make_nvp("Flowsheet_Stream_Registry", streams_)); std::cerr << "[Flowsheet::serialize] ✓ Streams" << std::endl; } catch(const std::exception& e) { std::cerr << "[Flowsheet::serialize] ✗ Streams FAILED: " << e.what() << std::endl; throw; } catch(...) { std::cerr << "[Flowsheet::serialize] ✗ Streams FAILED: Unknown error" << std::endl; throw; }
+			try { ar(cereal::make_nvp("Flowsheet_Valve_Registry", valves_)); std::cerr << "[Flowsheet::serialize] ✓ Valves" << std::endl; } catch(const std::exception& e) { std::cerr << "[Flowsheet::serialize] ✗ Valves FAILED: " << e.what() << std::endl; throw; } catch(...) { std::cerr << "[Flowsheet::serialize] ✗ Valves FAILED: Unknown error" << std::endl; throw; }
+			try { ar(cereal::make_nvp("Flowsheet_Mixer_Registry", mixers_)); std::cerr << "[Flowsheet::serialize] ✓ Mixers" << std::endl; } catch(const std::exception& e) { std::cerr << "[Flowsheet::serialize] ✗ Mixers FAILED: " << e.what() << std::endl; throw; } catch(...) { std::cerr << "[Flowsheet::serialize] ✗ Mixers FAILED: Unknown error" << std::endl; throw; }
+			try { ar(cereal::make_nvp("Flowsheet_Splitter_Registry", splitters_)); std::cerr << "[Flowsheet::serialize] ✓ Splitters" << std::endl; } catch(const std::exception& e) { std::cerr << "[Flowsheet::serialize] ✗ Splitters FAILED: " << e.what() << std::endl; throw; } catch(...) { std::cerr << "[Flowsheet::serialize] ✗ Splitters FAILED: Unknown error" << std::endl; throw; }
+			try { ar(cereal::make_nvp("Flowsheet_HeatExchanger_Registry", heat_exchangers_)); std::cerr << "[Flowsheet::serialize] ✓ HeatExchangers" << std::endl; } catch(const std::exception& e) { std::cerr << "[Flowsheet::serialize] ✗ HeatExchangers FAILED: " << e.what() << std::endl; throw; } catch(...) { std::cerr << "[Flowsheet::serialize] ✗ HeatExchangers FAILED: Unknown error" << std::endl; throw; }
+			try { ar(cereal::make_nvp("Flowsheet_SimpleHeatExchanger_Registry", simple_heat_exchangers_)); std::cerr << "[Flowsheet::serialize] ✓ SimpleHeatExchangers" << std::endl; } catch(const std::exception& e) { std::cerr << "[Flowsheet::serialize] ✗ SimpleHeatExchangers FAILED: " << e.what() << std::endl; throw; } catch(...) { std::cerr << "[Flowsheet::serialize] ✗ SimpleHeatExchangers FAILED: Unknown error" << std::endl; throw; }
+			try { ar(cereal::make_nvp("Flowsheet_Pump_Registry", pumps_)); std::cerr << "[Flowsheet::serialize] ✓ Pumps" << std::endl; } catch(const std::exception& e) { std::cerr << "[Flowsheet::serialize] ✗ Pumps FAILED: " << e.what() << std::endl; throw; } catch(...) { std::cerr << "[Flowsheet::serialize] ✗ Pumps FAILED: Unknown error" << std::endl; throw; }
+			try { ar(cereal::make_nvp("Flowsheet_ComponentSplitter_Registry", component_splitters_)); std::cerr << "[Flowsheet::serialize] ✓ ComponentSplitters" << std::endl; } catch(const std::exception& e) { std::cerr << "[Flowsheet::serialize] ✗ ComponentSplitters FAILED: " << e.what() << std::endl; throw; } catch(...) { std::cerr << "[Flowsheet::serialize] ✗ ComponentSplitters FAILED: Unknown error" << std::endl; throw; }
+			try { ar(cereal::make_nvp("Flowsheet_FluidPackage_Registry", fluids)); std::cerr << "[Flowsheet::serialize] ✓ FluidPackages" << std::endl; } catch(const std::exception& e) { std::cerr << "[Flowsheet::serialize] ✗ FluidPackages FAILED: " << e.what() << std::endl; throw; } catch(...) { std::cerr << "[Flowsheet::serialize] ✗ FluidPackages FAILED: Unknown error" << std::endl; throw; }
+			std::cerr << "[Flowsheet::serialize] Complete!" << std::endl;
     }
   };
 

@@ -99,7 +99,7 @@ function CopilotPageContent() {
     const handleMessage = async (event: MessageEvent) => {
       // Only accept messages from same origin
       if (event.origin !== window.location.origin) return;
-      
+
       if (event.data?.type === 'flowsheetSaved') {
         // C++ save completed - update React state
         const { flowsheetId, flowsheetName: savedName } = event.data;
@@ -116,12 +116,12 @@ function CopilotPageContent() {
         if (!iframe || !iframe.contentWindow) {
           return;
         }
-        
+
         const wasmModule = (iframe.contentWindow as any).Module;
         if (!wasmModule) {
           return;
         }
-        
+
         if (!currentFlowsheetId) {
           // Show error in C++
           if (typeof wasmModule._OnLockResult === 'function') {
@@ -231,7 +231,7 @@ function CopilotPageContent() {
 
       // Check for both 'ready' status and 'Running...' status
       if (event.data?.type === 'wasmStatus' &&
-          (event.data?.status === 'ready' || event.data?.status?.includes('Running'))) {
+        (event.data?.status === 'ready' || event.data?.status?.includes('Running'))) {
         console.log('✅ WASM is ready - conditionally setting wasmReady to true');
         setWasmReady(prev => {
           if (prev) {
@@ -285,6 +285,188 @@ function CopilotPageContent() {
 
 
 
+  // Sanitize JSON to handle null values for handles (which crash the WASM app)
+  const sanitizeFlowsheetJSON = (json: string): string => {
+    try {
+      const data = JSON.parse(json);
+      let modified = false;
+
+      // Recursive function to walk the object tree
+      const walk = (obj: any, path: string = '') => {
+        if (!obj || typeof obj !== 'object') return;
+
+        if (Array.isArray(obj)) {
+          obj.forEach((item, i) => walk(item, `${path}[${i}]`));
+          return;
+        }
+
+        // 1. Recurse and Fix Null Handles in-place
+        Object.keys(obj).forEach(key => {
+          const value = obj[key];
+
+          // Debug check
+          if (key === 'Unit_Operation_Name' && value === 'Pump-1') {
+            // console.log('🔧 [sanitize] FOUND PUMP-1');
+          }
+
+          if (value === null) {
+            // Check for keys that look like handles
+            const isHandleKey =
+              key.endsWith('_Handle') ||
+              key.endsWith('_Handles') ||
+              key.endsWith('_Inlet') ||
+              key.endsWith('_Inlets') ||
+              key.endsWith('_Outlet') ||
+              key.endsWith('_Outlets') ||
+              key.endsWith('_Overhead') ||
+              key.endsWith('_Bottom') ||
+              key === 'Valve_Inlet_ID_Handle' ||
+              key === 'Pump_Outlet';
+
+            if (isHandleKey) {
+              console.log(`🔧 [sanitize] Fixing NULL handle at ${path}.${key}`);
+              obj[key] = { "cereal_class_version": 0, "Handle_Index": 4294967295, "Handle_Generation": 0 };
+              modified = true;
+              return; // Fixed, no need to recurse on this null
+            }
+          }
+
+          // Recurse
+          walk(obj[key], `${path}.${key}`);
+        });
+
+        // 2. UnitOp Schema Enforcement & Fixing (Derived Class Level)
+        // We detect the derived object by checking if it contains 'value0' which has the name,
+        // OR if it has the name directly (flattened case).
+        let unitName = '';
+        if (obj.hasOwnProperty('value0') && obj['value0'] && obj['value0'].hasOwnProperty('Unit_Operation_Name')) {
+          unitName = obj['value0']['Unit_Operation_Name'];
+        } else if (obj.hasOwnProperty('Unit_Operation_Name')) {
+          unitName = obj['Unit_Operation_Name'];
+        }
+
+        if (unitName && typeof unitName === 'string') {
+          const emptyHandle = { "cereal_class_version": 0, "Handle_Index": 4294967295, "Handle_Generation": 0 };
+
+          // ComponentSplitter
+          if (unitName.startsWith('ComponentSplitter')) {
+            // Map malformed keys from Copilot
+            if (obj.hasOwnProperty('ComponentSplitter_Inlet_ID_Handle') && !obj.hasOwnProperty('ComponentSplitter_Inlet')) {
+              obj['ComponentSplitter_Inlet'] = obj['ComponentSplitter_Inlet_ID_Handle'];
+            }
+            if (obj.hasOwnProperty('ComponentSplitter_Outlets') && Array.isArray(obj['ComponentSplitter_Outlets'])) {
+              const outlets = obj['ComponentSplitter_Outlets'];
+              if (outlets.length > 0 && !obj.hasOwnProperty('ComponentSplitter_Overhead')) obj['ComponentSplitter_Overhead'] = outlets[0];
+              if (outlets.length > 1 && !obj.hasOwnProperty('ComponentSplitter_Bottom')) obj['ComponentSplitter_Bottom'] = outlets[1];
+            }
+
+            // Inject missing fields
+            if (!obj.hasOwnProperty('ComponentSplitter_Inlet')) { obj['ComponentSplitter_Inlet'] = emptyHandle; modified = true; }
+            if (!obj.hasOwnProperty('ComponentSplitter_Overhead')) { obj['ComponentSplitter_Overhead'] = emptyHandle; modified = true; }
+            if (!obj.hasOwnProperty('ComponentSplitter_Bottom')) { obj['ComponentSplitter_Bottom'] = emptyHandle; modified = true; }
+
+            if (!obj.hasOwnProperty('ComponentSplitter_Overhead_Split_Ratios')) {
+              console.warn(`🔧 [sanitize] Injecting missing ComponentSplitter_Overhead_Split_Ratios`);
+              obj['ComponentSplitter_Overhead_Split_Ratios'] = [];
+              modified = true;
+            }
+            if (!obj.hasOwnProperty('ComponentSplitter_Heat_Duty')) {
+              obj['ComponentSplitter_Heat_Duty'] = { "cereal_class_version": 0, "Variable_Name": "Q", "Variable_Value": 0.0, "Variable_Is_Fixed": false };
+              modified = true;
+            }
+          }
+
+          // HeatExchanger
+          else if (unitName.startsWith('HeatExchanger')) {
+            if (!obj.hasOwnProperty('HeatExchanger_Hot_Inlet')) { obj['HeatExchanger_Hot_Inlet'] = emptyHandle; modified = true; }
+            if (!obj.hasOwnProperty('HeatExchanger_Hot_Outlet')) { obj['HeatExchanger_Hot_Outlet'] = emptyHandle; modified = true; }
+            if (!obj.hasOwnProperty('HeatExchanger_Cold_Inlet')) { obj['HeatExchanger_Cold_Inlet'] = emptyHandle; modified = true; }
+            if (!obj.hasOwnProperty('HeatExchanger_Cold_Outlet')) { obj['HeatExchanger_Cold_Outlet'] = emptyHandle; modified = true; }
+
+            if (!obj.hasOwnProperty('HeatExchanger_Pressure_Drop_Hot')) obj['HeatExchanger_Pressure_Drop_Hot'] = { "cereal_class_version": 0, "Variable_Name": "dP_hot", "Variable_Value": 0.0, "Variable_Is_Fixed": false };
+            if (!obj.hasOwnProperty('HeatExchanger_Pressure_Drop_Cold')) obj['HeatExchanger_Pressure_Drop_Cold'] = { "cereal_class_version": 0, "Variable_Name": "dP_cold", "Variable_Value": 0.0, "Variable_Is_Fixed": false };
+            if (!obj.hasOwnProperty('HeatExchanger_Heat_Duty')) obj['HeatExchanger_Heat_Duty'] = { "cereal_class_version": 0, "Variable_Name": "Q", "Variable_Value": 0.0, "Variable_Is_Fixed": false };
+          }
+
+          // SimpleHeatExchanger
+          else if (unitName.startsWith('SimpleHeatExchanger')) {
+            if (!obj.hasOwnProperty('SimpleHeatExchanger_Inlet')) { obj['SimpleHeatExchanger_Inlet'] = emptyHandle; modified = true; }
+            if (!obj.hasOwnProperty('SimpleHeatExchanger_Outlet')) { obj['SimpleHeatExchanger_Outlet'] = emptyHandle; modified = true; }
+
+            if (!obj.hasOwnProperty('SimpleHeatExchanger_Pressure_Drop')) obj['SimpleHeatExchanger_Pressure_Drop'] = { "cereal_class_version": 0, "Variable_Name": "dP", "Variable_Value": 0.0, "Variable_Is_Fixed": false };
+            if (!obj.hasOwnProperty('SimpleHeatExchanger_Heat_Duty')) obj['SimpleHeatExchanger_Heat_Duty'] = { "cereal_class_version": 0, "Variable_Name": "Q", "Variable_Value": 0.0, "Variable_Is_Fixed": false };
+          }
+
+          // Pump
+          else if (unitName.startsWith('Pump')) {
+            if (!obj.hasOwnProperty('Pump_Inlet')) { obj['Pump_Inlet'] = emptyHandle; modified = true; }
+            if (!obj.hasOwnProperty('Pump_Outlet')) { obj['Pump_Outlet'] = emptyHandle; modified = true; }
+
+            if (!obj.hasOwnProperty('Pump_Pressure_Rise')) obj['Pump_Pressure_Rise'] = { "cereal_class_version": 0, "Variable_Name": "dP", "Variable_Value": 0.0, "Variable_Is_Fixed": false };
+            if (!obj.hasOwnProperty('Pump_Work')) obj['Pump_Work'] = { "cereal_class_version": 0, "Variable_Name": "W", "Variable_Value": 0.0, "Variable_Is_Fixed": false };
+            if (!obj.hasOwnProperty('Pump_Efficiency')) obj['Pump_Efficiency'] = { "cereal_class_version": 0, "Variable_Name": "eta", "Variable_Value": 0.0, "Variable_Is_Fixed": true };
+          }
+
+          // Valve
+          else if (unitName.startsWith('Valve')) {
+            if (obj.hasOwnProperty('Valve_Inlet_ID_Handle') && !obj.hasOwnProperty('Valve_Inlet_ID_Handle')) obj['Valve_Inlet_ID_Handle'] = emptyHandle;
+            if (!obj.hasOwnProperty('Valve_Inlet_ID_Handle')) { obj['Valve_Inlet_ID_Handle'] = emptyHandle; modified = true; }
+            if (!obj.hasOwnProperty('Valve_Outlet_ID_Handle')) { obj['Valve_Outlet_ID_Handle'] = emptyHandle; modified = true; }
+            if (!obj.hasOwnProperty('Valve_Flow_Coefficient')) obj['Valve_Flow_Coefficient'] = { "cereal_class_version": 0, "Variable_Name": "Cv", "Variable_Value": 1.0, "Variable_Is_Fixed": false };
+          }
+
+          // Mixer
+          else if (unitName.startsWith('Mixer')) {
+            if (!obj.hasOwnProperty('Mixer_Inlets')) { obj['Mixer_Inlets'] = []; modified = true; }
+            if (!obj.hasOwnProperty('Mixer_Outlet_ID_Handle')) { obj['Mixer_Outlet_ID_Handle'] = emptyHandle; modified = true; }
+          }
+
+          // Splitter
+          else if (unitName.startsWith('Splitter')) {
+            if (!obj.hasOwnProperty('Splitter_Inlet_ID_Handles')) { obj['Splitter_Inlet_ID_Handles'] = emptyHandle; modified = true; }
+            if (!obj.hasOwnProperty('Splitter_Outlets')) { obj['Splitter_Outlets'] = []; modified = true; }
+          }
+        }
+        // 3. Var Fixer
+        const hasVarName = obj.hasOwnProperty('Variable_Name');
+        const hasVarValue = obj.hasOwnProperty('Variable_Value');
+
+        if (hasVarName || hasVarValue) {
+          if (!obj.hasOwnProperty('cereal_class_version')) {
+            obj['cereal_class_version'] = 0;
+            modified = true;
+          }
+          if (!obj.hasOwnProperty('Variable_Name')) { obj['Variable_Name'] = 'UnknownVar'; modified = true; }
+          if (!obj.hasOwnProperty('Variable_Value')) { obj['Variable_Value'] = 0.0; modified = true; }
+          if (!obj.hasOwnProperty('Variable_Is_Fixed')) { obj['Variable_Is_Fixed'] = false; modified = true; }
+        }
+        // 4. Generic Version Injector for other objects
+        else if (
+          (obj.hasOwnProperty('Handle_Index')) ||
+          (obj.hasOwnProperty('Unit_Operation_Name')) ||
+          (obj.hasOwnProperty('Slot_Value')) ||
+          (obj.hasOwnProperty('Maximum_Number_Of_Itterations'))
+        ) {
+          if (!obj.hasOwnProperty('cereal_class_version')) {
+            obj['cereal_class_version'] = 0;
+            modified = true;
+          }
+        }
+      };
+
+      walk(data);
+
+      if (modified) {
+        console.log('🔧 [sanitizeFlowsheetJSON] Sanitized JSON (replaced handles and injected missing fields)');
+        return JSON.stringify(data);
+      }
+      return json;
+    } catch (e) {
+      console.warn('⚠️ [sanitizeFlowsheetJSON] Failed to parse/sanitize JSON:', e);
+      return json; // Return original if parsing fails
+    }
+  };
+
   const loadFlowsheetIntoWasm = useCallback(async (data: any) => {
     const callId = Date.now();
     console.log(`🔧 [${callId}] loadFlowsheetIntoWasm called with data type:`, typeof data);
@@ -325,6 +507,10 @@ function CopilotPageContent() {
       throw new Error('Invalid flowsheet data format');
     }
 
+    // SANITIZE JSON before passing to WASM
+    // This fixes the issue where generated JSONs might contain 'null' references instead of handle objects
+    jsonString = sanitizeFlowsheetJSON(jsonString);
+
     // Log preview of JSON for debugging
     const preview = jsonString.substring(0, 200);
     console.log(`🔧 [${callId}] JSON preview (first 200 chars):`, preview);
@@ -336,7 +522,7 @@ function CopilotPageContent() {
     // Note: Some WASM implementations don't return a value, so we don't fail on false/undefined
     // The WASM logs will show if the load actually failed
     console.log(`✅ [${callId}] WASM module load call completed`);
-  }, []);
+  }, []); // sanitizeFlowsheetJSON is stable/internal
 
   const handleLoadFromDatabase = useCallback(async (flowsheetId: string, silent = false) => {
     const callId = Date.now();

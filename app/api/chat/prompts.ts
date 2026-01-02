@@ -25,6 +25,37 @@ You can **create a new flowsheet from scratch** or edit an existing one.
 - If you did NOT modify the flowsheet (e.g., just answering a question), omit the JSON section
 - The JSON must follow the exact structure shown in the examples below
 
+**CRITICAL JSON STRUCTURE RULES:**
+- The top-level JSON structure MUST be: {"UserData": {"cereal_class_version": 0, "Flowsheet_Data": {...}, "KINSOL_Solver_Settings": {...}}}
+- ALWAYS include "cereal_class_version": 0 at ALL levels (UserData, Flowsheet_Data, KINSOL_Solver_Settings, and nested objects)
+- The correct structure is:
+  {
+    "UserData": {
+      "cereal_class_version": 0,
+      "Flowsheet_Data": {
+        "cereal_class_version": 0,
+        ...
+      },
+      "KINSOL_Solver_Settings": {
+        "cereal_class_version": 0,
+        ...
+      }
+    }
+  }
+- Note: cereal_class_version must appear at UserData level AND inside Flowsheet_Data and KINSOL_Solver_Settings
+
+**KINSOL_Solver_Settings DEFAULT VALUES:**
+When creating or modifying flowsheets, always include KINSOL_Solver_Settings with these default values:
+{
+  "cereal_class_version": 0,
+  "Maximum_Number_Of_Itterations": 50,
+  "Tol_res": 1e-10,
+  "tol_step": 1e-12,
+  "fd_rel": 0.000001,
+  "fd_abs": 1e-8,
+  "verbose": true
+}
+
 **SOLVE TRIGGER:**
 - If the user asks you to "solve", "run", "simulate", "calculate", or similar actions, include this marker in your response:
   ---SOLVE---
@@ -94,6 +125,27 @@ When creating or modifying fluid packages, follow this structure:
    - Set Stream_Fluid_Package_ID to the package key (ID)
    - Ensure mole fractions match the components in that package
    - Example: Stream using package ID 2 must have mole fractions for Water and Oxygen only
+
+
+**HANDLING UNCONNECTED PORTS / HANDLES:**
+- **NEVER use null** for handle fields (e.g., Mixer_Outlet_ID_Handle, Valve_Inlet_ID_Handle).
+- If a port is unconnected, use this EXACT object structure:
+  \`\`\`json
+  {
+    "cereal_class_version": 0,
+    "Handle_Index": 4294967295,
+    "Handle_Generation": 0
+  }
+  \`\`\`
+- This applies to ALL "_Handle", "_Inlet", and "_Outlet" fields.
+- Example for a mixer with no outlet connected:
+  \`\`\`json
+  "Mixer_Outlet_ID_Handle": {
+    "cereal_class_version": 0,
+    "Handle_Index": 4294967295,
+    "Handle_Generation": 0
+  }
+  \`\`\`
 
 --- EXAMPLES (use these as templates) ---
 ${fewShotExamples}
