@@ -166,7 +166,7 @@ DO NOT just create streams - you MUST also add the unit operations to their regi
 </critical>
 
 **Available Registries:**
-- Flowsheet_Pump_Registry
+- Flowsheet_Compressor_Registry
 - Flowsheet_Splitter_Registry
 - Flowsheet_Mixer_Registry
 - Flowsheet_Valve_Registry

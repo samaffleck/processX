@@ -24,7 +24,7 @@ interface EmbeddingCache {
 
 const EXAMPLES_DIR = path.join(process.cwd(), 'public', 'Examples');
 const CACHE_FILE = path.join(EXAMPLES_DIR, 'embeddings_cache.json');
-const CACHE_VERSION = '1.0'; // Increment when embedding model changes
+const CACHE_VERSION = '1.1'; // Increment when embedding model changes
 
 // Cache for embeddings to avoid repeated API calls
 let embeddingsInitialized = false;
@@ -33,9 +33,9 @@ let embeddingsInitialized = false;
 const EXAMPLE_METADATA: Omit<ExampleMetadata, 'content'>[] = [
   {
     filename: 'pump_test.json',
-    description: 'Simple pump compressing a gas stream, increasing pressure from 100kPa to 200kPa',
-    tags: ['pump', 'compression', 'pressure', 'basic', 'single-stream', 'compress', 'pressurize', 'increase-pressure'],
-    equipmentTypes: ['pump']
+    description: 'Simple compressor compressing a gas stream, increasing pressure from 100kPa to 200kPa',
+    tags: ['compressor', 'compression', 'pressure', 'basic', 'single-stream', 'compress', 'pressurize', 'increase-pressure', 'pump'],
+    equipmentTypes: ['compressor', 'pump']
   },
   {
     filename: 'heat_exchanger_test.json',
@@ -108,6 +108,12 @@ const EXAMPLE_METADATA: Omit<ExampleMetadata, 'content'>[] = [
     description: 'Component splitter separating stream by component composition',
     tags: ['component-splitter', 'separation', 'distillation', 'fractionation', 'component-separation'],
     equipmentTypes: ['component_splitter']
+  },
+  {
+    filename: 'ambient_air_compression_and_cooling_test.json',
+    description: 'Ambient air compression and cooling process using compressor and heat exchanger in series',
+    tags: ['compressor', 'heat-exchanger', 'air', 'cooling', 'compression', 'multi-unit', 'process', 'nitrogen', 'oxygen', 'sequential'],
+    equipmentTypes: ['compressor', 'heat_exchanger']
   }
 ];
 
