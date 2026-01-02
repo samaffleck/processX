@@ -6,13 +6,12 @@ import { retrieveRelevantExamples } from './exampleRetrieval';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { message, jsonData, conversationHistory, pdfContext, recentErrors } = body;
+    const { message, jsonData, conversationHistory, recentErrors } = body;
 
     console.log('📨 [DEBUG] API Request received:', {
       messageLength: message?.length,
       hasJsonData: !!jsonData,
       conversationHistoryLength: conversationHistory?.length,
-      pdfContextLength: pdfContext?.length,
       recentErrorsType: typeof recentErrors,
       recentErrorsLength: Array.isArray(recentErrors) ? recentErrors.length : 'N/A',
     });
@@ -36,22 +35,14 @@ export async function POST(request: NextRequest) {
     const openai = new OpenAI({ apiKey });
 
     // === Retrieve relevant examples based on user query ===
-    // Get top 2 most relevant examples using semantic embeddings
-    const relevantExamples = await retrieveRelevantExamples(message, 2);
+    // Get top 3 most relevant examples using semantic embeddings
+    const relevantExamples = await retrieveRelevantExamples(message, 3);
     const systemPrompt = buildSystemPrompt(relevantExamples);
 
     // === Build messages ===
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
     ];
-
-    // Add PDF context if present
-    if (pdfContext && typeof pdfContext === 'string' && pdfContext.trim()) {
-      messages.push({
-        role: 'system',
-        content: `USER-UPLOADED PDF CONTENT (use this to answer questions accurately):\n\n${pdfContext.trim()}`,
-      });
-    }
 
     // Add recent errors if present
     if (recentErrors && Array.isArray(recentErrors) && recentErrors.length > 0) {

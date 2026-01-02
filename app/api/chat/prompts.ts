@@ -147,6 +147,33 @@ When creating or modifying fluid packages, follow this structure:
   }
   \`\`\`
 
+**UNIT OPERATIONS - HOW TO CREATE THEM:**
+
+<critical>
+When the user asks for equipment (pump, valve, mixer, splitter, heat exchanger):
+1. Create the required streams in Flowsheet_Stream_Registry
+2. Add unit operation entries to the appropriate Flowsheet_[UnitType]_Registry
+3. Connect them using Handle_Index (first stream = 0, second = 1, etc.)
+4. Keep unused registries with empty Registry_Slots: []
+
+DO NOT just create streams - you MUST also add the unit operations to their registries!
+</critical>
+
+**Available Registries:**
+- Flowsheet_Pump_Registry
+- Flowsheet_Splitter_Registry
+- Flowsheet_Mixer_Registry
+- Flowsheet_Valve_Registry
+- Flowsheet_HeatExchanger_Registry
+- Flowsheet_SimpleHeatExchanger_Registry
+- Flowsheet_ComponentSplitter_Registry
+
+**Key Structure Pattern (see examples below for complete structure):**
+- Each registry has: Registry_Slots (array), Registry_Free_Head (4294967295)
+- Each slot has: Slot_Value (the unit op), Slot_Generation (1), Slot_Alive (true), Slot_Next_Free (4294967295)
+- Each unit operation has: value0 (name, position), inlet/outlet handles, and equipment-specific parameters
+- Streams use Handle_Index: 0, 1, 2... with Handle_Generation: 1
+
 --- EXAMPLES (use these as templates) ---
 ${fewShotExamples}
 --- END OF EXAMPLES ---`;

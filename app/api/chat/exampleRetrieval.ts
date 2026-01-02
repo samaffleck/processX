@@ -33,8 +33,8 @@ let embeddingsInitialized = false;
 const EXAMPLE_METADATA: Omit<ExampleMetadata, 'content'>[] = [
   {
     filename: 'pump_test.json',
-    description: 'Simple pump example with single stream compression',
-    tags: ['pump', 'compression', 'pressure', 'basic', 'single-stream'],
+    description: 'Simple pump compressing a gas stream, increasing pressure from 100kPa to 200kPa',
+    tags: ['pump', 'compression', 'pressure', 'basic', 'single-stream', 'compress', 'pressurize', 'increase-pressure'],
     equipmentTypes: ['pump']
   },
   {
@@ -51,14 +51,14 @@ const EXAMPLE_METADATA: Omit<ExampleMetadata, 'content'>[] = [
   },
   {
     filename: 'mixer_test.json',
-    description: 'Mixer combining multiple inlet streams',
-    tags: ['mixer', 'mixing', 'combine', 'multiple-streams', 'blending'],
+    description: 'Mixer combining two inlet streams into one outlet stream, blending compositions',
+    tags: ['mixer', 'mixing', 'combine', 'multiple-streams', 'blending', 'merge', 'join', 'combine-streams'],
     equipmentTypes: ['mixer']
   },
   {
     filename: 'splitter_test.json',
-    description: 'Splitter dividing one stream into multiple outlets',
-    tags: ['splitter', 'split', 'divide', 'multiple-streams', 'distribution'],
+    description: 'Splitter dividing one inlet stream into two outlet streams with specified flowrate split',
+    tags: ['splitter', 'split', 'divide', 'multiple-streams', 'distribution', 'split-stream', 'separate', 'branch'],
     equipmentTypes: ['splitter']
   },
   {
@@ -99,9 +99,15 @@ const EXAMPLE_METADATA: Omit<ExampleMetadata, 'content'>[] = [
   },
   {
     filename: 'recycle_loop_test.json',
-    description: 'Recycle loop with iterative convergence',
-    tags: ['recycle', 'loop', 'iterative', 'convergence', 'complex', 'advanced'],
+    description: 'Recycle loop using mixer and splitter with iterative convergence for feedback stream',
+    tags: ['recycle', 'loop', 'iterative', 'convergence', 'complex', 'advanced', 'feedback', 'mixer-splitter', 'multiple-units'],
     equipmentTypes: ['mixer', 'splitter']
+  },
+  {
+    filename: 'component_splitter_test.json',
+    description: 'Component splitter separating stream by component composition',
+    tags: ['component-splitter', 'separation', 'distillation', 'fractionation', 'component-separation'],
+    equipmentTypes: ['component_splitter']
   }
 ];
 
