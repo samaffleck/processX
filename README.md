@@ -14,7 +14,6 @@ ProcessX is a steady-state process simulator built with C++ and Next.js. The cor
 - CoolProp integration for thermodynamic properties
 - Interactive node-based flowsheet editor
 - AI copilot with semantic example retrieval
-- Multi-user collaboration via Supabase
 
 ## Quick Start
 
