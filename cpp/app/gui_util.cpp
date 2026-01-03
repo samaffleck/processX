@@ -11,7 +11,8 @@
 #include <vector>
 
 
-const ImGuiInputTextFlags_ inputDoubleFlags = ImGuiInputTextFlags_::ImGuiInputTextFlags_None; //ImGuiInputTextFlags_EnterReturnsTrue
+// Flags for input fields - ensure copy/paste is enabled (works by default, but explicit for clarity)
+const ImGuiInputTextFlags_ inputDoubleFlags = ImGuiInputTextFlags_None;
 const ImGuiTreeNodeFlags treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen;
 
 
@@ -56,7 +57,7 @@ bool ShowDoubleInput(
       ImGui::Checkbox("##fixed", &var.is_fixed_);
       ImGui::SameLine();
       ImGui::SetNextItemWidth(-FLT_MIN);
-      ImGui::InputDouble("##val", &var.value_, 0, 0, fmt);
+      ImGui::InputDouble("##val", &var.value_, 0, 0, fmt, inputDoubleFlags);
       
       ImGui::EndTable();
     }
@@ -88,7 +89,7 @@ bool ShowDoubleInput(
 
     // Decide format for the current displayed (UI) value
     const char* fmt = ChooseAutoFormat(std::fabs(ui_value), ui_state.sticky_fmt, ImGui::IsItemActive());
-    if (ImGui::InputDouble("##val", &ui_value, 0.0, 0.0, fmt)) {
+    if (ImGui::InputDouble("##val", &ui_value, 0.0, 0.0, fmt, inputDoubleFlags)) {
       // live edit
     }
     if (ImGui::IsItemDeactivatedAfterEdit()) {
@@ -126,7 +127,7 @@ void ShowDoubleInput(double& val, const std::string& label,
     ImGui::Text("%s", label.c_str());
     ImGui::TableNextColumn();
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-    ImGui::InputDouble("##input", &val, 0.0, 0.0, format.c_str());
+    ImGui::InputDouble("##input", &val, 0.0, 0.0, format.c_str(), inputDoubleFlags);
     ImGui::TableNextColumn();
     ImGui::Text("%s", unit.c_str());
 
@@ -151,7 +152,7 @@ void ShowIntInput(int& val, const std::string& label, const std::string& unit) {
     ImGui::Text("%s", label.c_str());
     ImGui::TableNextColumn();
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-    ImGui::InputInt("##input", &val);
+    ImGui::InputInt("##input", &val, 0, 0, inputDoubleFlags);
     ImGui::TableNextColumn();
     ImGui::Text("%s", unit.c_str());
 
@@ -172,7 +173,7 @@ bool ShowIntInput(
   if (!units.data || units.size == 0) {
     ImGui::Text("%s", label);
     ImGui::SameLine();
-    ImGui::InputInt("##val", &base_value);
+    ImGui::InputInt("##val", &base_value, 0, 0, inputDoubleFlags);
     ImGui::PopID();
     return false;
   }
@@ -194,7 +195,7 @@ bool ShowIntInput(
 
     ImGui::TableNextColumn();
     ImGui::SetNextItemWidth(-FLT_MIN); // Take full column width
-    if (ImGui::InputInt("##val", &ui_value)) {
+    if (ImGui::InputInt("##val", &ui_value, 0, 0, inputDoubleFlags)) {
       // Live edit
     }
     if (ImGui::IsItemDeactivatedAfterEdit()) {
@@ -246,7 +247,7 @@ void ShowTextInput(std::string& text, const std::string& label, std::function<vo
 
     ImGui::TableNextColumn();
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-    ImGui::InputText("##Input", &text);
+    ImGui::InputText("##Input", &text, inputDoubleFlags);
 
     ImGui::TableNextColumn();
     if (rightSideWidget) rightSideWidget();
@@ -269,7 +270,7 @@ void ShowTextInput(std::string& text, const std::string& label) {
 
     ImGui::TableNextColumn();
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-    ImGui::InputText("##Input", &text);
+    ImGui::InputText("##Input", &text, inputDoubleFlags);
 
     ImGui::EndTable();
   }

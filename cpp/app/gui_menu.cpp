@@ -406,7 +406,7 @@ void ShowMenus(HelloImGui::RunnerParams& params) {
     
     #ifdef EMSCRIPTEN
     // Exit menu item (only item shown in WASM build)
-    if (ImGui::MenuItem((std::string(ICON_FA_RIGHT_FROM_BRACKET) + " Exit").c_str(), "Ctrl+Q")) {
+    if (ImGui::MenuItem((std::string(ICON_FA_POWER_OFF) + " Exit").c_str(), "Ctrl+Q")) {
       ShowExitConfirmation();
     }
     #else
@@ -423,7 +423,7 @@ void ShowMenus(HelloImGui::RunnerParams& params) {
       // TODO: Implement save as file functionality for native builds
     }
     ImGui::Separator();
-    if (ImGui::MenuItem((std::string(ICON_FA_RIGHT_FROM_BRACKET) + " Exit").c_str(), "Ctrl+Q")) {
+    if (ImGui::MenuItem((std::string(ICON_FA_POWER_OFF) + " Exit").c_str(), "Ctrl+Q")) {
       params.appShallExit = true;
     }
     #endif
@@ -527,7 +527,7 @@ void ShowMenus(HelloImGui::RunnerParams& params) {
   ImGui::SetNextWindowSize(ImVec2(350, 120), ImGuiCond_Appearing);
   
   if (ImGui::BeginPopupModal("Exit Confirmation", &show_exit_confirmation, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
-    ImGui::Text(ICON_FA_RIGHT_FROM_BRACKET " Are you sure you want to exit?");
+    ImGui::Text(ICON_FA_POWER_OFF " Are you sure you want to exit?");
     ImGui::Spacing();
     ImGui::Text("You will be redirected to the dashboard.");
     ImGui::Spacing();
